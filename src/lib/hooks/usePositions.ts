@@ -11,7 +11,7 @@ import { useDAMMv2 } from '@/lib/meteora/useDAMMv2';
 import { useDBC } from '@/lib/meteora/useDBC';
 import { UserPosition } from '@/types/positions';
 import { fetchMultipleTokenPrices } from '@/lib/prices';
-import { calculatePNL, calculatePortfolioMetrics } from '@/lib/pnlCalculations';
+import { calculatePNL } from '@/lib/pnlCalculations';
 import { getWalletPositions, addPosition, updatePosition } from '@/lib/positionStore';
 
 export interface PositionWithPNL extends UserPosition {
