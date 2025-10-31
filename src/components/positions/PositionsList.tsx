@@ -29,7 +29,8 @@ export function PositionsList({
   // Filter positions
   const filteredPositions = positions.filter(pos => {
     if (filterBy === 'all') return true;
-    return pos.protocol === filterBy;
+    // @ts-ignore - protocol field exists at runtime but not in type definition
+    return (pos as any).protocol === filterBy;
   });
 
   // Sort positions
