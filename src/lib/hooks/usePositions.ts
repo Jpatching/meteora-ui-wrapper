@@ -9,7 +9,7 @@ import { useNetwork } from '@/contexts/NetworkContext';
 import { useDLMM } from '@/lib/meteora/useDLMM';
 import { useDAMMv2 } from '@/lib/meteora/useDAMMv2';
 import { useDBC } from '@/lib/meteora/useDBC';
-import { UserPosition } from '@/types/positions';
+import { UserPosition, PositionType, PositionStatus } from '@/types/positions';
 import { fetchMultipleTokenPrices } from '@/lib/prices';
 import { calculatePNL } from '@/lib/pnlCalculations';
 import { getWalletPositions, addPosition, updatePosition } from '@/lib/positionStore';
@@ -23,6 +23,8 @@ export interface PositionWithPNL extends UserPosition {
   apr?: number;
   impermanentLoss?: number;
   impermanentLossPercent?: number;
+  // Additional field for UI components that expect protocol name
+  protocol?: string;
 }
 
 export interface UsePositionsResult {
@@ -92,74 +94,137 @@ export function usePositions(autoRefresh = false, defaultInterval = 30000): UseP
 
       if (dlmmPositions.status === 'fulfilled') {
         allPositions.push(...dlmmPositions.value.map((p: any) => ({
+          // Identification
           id: `dlmm-${p.positionKey}`,
-          walletAddress: publicKey.toBase58(),
-          protocol: 'DLMM' as const,
+          type: 'dlmm' as PositionType,
           poolAddress: p.poolAddress,
+          positionAddress: p.positionAddress,
+          walletAddress: publicKey.toBase58(),
+          network,
+
+          // Token information
           baseMint: p.baseMint,
           quoteMint: p.quoteMint,
           baseSymbol: p.baseSymbol,
           quoteSymbol: p.quoteSymbol,
-          baseAmount: p.baseAmount,
-          quoteAmount: p.quoteAmount,
+
+          // Position data
+          lpBalance: p.lpBalance || 0,
+          baseAmount: p.baseAmount || 0,
+          quoteAmount: p.quoteAmount || 0,
+
+          // Value tracking (will be calculated later with prices)
+          currentValueUSD: 0,
+          initialValueUSD: p.initialValueUSD || 0,
+          pnlUSD: 0,
+          pnlPercent: 0,
+
+          // Fees
           unclaimedFeesBase: p.unclaimedFeesBase || 0,
           unclaimedFeesQuote: p.unclaimedFeesQuote || 0,
-          createdAt: Date.now(),
+          totalFeesEarnedUSD: p.totalFeesEarnedUSD || 0,
+
+          // Metadata
+          status: 'active' as PositionStatus,
+          createdAt: p.createdAt || Date.now(),
           lastUpdated: Date.now(),
-          initialBaseAmount: p.baseAmount,
-          initialQuoteAmount: p.quoteAmount,
-          protocolSpecific: {
-            binPositions: p.binPositions,
-          },
-        })));
+          transactionSignature: p.transactionSignature,
+
+          // Extra field for backward compatibility
+          protocol: 'DLMM' as const,
+        } as UserPosition & { protocol: string })));
       }
 
       if (dammv2Positions.status === 'fulfilled') {
         allPositions.push(...dammv2Positions.value.map((p: any) => ({
+          // Identification
           id: `dammv2-${p.positionKey}`,
-          walletAddress: publicKey.toBase58(),
-          protocol: 'DAMM v2' as const,
+          type: 'damm-v2' as PositionType,
           poolAddress: p.poolAddress,
+          positionAddress: p.positionAddress,
+          walletAddress: publicKey.toBase58(),
+          network,
+
+          // Token information
           baseMint: p.baseMint,
           quoteMint: p.quoteMint,
           baseSymbol: p.baseSymbol || 'TOKEN',
           quoteSymbol: p.quoteSymbol || 'TOKEN',
+
+          // Position data
+          lpBalance: p.lpBalance || 0,
           baseAmount: p.baseAmount || 0,
           quoteAmount: p.quoteAmount || 0,
+
+          // Value tracking (will be calculated later with prices)
+          currentValueUSD: 0,
+          initialValueUSD: p.initialValueUSD || 0,
+          pnlUSD: 0,
+          pnlPercent: 0,
+
+          // Fees
           unclaimedFeesBase: p.unclaimedFeesBase || 0,
           unclaimedFeesQuote: p.unclaimedFeesQuote || 0,
-          createdAt: Date.now(),
+          totalFeesEarnedUSD: p.totalFeesEarnedUSD || 0,
+
+          // Metadata
+          status: 'active' as PositionStatus,
+          createdAt: p.createdAt || Date.now(),
           lastUpdated: Date.now(),
-          initialBaseAmount: p.baseAmount || 0,
-          initialQuoteAmount: p.quoteAmount || 0,
-        })));
+          transactionSignature: p.transactionSignature,
+
+          // Extra field for backward compatibility
+          protocol: 'DAMM v2' as const,
+        } as UserPosition & { protocol: string })));
       }
 
       if (dbcPositions.status === 'fulfilled') {
         allPositions.push(...dbcPositions.value.map((p: any) => ({
+          // Identification
           id: `dbc-${p.positionKey}`,
-          walletAddress: publicKey.toBase58(),
-          protocol: 'DBC' as const,
+          type: 'dbc' as PositionType,
           poolAddress: p.poolAddress,
+          positionAddress: p.positionAddress,
+          walletAddress: publicKey.toBase58(),
+          network,
+
+          // Token information
           baseMint: p.baseMint,
           quoteMint: p.quoteMint,
           baseSymbol: p.baseSymbol || 'TOKEN',
           quoteSymbol: p.quoteSymbol || 'TOKEN',
+
+          // Position data
+          lpBalance: p.lpBalance || p.shares || 0,
           baseAmount: p.baseAmount || 0,
           quoteAmount: p.quoteAmount || 0,
+
+          // Value tracking (will be calculated later with prices)
+          currentValueUSD: 0,
+          initialValueUSD: p.initialValueUSD || 0,
+          pnlUSD: 0,
+          pnlPercent: 0,
+
+          // Fees (DBC doesn't have unclaimed fees)
           unclaimedFeesBase: 0,
           unclaimedFeesQuote: 0,
-          createdAt: Date.now(),
+          totalFeesEarnedUSD: 0,
+
+          // Metadata
+          status: 'active' as PositionStatus,
+          createdAt: p.createdAt || Date.now(),
           lastUpdated: Date.now(),
-          initialBaseAmount: p.baseAmount || 0,
-          initialQuoteAmount: p.quoteAmount || 0,
-        })));
+          transactionSignature: p.transactionSignature,
+
+          // Extra field for backward compatibility
+          protocol: 'DBC' as const,
+        } as UserPosition & { protocol: string })));
       }
 
       // Merge with cached positions (to preserve historical data like initialPrices)
       const mergedPositions = allPositions.map(pos => {
         const cached = cachedPositions.find(c =>
-          c.protocol === pos.protocol && c.poolAddress === pos.poolAddress
+          c.type === pos.type && c.poolAddress === pos.poolAddress
         );
         return cached ? { ...cached, ...pos, lastUpdated: Date.now() } : pos;
       });
