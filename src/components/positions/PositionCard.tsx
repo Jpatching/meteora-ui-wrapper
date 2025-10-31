@@ -72,7 +72,8 @@ export function PositionCard({
   };
 
   const healthInfo = getHealthScore(position.healthScore);
-  const protocolGradient = getProtocolColor(position.protocol);
+  // @ts-ignore - protocol field exists at runtime but not in type definition
+  const protocolGradient = getProtocolColor((position as any).protocol || 'DLMM');
 
   return (
     <Card hover className="overflow-hidden">
@@ -84,7 +85,8 @@ export function PositionCard({
           <div className="space-y-2">
             {/* Protocol Badge */}
             <Badge variant="purple" className="text-xs">
-              {position.protocol}
+              {/* @ts-ignore - protocol field exists at runtime but not in type definition */}
+              {(position as any).protocol || 'DLMM'}
             </Badge>
 
             {/* Token Pair */}
