@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import { clusterApiUrl, Connection } from '@solana/web3.js';
 
-export type NetworkType = 'devnet' | 'mainnet-beta';
+export type NetworkType = 'localnet' | 'devnet' | 'mainnet-beta';
 
 interface NetworkContextType {
   network: NetworkType;
@@ -42,6 +42,9 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
 
     // Add Solana public RPC as last resort
     switch (networkType) {
+      case 'localnet':
+        fallbacks.push('http://127.0.0.1:8899');
+        break;
       case 'devnet':
         fallbacks.push(clusterApiUrl('devnet'));
         break;
@@ -82,10 +85,16 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
       console.log('[RPC] Using env var for devnet');
       return process.env.NEXT_PUBLIC_DEVNET_RPC;
     }
+    if (networkType === 'localnet' && process.env.NEXT_PUBLIC_LOCALNET_RPC) {
+      console.log('[RPC] Using env var for localnet');
+      return process.env.NEXT_PUBLIC_LOCALNET_RPC;
+    }
 
     // Priority 3: Fall back to Solana defaults
     console.log(`[RPC] Using default Solana RPC for ${networkType}`);
     switch (networkType) {
+      case 'localnet':
+        return 'http://localhost:8899';
       case 'devnet':
         return clusterApiUrl('devnet');
       case 'mainnet-beta':
@@ -135,7 +144,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   // Load from localStorage on mount (client-side only)
   useEffect(() => {
     const saved = localStorage.getItem('meteora-network') as NetworkType;
-    if (saved && ['devnet', 'mainnet-beta'].includes(saved)) {
+    if (saved && ['localnet', 'devnet', 'mainnet-beta'].includes(saved)) {
       setNetworkState(saved);
     }
   }, []);
