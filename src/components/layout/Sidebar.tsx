@@ -160,7 +160,7 @@ export function Sidebar() {
       {/* Logo Section */}
       <div className="p-2 border-b border-border flex items-center justify-center">
         <Image
-          src="/logo.svg"
+          src="/metatools-logo-alt2.png"
           alt="MetaTools Logo"
           width={isCollapsed ? 40 : 36}
           height={isCollapsed ? 40 : 36}
