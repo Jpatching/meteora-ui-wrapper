@@ -244,16 +244,33 @@ export function usePositions(autoRefresh = false, defaultInterval = 30000): UseP
 
         const pnlResult = calculatePNL(position, basePriceUSD, quotePriceUSD);
 
+        // Calculate health score (0-100)
+        // Health score based on PNL percentage and fees earned
+        let healthScore = 50; // Base score
+        if (pnlResult.totalPNLPercent > 0) {
+          healthScore += Math.min(pnlResult.totalPNLPercent, 30); // Up to 30 points for positive PNL
+        } else {
+          healthScore += Math.max(pnlResult.totalPNLPercent, -30); // Lose up to 30 points for negative PNL
+        }
+        if (pnlResult.feesEarnedUSD > 0) {
+          healthScore += Math.min(20, pnlResult.feesEarnedUSD / 10); // Up to 20 points for fees
+        }
+        healthScore = Math.max(0, Math.min(100, healthScore)); // Clamp between 0-100
+
+        // For now, set impermanent loss to 0 (would need more complex calculation)
+        const impermanentLoss = 0;
+        const impermanentLossPercent = 0;
+
         return {
           ...position,
-          currentValue: pnlResult.currentValue,
+          currentValue: pnlResult.currentValueUSD, // Use correct field name
           pnl: pnlResult.totalPNL,
           pnlPercent: pnlResult.totalPNLPercent,
-          unclaimedFeesUSD: pnlResult.unclaimedFeesUSD,
-          healthScore: pnlResult.healthScore,
-          apr: pnlResult.apr,
-          impermanentLoss: pnlResult.impermanentLoss,
-          impermanentLossPercent: pnlResult.impermanentLossPercent,
+          unclaimedFeesUSD: pnlResult.feesEarnedUSD, // Use correct field name
+          healthScore,
+          apr: pnlResult.annualizedAPR, // Use annualizedAPR from result
+          impermanentLoss,
+          impermanentLossPercent,
         };
       });
 
@@ -310,7 +327,7 @@ export function usePositions(autoRefresh = false, defaultInterval = 30000): UseP
   const totalValue = positions.reduce((sum, p) => sum + p.currentValue, 0);
   const totalPNL = positions.reduce((sum, p) => sum + p.pnl, 0);
   const totalInitialValue = positions.reduce(
-    (sum, p) => sum + (p.initialValue || 0),
+    (sum, p) => sum + (p.initialValueUSD || 0),
     0
   );
   const totalPNLPercent = totalInitialValue > 0
