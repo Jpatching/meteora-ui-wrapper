@@ -11,6 +11,7 @@ import { MainLayout } from '@/components/layout';
 import { PoolTable } from '@/components/dashboard/PoolTable';
 import { TokenTable, type TokenData } from '@/components/dashboard/TokenTable';
 import { ChartDetailsPanel } from '@/components/dashboard/ChartDetailsPanel';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { useAllPublicPools } from '@/lib/hooks/usePublicPools';
 import { useDLMMPools } from '@/lib/hooks/useDLMMPools';
 import { useDAMMPools } from '@/lib/hooks/useDAMMPools';
@@ -229,6 +230,14 @@ export default function DiscoverPage() {
     setMaxMarketCap('');
   };
 
+  // Show loading screen until BOTH data sources are ready
+  const isFullyLoaded = !isLoadingJupiter && !isLoadingDLMM && !isLoadingDAMM;
+
+  // Show loading screen
+  if (!isFullyLoaded) {
+    return <LoadingScreen />;
+  }
+
   return (
     <MainLayout searchTerm={searchTerm} onSearchChange={setSearchTerm}>
       <div className="h-[calc(100vh-80px)] flex flex-col">
@@ -354,15 +363,7 @@ export default function DiscoverPage() {
 
                 {/* Token Table */}
                 <div className="flex-1 overflow-auto hide-scrollbar">
-                  {isLoadingJupiter ? (
-                    <div className="flex items-center justify-center h-full">
-                      <div className="text-center">
-                        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                        <p className="text-foreground-muted text-sm">Loading tokens...</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <TokenTable
+                  <TokenTable
                       tokens={filteredTokens.filter(token =>
                         searchTerm
                           ? token.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -379,7 +380,6 @@ export default function DiscoverPage() {
                         }
                       }}
                     />
-                  )}
                 </div>
               </div>
 
@@ -429,15 +429,7 @@ export default function DiscoverPage() {
 
                 {/* Pool Table */}
                 <div className="flex-1 overflow-auto hide-scrollbar">
-                  {(isLoadingDLMM || isLoadingDAMM) ? (
-                    <div className="flex items-center justify-center h-full">
-                      <div className="text-center">
-                        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                        <p className="text-foreground-muted text-sm">Loading Meteora pools...</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <PoolTable
+                  <PoolTable
                       pools={filteredPools.filter(pool =>
                         searchTerm
                           ? pool.baseAsset.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -451,7 +443,6 @@ export default function DiscoverPage() {
                         router.push(`/pool/${pool.id}`);
                       }}
                     />
-                  )}
                 </div>
               </div>
             </div>
