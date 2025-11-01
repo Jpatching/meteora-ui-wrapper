@@ -16,7 +16,7 @@ import { Pool } from '@/lib/jupiter/types';
 
 type ProtocolFilter = 'all' | 'dlmm' | 'damm-v1' | 'damm-v2' | 'dbc' | 'alpha';
 type TokenSortOption = 'volume' | 'liquidity' | 'holders' | 'txs' | 'marketCap';
-type PoolSortOption = 'volume' | 'liquidity' | 'fees' | 'feeTV';
+type PoolSortOption = 'volume' | 'liquidity';
 type ViewMode = 'token' | 'pair';
 
 export default function DiscoverPage() {
@@ -171,16 +171,6 @@ export default function DiscoverPage() {
     filtered.sort((a, b) => {
       if (poolSortBy === 'volume') return (b.volume24h || 0) - (a.volume24h || 0);
       if (poolSortBy === 'liquidity') return (b.baseAsset.liquidity || 0) - (a.baseAsset.liquidity || 0);
-      if (poolSortBy === 'fees') {
-        const aFees = (a.baseAsset.stats24h?.fees || 0);
-        const bFees = (b.baseAsset.stats24h?.fees || 0);
-        return bFees - aFees;
-      }
-      if (poolSortBy === 'feeTV') {
-        const aFeeTV = (a.baseAsset.stats24h?.fees || 0) / (a.baseAsset.liquidity || 1);
-        const bFeeTV = (b.baseAsset.stats24h?.fees || 0) / (b.baseAsset.liquidity || 1);
-        return bFeeTV - aFeeTV;
-      }
       return 0;
     });
 
@@ -362,8 +352,6 @@ export default function DiscoverPage() {
                         >
                           <option value="volume">Volume</option>
                           <option value="liquidity">Liquidity</option>
-                          <option value="fees">Fees</option>
-                          <option value="feeTV">Fee/TV</option>
                         </select>
                       </div>
                       <div className="px-2 py-1 bg-background-secondary rounded-lg border border-border-light">
