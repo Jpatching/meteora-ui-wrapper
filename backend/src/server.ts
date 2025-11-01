@@ -10,6 +10,7 @@ import referralRoutes from './routes/referrals';
 import userRoutes from './routes/users';
 import analyticsRoutes from './routes/analytics';
 import poolsRoutes from './routes/pools';
+import { startCronJobs } from './services/cronService';
 
 // Load environment variables
 dotenv.config();
@@ -87,6 +88,9 @@ const server = app.listen(PORT, () => {
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🌐 Port: ${PORT}`);
   console.log(`🔗 Frontend: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+
+  // Start cron jobs for pool syncing
+  startCronJobs();
 });
 
 // Graceful shutdown
