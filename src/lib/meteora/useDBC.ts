@@ -199,8 +199,19 @@ export function useDBC() {
 
       // Fetch pool state and config (required for swapQuote)
       const poolAddress = await dbcClient.state.getPoolByBaseMint(baseMint);
+      if (!poolAddress) {
+        throw new Error(`No DBC pool found for base mint ${baseMint.toBase58()}`);
+      }
+
       const virtualPoolState = await dbcClient.state.getPool(poolAddress);
+      if (!virtualPoolState) {
+        throw new Error(`Failed to fetch pool state for address ${poolAddress.pubkey.toBase58()}`);
+      }
+
       const poolConfigState = await dbcClient.state.getPoolConfig(virtualPoolState.config);
+      if (!poolConfigState) {
+        throw new Error(`Failed to fetch pool config for ${virtualPoolState.config.toBase58()}`);
+      }
 
       // Calculate slippage
       const slippageBps = params.slippageBps || params.slippage || 100;
