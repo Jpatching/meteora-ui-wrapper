@@ -374,6 +374,8 @@ export default function DiscoverPage() {
                             token.name.toLowerCase().includes(searchTerm.toLowerCase())
                           : true
                       )}
+                      sortBy={tokenSortBy}
+                      onSortChange={setTokenSortBy}
                       onTokenClick={(token) => {
                         // When clicking a token, navigate to its primary pool (highest volume)
                         const primaryPool = token.pools.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0))[0];
@@ -447,6 +449,8 @@ export default function DiscoverPage() {
                             pool.baseAsset.name.toLowerCase().includes(searchTerm.toLowerCase())
                           : true
                       )}
+                      sortBy={poolSortBy}
+                      onSortChange={setPoolSortBy}
                       onPoolClick={(pool) => {
                         // Navigate to pool detail page instead of showing modal
                         router.push(`/pool/${pool.id}`);

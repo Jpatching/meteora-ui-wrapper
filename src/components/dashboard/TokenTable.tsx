@@ -22,9 +22,38 @@ export interface TokenData {
 export interface TokenTableProps {
   tokens: TokenData[];
   onTokenClick: (token: TokenData) => void;
+  sortBy?: 'volume' | 'liquidity' | 'holders' | 'txs' | 'marketCap';
+  onSortChange?: (sort: 'volume' | 'liquidity' | 'holders' | 'txs' | 'marketCap') => void;
 }
 
-export function TokenTable({ tokens, onTokenClick }: TokenTableProps) {
+export function TokenTable({ tokens, onTokenClick, sortBy, onSortChange }: TokenTableProps) {
+  const SortableHeader = ({
+    label,
+    sortKey,
+    align = 'right'
+  }: {
+    label: string;
+    sortKey: 'volume' | 'liquidity' | 'holders';
+    align?: 'left' | 'right';
+  }) => (
+    <th
+      className={`text-${align} py-3 px-4 font-medium cursor-pointer hover:text-foreground transition-colors select-none group`}
+      onClick={() => onSortChange?.(sortKey)}
+    >
+      <div className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : 'justify-start'}`}>
+        <span>{label}</span>
+        <svg
+          className={`w-3 h-3 transition-opacity ${sortBy === sortKey ? 'opacity-100 text-primary' : 'opacity-40 group-hover:opacity-70'}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+        </svg>
+      </div>
+    </th>
+  );
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full">
@@ -32,9 +61,9 @@ export function TokenTable({ tokens, onTokenClick }: TokenTableProps) {
           <tr className="text-xs text-foreground-muted border-b border-border-light">
             <th className="text-left py-3 px-4 font-medium">Token</th>
             <th className="text-right py-3 px-4 font-medium">Pools</th>
-            <th className="text-right py-3 px-4 font-medium">Total TVL ↑↓</th>
-            <th className="text-right py-3 px-4 font-medium">Total Volume ↑↓</th>
-            <th className="text-right py-3 px-4 font-medium">Holders</th>
+            <SortableHeader label="Total TVL" sortKey="liquidity" />
+            <SortableHeader label="Total Volume" sortKey="volume" />
+            <SortableHeader label="Holders" sortKey="holders" />
             <th className="text-right py-3 px-4 font-medium">24h Change</th>
           </tr>
         </thead>
