@@ -110,22 +110,9 @@ export function Sidebar() {
     return false;
   });
 
-  // Determine which section should be expanded based on current path
-  const getActiveSectionFromPath = (path: string): string => {
-    if (path === '/' || path === '/getting-started') return 'Navigation';
-    if (path.startsWith('/analytics')) return 'Analytics';
-    if (path.startsWith('/dlmm')) return 'DLMM';
-    if (path.startsWith('/damm-v2')) return 'DAMM v2';
-    if (path.startsWith('/damm-v1')) return 'DAMM v1';
-    if (path.startsWith('/dbc')) return 'DBC';
-    if (path.startsWith('/alpha-vault')) return 'Alpha Vault';
-    if (path.startsWith('/settings')) return 'Settings';
-    return 'Navigation';
-  };
-
-  const activeSection = getActiveSectionFromPath(pathname);
+  // All sections start collapsed - user must click to expand
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set([activeSection])
+    new Set() // Empty set - nothing expanded by default
   );
 
   // Toggle sidebar collapse
@@ -137,11 +124,8 @@ export function Sidebar() {
     });
   };
 
-  // Update expanded section when route changes
-  useEffect(() => {
-    const newActiveSection = getActiveSectionFromPath(pathname);
-    setExpandedSections(new Set([newActiveSection]));
-  }, [pathname]);
+  // Don't auto-expand sections when route changes - let user control it
+  // useEffect removed - sections stay as user left them
 
   const toggleSection = (sectionTitle: string) => {
     setExpandedSections((prev) => {
