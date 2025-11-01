@@ -13,10 +13,7 @@ import { TokenTable, type TokenData } from '@/components/dashboard/TokenTable';
 import { ChartDetailsPanel } from '@/components/dashboard/ChartDetailsPanel';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { useAllPublicPools } from '@/lib/hooks/usePublicPools';
-import { useDLMMPools } from '@/lib/hooks/useDLMMPools';
-import { useDAMMPools } from '@/lib/hooks/useDAMMPools';
-import { transformMeteoraPoolToPool } from '@/lib/services/meteoraApi';
-import { transformDAMMPoolToPool } from '@/lib/services/dammApi';
+import { useBackendDLMMPools, useBackendDAMMPools } from '@/lib/hooks/useBackendPools';
 import { Pool } from '@/lib/jupiter/types';
 
 type ProtocolFilter = 'all' | 'dlmm' | 'damm-v1' | 'damm-v2' | 'dbc' | 'alpha';
@@ -26,7 +23,7 @@ type ViewMode = 'token' | 'pair';
 
 export default function DiscoverPage() {
   const router = useRouter();
-  const [selectedPool, setSelectedPool] = useState<Pool | null>(null);
+  const [selectedPool, setSelectedPool] = useState<any | null>(null);
   const [protocolFilter, setProtocolFilter] = useState<ProtocolFilter>('all');
   const [tokenSortBy, setTokenSortBy] = useState<TokenSortOption>('volume');
   const [poolSortBy, setPoolSortBy] = useState<PoolSortOption>('volume');
@@ -45,17 +42,9 @@ export default function DiscoverPage() {
     refetchInterval: false, // Disabled - manual refresh only
   });
 
-  // Fetch Meteora DLMM pools (RIGHT SIDE)
-  const { data: dlmmPools = [], isLoading: isLoadingDLMM } = useDLMMPools({
-    refetchInterval: false,
-    sortBy: 'liquidity',
-  });
-
-  // Fetch Meteora DAMM pools (RIGHT SIDE)
-  const { data: dammPools = [], isLoading: isLoadingDAMM } = useDAMMPools({
-    refetchInterval: false,
-    version: 'all',
-  });
+  // Fetch Meteora pools from BACKEND (cached in Redis - FAST!)
+  const { data: dlmmPools = [], isLoading: isLoadingDLMM } = useBackendDLMMPools();
+  const { data: dammPools = [], isLoading: isLoadingDAMM } = useBackendDAMMPools();
 
   // Combine Jupiter pools for TOKEN view (LEFT SIDE ONLY)
   const jupiterPools = useMemo(() => {
@@ -74,23 +63,67 @@ export default function DiscoverPage() {
   // Transform and combine Meteora pools for POOL view (RIGHT SIDE)
   const meteoraPools = useMemo(() => {
     // Transform DLMM pools to Pool format
-    const dlmmTransformed = dlmmPools.map(pool => ({
-      ...transformMeteoraPoolToPool(pool),
-      // Keep original Meteora data for metadata display
-      meteoraData: {
-        binStep: pool.bin_step,
-        baseFeePercentage: pool.base_fee_percentage,
-        poolType: 'dlmm' as const,
-      }
-    }));
+    const dlmmTransformed = dlmmPools.map((pool: any) => {
+      const nameParts = pool.name.split('-');
+      const baseSymbol = nameParts[0] || 'UNKNOWN';
+      const quoteSymbol = nameParts[1] || 'SOL';
+
+      return {
+        id: pool.address,
+        chain: 'solana',
+        dex: 'Meteora',
+        type: 'dlmm',
+        createdAt: new Date().toISOString(),
+        bondingCurve: undefined,
+        volume24h: pool.trade_volume_24h,
+        isUnreliable: false,
+        updatedAt: new Date().toISOString(),
+        price: pool.current_price,
+        baseAsset: {
+          id: pool.mint_x,
+          name: baseSymbol,
+          symbol: baseSymbol,
+          liquidity: parseFloat(pool.liquidity),
+          stats24h: {},
+        },
+        quoteAsset: {
+          id: pool.mint_y,
+          symbol: quoteSymbol,
+        },
+        meteoraData: {
+          binStep: pool.bin_step,
+          baseFeePercentage: pool.base_fee_percentage,
+          poolType: 'dlmm' as const,
+        }
+      };
+    });
 
     // Transform DAMM pools to Pool format
-    const dammTransformed = dammPools.map(pool => ({
-      ...transformDAMMPoolToPool(pool),
-      // Keep original Meteora data for metadata display
+    const dammTransformed = dammPools.map((pool: any) => ({
+      id: pool.pool_address,
+      chain: 'solana',
+      dex: 'Meteora',
+      type: 'damm-v2',
+      createdAt: new Date().toISOString(),
+      bondingCurve: undefined,
+      volume24h: pool.volume24h || 0,
+      isUnreliable: false,
+      updatedAt: new Date().toISOString(),
+      price: 0,
+      baseAsset: {
+        id: pool.token_a_mint,
+        name: pool.token_a_symbol,
+        symbol: pool.token_a_symbol,
+        liquidity: pool.tvl || 0,
+        stats24h: {},
+      },
+      quoteAsset: {
+        id: pool.token_b_mint,
+        symbol: pool.token_b_symbol,
+      },
       meteoraData: {
-        baseFeePercentage: (pool.base_fee || 0.25).toString(), // Use actual fee from API
-        poolType: pool.version === 'v2' ? 'damm-v2' as const : 'damm-v1' as const,
+        baseFeePercentage: (pool.base_fee || 0.25).toString(),
+        poolType: 'damm-v2' as const,
       }
     }));
 
@@ -104,7 +137,6 @@ export default function DiscoverPage() {
       return liquidityB - liquidityA;
     });
 
-    // Return only top 100 pools
     const top100 = sorted.slice(0, 100);
     console.log(`📊 Showing top 100 pools out of ${combined.length} total`);
     return top100;
@@ -155,7 +187,7 @@ export default function DiscoverPage() {
     // Protocol filter
     if (protocolFilter !== 'all') {
       filtered = filtered.filter((pool) => {
-        if (protocolFilter === 'dbc') return pool.baseAsset.launchpad === 'met-dbc';
+        if (protocolFilter === 'dbc') return false; // DBC pools not yet implemented
         if (protocolFilter === 'dlmm') return pool.type === 'dlmm';
         if (protocolFilter === 'damm-v1') return pool.type === 'damm-v1' || pool.type === 'damm';
         if (protocolFilter === 'damm-v2') return pool.type === 'damm-v2';
@@ -229,14 +261,6 @@ export default function DiscoverPage() {
     setMinMarketCap('');
     setMaxMarketCap('');
   };
-
-  // Show loading screen until BOTH data sources are ready
-  const isFullyLoaded = !isLoadingJupiter && !isLoadingDLMM && !isLoadingDAMM;
-
-  // Show loading screen
-  if (!isFullyLoaded) {
-    return <LoadingScreen />;
-  }
 
   return (
     <MainLayout searchTerm={searchTerm} onSearchChange={setSearchTerm}>
@@ -363,7 +387,12 @@ export default function DiscoverPage() {
 
                 {/* Token Table */}
                 <div className="flex-1 overflow-auto hide-scrollbar">
-                  <TokenTable
+                  {isLoadingJupiter ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  ) : (
+                    <TokenTable
                       tokens={filteredTokens.filter(token =>
                         searchTerm
                           ? token.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -380,6 +409,7 @@ export default function DiscoverPage() {
                         }
                       }}
                     />
+                  )}
                 </div>
               </div>
 
@@ -429,13 +459,18 @@ export default function DiscoverPage() {
 
                 {/* Pool Table */}
                 <div className="flex-1 overflow-auto hide-scrollbar">
-                  <PoolTable
+                  {(isLoadingDLMM || isLoadingDAMM) ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  ) : (
+                    <PoolTable
                       pools={filteredPools.filter(pool =>
                         searchTerm
                           ? pool.baseAsset.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             pool.baseAsset.name.toLowerCase().includes(searchTerm.toLowerCase())
                           : true
-                      )}
+                      ) as any}
                       sortBy={poolSortBy}
                       onSortChange={setPoolSortBy}
                       onPoolClick={(pool) => {
@@ -443,6 +478,7 @@ export default function DiscoverPage() {
                         router.push(`/pool/${pool.id}`);
                       }}
                     />
+                  )}
                 </div>
               </div>
             </div>

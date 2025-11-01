@@ -9,6 +9,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import referralRoutes from './routes/referrals';
 import userRoutes from './routes/users';
 import analyticsRoutes from './routes/analytics';
+import poolsRoutes from './routes/pools';
 
 // Load environment variables
 dotenv.config();
@@ -74,6 +75,7 @@ app.get('/health', async (req, res) => {
 app.use('/api/referrals', referralRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/pools', poolsRoutes);
 
 // Error handlers (must be last)
 app.use(notFoundHandler);
