@@ -73,15 +73,23 @@ export function PoolTable({ pools, onPoolClick }: PoolTableProps) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full">
+      <table className="w-full table-fixed">
+        <colgroup>
+          <col className="w-[35%]" /> {/* Pair */}
+          <col className="w-[13%]" /> {/* TVL */}
+          <col className="w-[15%]" /> {/* Volume */}
+          <col className="w-[13%]" /> {/* Fees */}
+          <col className="w-[12%]" /> {/* Fee/TV */}
+          <col className="w-[12%]" /> {/* 24h */}
+        </colgroup>
         <thead>
           <tr className="text-[10px] text-foreground-muted/60 border-b border-border-light/30 uppercase tracking-wider">
-            <th className="text-left py-2 px-3 font-medium">Pair</th>
-            <th className="text-right py-2 px-3 font-medium">TVL</th>
-            <th className="text-right py-2 px-3 font-medium">Volume</th>
-            <th className="text-right py-2 px-3 font-medium">Fees</th>
-            <th className="text-right py-2 px-3 font-medium">Fee/TV</th>
-            <th className="text-right py-2 px-3 font-medium">24h</th>
+            <th className="text-left py-2 px-2 font-medium">Pair</th>
+            <th className="text-right py-2 px-2 font-medium">TVL</th>
+            <th className="text-right py-2 px-2 font-medium">Volume</th>
+            <th className="text-right py-2 px-2 font-medium">Fees</th>
+            <th className="text-right py-2 px-2 font-medium">Fee/TV</th>
+            <th className="text-right py-2 px-2 font-medium">24h</th>
           </tr>
         </thead>
         <tbody>
@@ -105,7 +113,7 @@ export function PoolTable({ pools, onPoolClick }: PoolTableProps) {
                 className="border-b border-border-light/20 hover:bg-background-secondary/30 cursor-pointer transition-colors"
               >
                 {/* Pair Column - Charting.ag exact style */}
-                <td className="py-2 px-3">
+                <td className="py-2 px-2">
                   <div className="flex items-center gap-2.5">
                     {/* Token Icons - Overlapping circles */}
                     <div className="flex items-center -space-x-2 flex-shrink-0">
@@ -146,35 +154,35 @@ export function PoolTable({ pools, onPoolClick }: PoolTableProps) {
                 </td>
 
                 {/* TVL Column */}
-                <td className="py-2 px-3 text-right">
-                  <div className="font-medium text-[13px] font-mono text-foreground-muted/80">
+                <td className="py-2 px-2 text-right">
+                  <div className="font-medium text-xs font-mono text-foreground-muted/80">
                     {formatCompact(tvl)}
                   </div>
                 </td>
 
                 {/* Volume Column */}
-                <td className="py-2 px-3 text-right">
-                  <div className="font-medium text-[13px] font-mono text-foreground-muted/80">
+                <td className="py-2 px-2 text-right">
+                  <div className="font-medium text-xs font-mono text-foreground-muted/80">
                     {formatCompact(volume24h)}
                   </div>
                 </td>
 
                 {/* Fees Column */}
-                <td className="py-2 px-3 text-right">
-                  <div className="font-medium text-[13px] font-mono text-foreground-muted/80">
+                <td className="py-2 px-2 text-right">
+                  <div className="font-medium text-xs font-mono text-foreground-muted/80">
                     {formatCompact(estimatedFees)}
                   </div>
                 </td>
 
                 {/* Fee/TV Ratio Column */}
-                <td className="py-2 px-3 text-right">
-                  <div className={`font-medium text-[13px] ${feeTVRatio > 0.1 ? 'text-emerald-400/80' : 'text-foreground-muted/60'}`}>
+                <td className="py-2 px-2 text-right">
+                  <div className={`font-medium text-xs ${feeTVRatio > 0.1 ? 'text-emerald-400/80' : 'text-foreground-muted/60'}`}>
                     {feeTVRatio.toFixed(2)}%
                   </div>
                 </td>
 
                 {/* 24h Change Column with arrow */}
-                <td className="py-2 px-3 text-right">
+                <td className="py-2 px-2 text-right">
                   <div className={`font-medium text-[13px] flex items-center justify-end gap-0.5 ${isPositive ? 'text-emerald-400/80' : 'text-red-400/80'}`}>
                     <span>{isPositive ? '+' : ''}{priceChange.toFixed(2)}%</span>
                     <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
