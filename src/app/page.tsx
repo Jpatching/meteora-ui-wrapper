@@ -94,7 +94,19 @@ export default function DiscoverPage() {
     }));
 
     // Combine all Meteora pools
-    return [...dlmmTransformed, ...dammTransformed];
+    const combined = [...dlmmTransformed, ...dammTransformed];
+
+    // Sort by liquidity (TVL) and take top 100
+    const sorted = combined.sort((a, b) => {
+      const liquidityA = a.baseAsset?.liquidity || 0;
+      const liquidityB = b.baseAsset?.liquidity || 0;
+      return liquidityB - liquidityA;
+    });
+
+    // Return only top 100 pools
+    const top100 = sorted.slice(0, 100);
+    console.log(`📊 Showing top 100 pools out of ${combined.length} total`);
+    return top100;
   }, [dlmmPools, dammPools]);
 
   // No need to fetch pool details separately - Meteora API provides them!
@@ -126,7 +138,13 @@ export default function DiscoverPage() {
       token.pools.push(pool);
     });
 
-    return Array.from(tokenMap.values());
+    const allTokens = Array.from(tokenMap.values());
+
+    // Sort by volume and take top 100
+    const sorted = allTokens.sort((a, b) => b.totalVolume24h - a.totalVolume24h);
+    const top100 = sorted.slice(0, 100);
+    console.log(`📊 Showing top 100 tokens out of ${allTokens.length} total`);
+    return top100;
   }, [jupiterPools]);
 
   // Apply filters and sorting to Meteora pools (RIGHT SIDE)
