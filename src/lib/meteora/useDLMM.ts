@@ -1524,10 +1524,10 @@ export function useDLMM() {
             quoteAmount: totalQuoteAmount,
             unclaimedFeesBase: totalUnclaimedFeesBase,
             unclaimedFeesQuote: totalUnclaimedFeesQuote,
-            binPositions: lbPairPositionsData.map((p) => ({
-              binId: p.binId,
-              baseAmount: Number(p.positionData.totalXAmount) / Math.pow(10, tokenXDecimals),
-              quoteAmount: Number(p.positionData.totalYAmount) / Math.pow(10, tokenYDecimals),
+            binPositions: lbPairPositionsData.map((p: any) => ({
+              binId: p.binId || 0,
+              baseAmount: Number(p.positionData?.totalXAmount || 0) / Math.pow(10, tokenXDecimals),
+              quoteAmount: Number(p.positionData?.totalYAmount || 0) / Math.pow(10, tokenYDecimals),
             })),
           });
         } catch (error) {
