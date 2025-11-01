@@ -28,6 +28,7 @@ export default function DiscoverPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('pair');
   const [showChartModal, setShowChartModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState(''); // Unified search for both tokens and pools
+  const [showTokenFilters, setShowTokenFilters] = useState(false); // Toggle for filter dropdown
   const [minLiquidity, setMinLiquidity] = useState<string>('');
   const [maxLiquidity, setMaxLiquidity] = useState<string>('');
   const [minMarketCap, setMinMarketCap] = useState<string>('');
@@ -225,6 +226,14 @@ export default function DiscoverPage() {
     }
   }, [filteredPools, selectedPool]);
 
+  // Reset all token filters
+  const resetTokenFilters = () => {
+    setMinLiquidity('');
+    setMaxLiquidity('');
+    setMinMarketCap('');
+    setMaxMarketCap('');
+  };
+
   return (
     <MainLayout searchTerm={searchTerm} onSearchChange={setSearchTerm}>
       <div className="h-[calc(100vh-80px)] flex flex-col">
@@ -246,9 +255,83 @@ export default function DiscoverPage() {
               <div className="w-[40%] border-r border-border-light flex flex-col">
                 {/* Token Filter Bar */}
                 <div className="px-4 py-2 border-b border-border-light">
-                  <div className="flex flex-col gap-2">
-                    {/* Sort and Search Row */}
-                    <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      {/* Filter Dropdown Button */}
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowTokenFilters(!showTokenFilters)}
+                          className="flex items-center gap-2 px-3 py-1.5 bg-background-secondary border border-border-light rounded-lg text-xs text-foreground hover:border-foreground-muted transition-colors"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                          </svg>
+                          <span>Filter</span>
+                          <svg className={`w-3 h-3 transition-transform ${showTokenFilters ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+
+                        {/* Filter Dropdown Panel */}
+                        {showTokenFilters && (
+                          <div className="absolute top-full left-0 mt-1 w-80 bg-background-secondary border border-border-light rounded-lg shadow-xl z-50 p-4">
+                            {/* Liquidity Section */}
+                            <div className="mb-4">
+                              <label className="block text-xs font-medium text-foreground mb-2">Liquidity</label>
+                              <div className="flex gap-2">
+                                <input
+                                  type="number"
+                                  placeholder="Min"
+                                  value={minLiquidity}
+                                  onChange={(e) => setMinLiquidity(e.target.value)}
+                                  className="flex-1 px-3 py-2 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
+                                />
+                                <input
+                                  type="number"
+                                  placeholder="Max"
+                                  value={maxLiquidity}
+                                  onChange={(e) => setMaxLiquidity(e.target.value)}
+                                  className="flex-1 px-3 py-2 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Market Cap Section */}
+                            <div className="mb-4">
+                              <label className="block text-xs font-medium text-foreground mb-2">Market Cap</label>
+                              <div className="flex gap-2">
+                                <input
+                                  type="number"
+                                  placeholder="Min"
+                                  value={minMarketCap}
+                                  onChange={(e) => setMinMarketCap(e.target.value)}
+                                  className="flex-1 px-3 py-2 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
+                                />
+                                <input
+                                  type="number"
+                                  placeholder="Max"
+                                  value={maxMarketCap}
+                                  onChange={(e) => setMaxMarketCap(e.target.value)}
+                                  className="flex-1 px-3 py-2 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Reset All Button */}
+                            <button
+                              onClick={resetTokenFilters}
+                              className="flex items-center justify-center gap-2 w-full px-3 py-2 text-xs text-foreground-muted hover:text-foreground transition-colors"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                              Reset All
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Sort Dropdown */}
                       <div className="flex items-center gap-2">
                         <span className="text-foreground-muted text-xs">Sort:</span>
                         <select
@@ -263,29 +346,13 @@ export default function DiscoverPage() {
                           <option value="txs">Transactions</option>
                         </select>
                       </div>
-                      <div className="px-2 py-1 bg-background-secondary rounded-lg border border-border-light">
-                        <span className="text-xs font-medium text-foreground-muted">
-                          {filteredTokens.length} tokens
-                        </span>
-                      </div>
                     </div>
 
-                    {/* Filters Row */}
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        placeholder="Min Liquidity"
-                        value={minLiquidity}
-                        onChange={(e) => setMinLiquidity(e.target.value)}
-                        className="flex-1 px-3 py-1.5 bg-background-secondary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-foreground-muted"
-                      />
-                      <input
-                        type="number"
-                        placeholder="Max Liquidity"
-                        value={maxLiquidity}
-                        onChange={(e) => setMaxLiquidity(e.target.value)}
-                        className="flex-1 px-3 py-1.5 bg-background-secondary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-foreground-muted"
-                      />
+                    {/* Token Count */}
+                    <div className="px-2 py-1 bg-background-secondary rounded-lg border border-border-light">
+                      <span className="text-xs font-medium text-foreground-muted">
+                        {filteredTokens.length} tokens
+                      </span>
                     </div>
                   </div>
                 </div>
