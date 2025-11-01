@@ -1506,13 +1506,20 @@ export function useDLMM() {
             totalUnclaimedFeesQuote += Number(position.positionData.feeY) / Math.pow(10, tokenYDecimals);
           }
 
+          // Handle different property names from SDK
+          const poolAddress = (lbPair as any).publicKey?.toString() || (lbPair as any).address?.toString() || '';
+          const baseMint = (tokenX as any).publicKey?.toString() || (tokenX as any).address?.toString() || (tokenX as any).mint?.toString() || '';
+          const quoteMint = (tokenY as any).publicKey?.toString() || (tokenY as any).address?.toString() || (tokenY as any).mint?.toString() || '';
+          const baseSymbol = (tokenX as any).symbol || (tokenX as any).name || 'Token X';
+          const quoteSymbol = (tokenY as any).symbol || (tokenY as any).name || 'Token Y';
+
           userPositions.push({
             positionKey,
-            poolAddress: lbPair.publicKey.toString(),
-            baseMint: tokenX.publicKey.toString(),
-            quoteMint: tokenY.publicKey.toString(),
-            baseSymbol: tokenX.symbol,
-            quoteSymbol: tokenY.symbol,
+            poolAddress,
+            baseMint,
+            quoteMint,
+            baseSymbol,
+            quoteSymbol,
             baseAmount: totalBaseAmount,
             quoteAmount: totalQuoteAmount,
             unclaimedFeesBase: totalUnclaimedFeesBase,
