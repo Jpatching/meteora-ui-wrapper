@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 
+// Vercel deployment test
 const nextConfig: NextConfig = {
   // ESLint
   eslint: {
