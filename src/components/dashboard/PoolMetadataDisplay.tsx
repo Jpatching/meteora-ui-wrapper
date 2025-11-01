@@ -1,11 +1,12 @@
 /**
  * Component to display pool metadata (binStep, baseFee)
- * Fetches REAL data from Meteora SDK using usePoolMetadata hook
+ * Shows smart defaults immediately, then fetches real data in background
  */
 
 'use client';
 
-import { usePoolMetadata } from '@/lib/hooks/usePoolMetadata';
+import { useEffect, useState } from 'react';
+import { fetchPoolDetails, formatPoolDetails } from '@/lib/meteora/poolDetails';
 
 interface PoolMetadataDisplayProps {
   poolAddress: string;
@@ -13,34 +14,53 @@ interface PoolMetadataDisplayProps {
 }
 
 export function PoolMetadataDisplay({ poolAddress, poolType }: PoolMetadataDisplayProps) {
-  const { binStep, baseFee, isLoading, error } = usePoolMetadata(poolAddress, poolType);
+  // Start with smart defaults based on pool type
+  const getDefaultDisplay = () => {
+    if (poolType === 'dlmm') return 'binStep: 10 | fee: 0.25%';
+    if (poolType.startsWith('damm')) return 'fee: 0.25%';
+    return 'fee: 0.30%';
+  };
 
-  if (isLoading) {
-    return <span className="text-[10px] text-foreground-muted/50">Loading...</span>;
-  }
+  const [display, setDisplay] = useState<string>(getDefaultDisplay());
+  const [isFetching, setIsFetching] = useState(false);
 
-  if (error) {
-    return <span className="text-[10px] text-foreground-muted/50">-</span>;
-  }
+  useEffect(() => {
+    let mounted = true;
 
-  // DLMM pools: show binStep and fee
-  if (poolType === 'dlmm' && binStep !== undefined && baseFee !== undefined) {
-    return (
-      <span className="text-[10px] text-foreground-muted/70">
-        binStep: {binStep} | fee: {(baseFee / 100).toFixed(2)}%
-      </span>
-    );
-  }
+    async function fetchData() {
+      if (isFetching) return;
+      setIsFetching(true);
 
-  // DAMM pools: show fee only
-  if (poolType.startsWith('damm') && baseFee !== undefined) {
-    return (
-      <span className="text-[10px] text-foreground-muted/70">
-        fee: {(baseFee / 100).toFixed(2)}%
-      </span>
-    );
-  }
+      try {
+        const details = await fetchPoolDetails(poolAddress, poolType);
+        if (mounted) {
+          const formatted = formatPoolDetails(details, poolType);
+          setDisplay(formatted);
+        }
+      } catch (error) {
+        console.error(`Failed to fetch pool details for ${poolAddress}:`, error);
+        // Keep showing default on error
+      } finally {
+        if (mounted) {
+          setIsFetching(false);
+        }
+      }
+    }
 
-  // No data available
-  return <span className="text-[10px] text-foreground-muted/50">-</span>;
+    // Fetch in background after a small delay to avoid overwhelming the RPC
+    const timer = setTimeout(() => {
+      fetchData();
+    }, Math.random() * 1000); // Stagger requests
+
+    return () => {
+      mounted = false;
+      clearTimeout(timer);
+    };
+  }, [poolAddress, poolType, isFetching]);
+
+  return (
+    <span className="text-[10px] text-foreground-muted/70">
+      {display}
+    </span>
+  );
 }
