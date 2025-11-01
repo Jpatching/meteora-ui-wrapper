@@ -358,7 +358,7 @@ export default function DiscoverPage() {
                 </div>
 
                 {/* Token Table */}
-                <div className="flex-1 overflow-auto">
+                <div className="flex-1 overflow-auto hide-scrollbar">
                   {isLoading ? (
                     <div className="flex items-center justify-center h-full">
                       <div className="text-center">
@@ -431,7 +431,7 @@ export default function DiscoverPage() {
                 </div>
 
                 {/* Pool Table */}
-                <div className="flex-1 overflow-auto">
+                <div className="flex-1 overflow-auto hide-scrollbar">
                   {isLoading ? (
                     <div className="flex items-center justify-center h-full">
                       <div className="text-center">
