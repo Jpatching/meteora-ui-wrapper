@@ -158,12 +158,12 @@ export function Sidebar() {
   return (
     <aside className={`relative border-r border-border bg-background-secondary/50 backdrop-blur-xl flex flex-col transition-all duration-200 ${isCollapsed ? 'w-20' : 'w-32'}`}>
       {/* Logo Section */}
-      <div className="p-2 border-b border-border flex items-center justify-center">
+      <div className="p-4 border-b border-border flex items-center justify-center">
         <Image
           src="/metatools-logo-alt2.png"
           alt="MetaTools Logo"
-          width={isCollapsed ? 40 : 36}
-          height={isCollapsed ? 40 : 36}
+          width={isCollapsed ? 56 : 48}
+          height={isCollapsed ? 56 : 48}
           className="transition-all duration-200"
         />
       </div>
@@ -171,7 +171,7 @@ export function Sidebar() {
       {/* Collapse Toggle Button */}
       <button
         onClick={toggleCollapse}
-        className="absolute top-4 -right-3 w-6 h-6 rounded-full bg-background-secondary border border-border flex items-center justify-center hover:bg-primary/10 transition-colors z-10"
+        className="absolute top-6 -right-3 w-6 h-6 rounded-full bg-background-secondary border border-border flex items-center justify-center hover:bg-primary/10 transition-colors z-10"
         aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
       >
         <svg
@@ -190,16 +190,16 @@ export function Sidebar() {
       </button>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-2 space-y-1 flex flex-col">
+      <nav className="flex-1 overflow-y-auto p-4 space-y-2 flex flex-col">
         {navigation.map((section) => {
           const isExpanded = expandedSections.has(section.title);
 
           return (
-            <div key={section.title} className="space-y-0.5">
+            <div key={section.title} className="space-y-1">
               {/* Section Header - Clickable to expand/collapse */}
               <button
                 onClick={() => toggleSection(section.title)}
-                className={`w-full flex ${isCollapsed ? 'justify-center items-center' : 'flex-col items-center'} px-2 py-1.5 text-xs font-semibold text-foreground-muted uppercase tracking-wider hover:text-foreground transition-colors rounded-lg hover:bg-background-tertiary font-ui group`}
+                className={`w-full flex ${isCollapsed ? 'justify-center items-center' : 'flex-col items-center'} px-3 py-3 text-xs font-semibold text-foreground-muted uppercase tracking-wider hover:text-foreground transition-colors rounded-lg hover:bg-background-tertiary font-ui group`}
                 title={isCollapsed ? section.title : undefined}
               >
                 {!isCollapsed ? (
@@ -207,13 +207,13 @@ export function Sidebar() {
                     <Image
                       src={section.icon}
                       alt={section.title}
-                      width={16}
-                      height={16}
-                      className="flex-shrink-0 opacity-70 group-hover:opacity-100 transition-opacity"
+                      width={24}
+                      height={24}
+                      className="flex-shrink-0 opacity-70 group-hover:opacity-100 transition-opacity mb-1"
                     />
-                    <span className="text-[9px] mt-0.5">{section.title}</span>
+                    <span className="text-[10px]">{section.title}</span>
                     <svg
-                      className={`w-2.5 h-2.5 transition-transform duration-200 mt-0.5 ${
+                      className={`w-3 h-3 transition-transform duration-200 mt-1 ${
                         isExpanded ? 'rotate-180' : ''
                       }`}
                       fill="none"
@@ -232,8 +232,8 @@ export function Sidebar() {
                   <Image
                     src={section.icon}
                     alt={section.title}
-                    width={16}
-                    height={16}
+                    width={20}
+                    height={20}
                     className="flex-shrink-0 opacity-70"
                   />
                 )}
@@ -241,7 +241,7 @@ export function Sidebar() {
 
               {/* Section Items - Collapsible */}
               {isExpanded && !isCollapsed && (
-                <div className="space-y-0.5">
+                <div className="space-y-1">
                   {section.items.map((item, index) => {
                     const isActive = pathname === item.href;
 
@@ -250,8 +250,8 @@ export function Sidebar() {
                         key={item.href}
                         href={item.href}
                         className={`
-                          group flex flex-col items-center px-1.5 py-1 rounded-md
-                          text-[10px] font-medium transition-all duration-200 font-accent text-center leading-tight
+                          group flex flex-col items-center px-2 py-2 rounded-lg
+                          text-[11px] font-medium transition-all duration-200 font-accent text-center
                           ${
                             isActive
                               ? 'bg-primary/10 text-primary border border-primary/20'
@@ -262,7 +262,7 @@ export function Sidebar() {
                       >
                         <span className="truncate w-full">{item.name}</span>
                         {item.badge && (
-                          <span className="mt-0.5 px-1 py-0.5 text-[8px] font-semibold rounded-full bg-primary/20 text-primary">
+                          <span className="mt-1 px-1.5 py-0.5 text-[9px] font-semibold rounded-full bg-primary/20 text-primary">
                             {item.badge}
                           </span>
                         )}
@@ -277,10 +277,10 @@ export function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="p-2 border-t border-border">
-        <div className={`flex ${isCollapsed ? 'justify-center' : 'flex-col items-center gap-0.5'} text-xs text-foreground-muted`}>
-          <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse"></span>
-          {!isCollapsed && <span className="text-[9px] text-center">Connected</span>}
+      <div className="p-3 border-t border-border">
+        <div className={`flex ${isCollapsed ? 'justify-center' : 'flex-col items-center gap-1'} text-xs text-foreground-muted`}>
+          <span className="w-2 h-2 rounded-full bg-success animate-pulse"></span>
+          {!isCollapsed && <span className="text-[10px] text-center">Connected</span>}
         </div>
       </div>
     </aside>
