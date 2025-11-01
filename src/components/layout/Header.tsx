@@ -19,7 +19,7 @@ export function Header() {
     <header className="h-16 border-b border-border bg-background-secondary/50 backdrop-blur-xl flex items-center justify-between px-6">
       {/* Left side - Logo and title */}
       <div className="flex items-center gap-3">
-        <Logo size="md" />
+        <Logo size="md" href="/" />
         <div className="h-6 w-px bg-border"></div>
         <h2 className="text-lg font-bold gradient-text">Dashboard</h2>
       </div>
