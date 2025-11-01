@@ -232,38 +232,14 @@ export default function DiscoverPage() {
           </div>
         )}
 
-        {/* Full-Width Pool Table Layout */}
+        {/* Split Layout - Tokens (Left) + Pools (Right) */}
         {!error && (
           <div className="flex-1 overflow-hidden bg-background flex flex-col">
               {/* Clean Filter Bar - Minimal Spacing */}
               <div className="px-6 py-2 border-b border-border-light">
                 <div className="flex items-center justify-between gap-6">
-                  {/* Left: View Mode + Protocol Filters */}
+                  {/* Left: Protocol Filters */}
                   <div className="flex items-center gap-4">
-                    {/* Token/Pair Toggle */}
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => setViewMode('token')}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          viewMode === 'token'
-                            ? 'bg-background-tertiary text-foreground border border-border-light'
-                            : 'text-foreground-muted hover:text-foreground'
-                        }`}
-                      >
-                        Token
-                      </button>
-                      <button
-                        onClick={() => setViewMode('pair')}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          viewMode === 'pair'
-                            ? 'bg-background-tertiary text-foreground border border-border-light'
-                            : 'text-foreground-muted hover:text-foreground'
-                        }`}
-                      >
-                        Pair
-                      </button>
-                    </div>
-
                     {/* Protocol Filters */}
                     <div className="flex items-center gap-1">
                       {(['all', 'dlmm', 'damm-v1', 'damm-v2', 'dbc', 'alpha'] as ProtocolFilter[]).map((filter) => (
@@ -299,17 +275,24 @@ export default function DiscoverPage() {
                       </select>
                     </div>
 
-                    {/* Pool/Token Count */}
-                    <div className="px-2 py-1 bg-background-secondary rounded-lg border border-border-light">
-                      <span className="text-xs font-medium text-foreground-muted">
-                        {viewMode === 'token' ? `${filteredTokens.length} tokens` : `${filteredPools.length} pools`}
-                      </span>
+                    {/* Counts */}
+                    <div className="flex items-center gap-2">
+                      <div className="px-2 py-1 bg-background-secondary rounded-lg border border-border-light">
+                        <span className="text-xs font-medium text-foreground-muted">
+                          {filteredTokens.length} tokens
+                        </span>
+                      </div>
+                      <div className="px-2 py-1 bg-background-secondary rounded-lg border border-border-light">
+                        <span className="text-xs font-medium text-foreground-muted">
+                          {filteredPools.length} pools
+                        </span>
+                      </div>
                     </div>
 
                     {/* Search */}
                     <input
                       type="text"
-                      placeholder="Search pairs..."
+                      placeholder="Search..."
                       value={tableSearchTerm}
                       onChange={(e) => setTableSearchTerm(e.target.value)}
                       className="px-3 py-1.5 bg-background-secondary border border-border-light rounded-lg text-sm text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-foreground-muted w-48"
@@ -318,45 +301,64 @@ export default function DiscoverPage() {
                 </div>
               </div>
 
-              {/* Table - Switch between Token and Pair views */}
-              <div className="flex-1 overflow-auto">
-                {isLoading ? (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="text-center">
-                      <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                      <p className="text-foreground-muted text-sm">Loading {viewMode === 'token' ? 'tokens' : 'pools'}...</p>
-                    </div>
+              {/* Split View - Tokens + Pools Side-by-Side */}
+              <div className="flex-1 flex overflow-hidden">
+                {/* Left: Token Table */}
+                <div className="w-[40%] border-r border-border-light flex flex-col">
+                  <div className="flex-1 overflow-auto">
+                    {isLoading ? (
+                      <div className="flex items-center justify-center h-full">
+                        <div className="text-center">
+                          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                          <p className="text-foreground-muted text-sm">Loading tokens...</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <TokenTable
+                        tokens={filteredTokens.filter(token =>
+                          tableSearchTerm
+                            ? token.symbol.toLowerCase().includes(tableSearchTerm.toLowerCase()) ||
+                              token.name.toLowerCase().includes(tableSearchTerm.toLowerCase())
+                            : true
+                        )}
+                        onTokenClick={(token) => {
+                          // When clicking a token, navigate to its primary pool (highest volume)
+                          const primaryPool = token.pools.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0))[0];
+                          if (primaryPool) {
+                            router.push(`/pool/${primaryPool.id}`);
+                          }
+                        }}
+                      />
+                    )}
                   </div>
-                ) : viewMode === 'token' ? (
-                  <TokenTable
-                    tokens={filteredTokens.filter(token =>
-                      tableSearchTerm
-                        ? token.symbol.toLowerCase().includes(tableSearchTerm.toLowerCase()) ||
-                          token.name.toLowerCase().includes(tableSearchTerm.toLowerCase())
-                        : true
+                </div>
+
+                {/* Right: Pool Table */}
+                <div className="flex-1 flex flex-col">
+                  <div className="flex-1 overflow-auto">
+                    {isLoading ? (
+                      <div className="flex items-center justify-center h-full">
+                        <div className="text-center">
+                          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                          <p className="text-foreground-muted text-sm">Loading pools...</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <PoolTable
+                        pools={filteredPools.filter(pool =>
+                          tableSearchTerm
+                            ? pool.baseAsset.symbol.toLowerCase().includes(tableSearchTerm.toLowerCase()) ||
+                              pool.baseAsset.name.toLowerCase().includes(tableSearchTerm.toLowerCase())
+                            : true
+                        )}
+                        onPoolClick={(pool) => {
+                          // Navigate to pool detail page instead of showing modal
+                          router.push(`/pool/${pool.id}`);
+                        }}
+                      />
                     )}
-                    onTokenClick={(token) => {
-                      // When clicking a token, navigate to its primary pool (highest volume)
-                      const primaryPool = token.pools.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0))[0];
-                      if (primaryPool) {
-                        router.push(`/pool/${primaryPool.id}`);
-                      }
-                    }}
-                  />
-                ) : (
-                  <PoolTable
-                    pools={filteredPools.filter(pool =>
-                      tableSearchTerm
-                        ? pool.baseAsset.symbol.toLowerCase().includes(tableSearchTerm.toLowerCase()) ||
-                          pool.baseAsset.name.toLowerCase().includes(tableSearchTerm.toLowerCase())
-                        : true
-                    )}
-                    onPoolClick={(pool) => {
-                      // Navigate to pool detail page instead of showing modal
-                      router.push(`/pool/${pool.id}`);
-                    }}
-                  />
-                )}
+                  </div>
+                </div>
               </div>
             </div>
         )}
