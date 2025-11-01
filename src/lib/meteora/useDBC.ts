@@ -237,7 +237,12 @@ export function useDBC() {
       console.log('Swap quote:', quote);
 
       // Calculate minimum output with slippage
-      const minimumAmountOut = quote.amountOut.mul(new BN(10000 - slippageBps)).div(new BN(10000));
+      // The quote result might have different property names depending on SDK version
+      const quoteAmountOut = (quote as any).amountOut || (quote as any).outAmount || (quote as any).expectedAmountOut;
+      if (!quoteAmountOut) {
+        throw new Error('Unable to determine output amount from swap quote');
+      }
+      const minimumAmountOut = quoteAmountOut.mul(new BN(10000 - slippageBps)).div(new BN(10000));
 
       // Swap transaction
       const tx = await dbcClient.pool.swap({
@@ -275,7 +280,7 @@ export function useDBC() {
       return {
         success: true,
         signature,
-        amountOut: quote.amountOut.toString(),
+        amountOut: quoteAmountOut.toString(),
       };
     } catch (error: any) {
       console.error('Error swapping:', error);
