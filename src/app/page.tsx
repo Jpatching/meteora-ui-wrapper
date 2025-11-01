@@ -243,11 +243,11 @@ export default function DiscoverPage() {
           </div>
         )}
 
-        {/* Split Layout - Tokens (Left) + Pools (Right) */}
+        {/* Split Layout - Tokens (Left) + Pools (Right) - Charting.ag Style */}
         {!jupiterError && (
-          <div className="flex-1 overflow-hidden bg-background flex">
+          <div className="flex-1 overflow-hidden bg-background p-4 flex gap-4">
               {/* Left: Token Column with Filter Bar */}
-              <div className="w-1/2 border-r border-border-light flex flex-col">
+              <div className="w-1/2 flex flex-col bg-background-secondary border border-border-light rounded-xl overflow-hidden">
                 {/* Token Filter Bar */}
                 <div className="px-4 py-2 border-b border-border-light">
                   <div className="flex items-center justify-between gap-2">
@@ -384,7 +384,7 @@ export default function DiscoverPage() {
               </div>
 
               {/* Right: Pool Column with Filter Bar */}
-              <div className="flex-1 flex flex-col">
+              <div className="flex-1 flex flex-col bg-background-secondary border border-border-light rounded-xl overflow-hidden">
                 {/* Pool Filter Bar */}
                 <div className="px-4 py-2 border-b border-border-light">
                   <div className="flex flex-col gap-2">
