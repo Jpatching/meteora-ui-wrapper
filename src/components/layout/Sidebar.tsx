@@ -141,13 +141,13 @@ export function Sidebar() {
 
   return (
     <aside className={`relative border-r border-border bg-background-secondary/50 backdrop-blur-xl flex flex-col transition-all duration-200 ${isCollapsed ? 'w-20' : 'w-32'}`}>
-      {/* Logo Section */}
-      <div className="p-4 border-b border-border flex items-center justify-center">
+      {/* Logo Section - height matches header */}
+      <div className="h-16 border-b border-border flex items-center justify-center">
         <Image
           src="/metatools-logo-alt2.png"
           alt="MetaTools Logo"
-          width={isCollapsed ? 60 : 80}
-          height={isCollapsed ? 60 : 80}
+          width={isCollapsed ? 40 : 48}
+          height={isCollapsed ? 40 : 48}
           className="transition-all duration-200"
         />
       </div>
@@ -155,7 +155,7 @@ export function Sidebar() {
       {/* Collapse Toggle Button */}
       <button
         onClick={toggleCollapse}
-        className="absolute top-6 -right-3 w-6 h-6 rounded-full bg-background-secondary border border-border flex items-center justify-center hover:bg-primary/10 transition-colors z-10"
+        className="absolute top-5 -right-3 w-6 h-6 rounded-full bg-background-secondary border border-border flex items-center justify-center hover:bg-primary/10 transition-colors z-10"
         aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
       >
         <svg
