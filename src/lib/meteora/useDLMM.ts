@@ -1276,7 +1276,7 @@ export function useDLMM() {
       // PRE-FLIGHT CHECK: Verify pool activation point has passed
       console.log('Checking pool activation status...');
       await dlmmInstance.refetchStates(); // This updates the internal state
-      const lbPair = await dlmmInstance.getLbPair(); // Get the updated pool state
+      const lbPair = dlmmInstance.lbPair; // Access the pool state property directly
       const currentTimestamp = Math.floor(Date.now() / 1000);
 
       // Check if pool has an activation point and if it has passed
