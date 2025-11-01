@@ -181,6 +181,10 @@ export type Pool = {
   isUnreliable: boolean | undefined;
   updatedAt: string;
 
+  // Meteora-specific fields (fetched separately)
+  binStep?: number;
+  baseFee?: number; // in basis points
+
   baseAsset: {
     id: string;
     name: string;

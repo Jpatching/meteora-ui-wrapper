@@ -21,7 +21,7 @@ export function Header() {
       <div className="flex items-center gap-3">
         <Logo size="md" />
         <div className="h-6 w-px bg-border"></div>
-        <h2 className="text-lg font-bold gradient-text">Dashboard</h2>
+        <h2 className="text-lg font-bold gradient-text">Discover</h2>
       </div>
 
       {/* Right side - network selector and wallet */}
