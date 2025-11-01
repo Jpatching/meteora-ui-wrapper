@@ -12,6 +12,7 @@ export interface UseDLMMPoolsOptions {
   refetchInterval?: number | false;
   enabled?: boolean;
   sortBy?: 'liquidity' | 'volume' | 'apr' | 'fees';
+  limit?: number; // Limit number of pools to fetch
 }
 
 /**
@@ -23,13 +24,14 @@ export function useDLMMPools(options: UseDLMMPoolsOptions = {}) {
     refetchInterval = 60000, // 60 seconds default
     enabled = true,
     sortBy = 'liquidity',
+    limit = 100, // Default to top 100 pools
   } = options;
 
   return useQuery({
-    queryKey: ['dlmm-pools', network, sortBy],
+    queryKey: ['dlmm-pools', network, sortBy, limit],
     queryFn: async () => {
       try {
-        const pools = await fetchAllDLMMPools({ network });
+        const pools = await fetchAllDLMMPools({ network, limit });
         return sortPools(pools, sortBy);
       } catch (error) {
         console.error('🚨 useDLMMPools error:', error);
