@@ -198,14 +198,14 @@ export function useDBC() {
       const dbcClient = new DynamicBondingCurveClient(connection, 'confirmed');
 
       // Fetch pool state and config (required for swapQuote)
-      const poolAddress = await dbcClient.state.getPoolByBaseMint(baseMint);
-      if (!poolAddress) {
+      const poolAccount = await dbcClient.state.getPoolByBaseMint(baseMint);
+      if (!poolAccount) {
         throw new Error(`No DBC pool found for base mint ${baseMint.toBase58()}`);
       }
 
-      const virtualPoolState = await dbcClient.state.getPool(poolAddress);
+      const virtualPoolState = await dbcClient.state.getPool(poolAccount.pubkey);
       if (!virtualPoolState) {
-        throw new Error(`Failed to fetch pool state for address ${poolAddress.pubkey.toBase58()}`);
+        throw new Error(`Failed to fetch pool state for address ${poolAccount.pubkey.toBase58()}`);
       }
 
       const poolConfigState = await dbcClient.state.getPoolConfig(virtualPoolState.config);
@@ -237,7 +237,7 @@ export function useDBC() {
         amountIn,
         minimumAmountOut,
         owner: publicKey,
-        pool: poolAddress,
+        pool: poolAccount.pubkey,
         swapBaseForQuote,
         referralTokenAccount: params.referralTokenAccount ? new PublicKey(params.referralTokenAccount) : undefined,
       });
