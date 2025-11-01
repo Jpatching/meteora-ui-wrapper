@@ -88,7 +88,7 @@ export default function DiscoverPage() {
       ...transformDAMMPoolToPool(pool),
       // Keep original Meteora data for metadata display
       meteoraData: {
-        baseFeePercentage: '0.25', // DAMM standard fee
+        baseFeePercentage: (pool.base_fee || 0.25).toString(), // Use actual fee from API
         poolType: pool.version === 'v2' ? 'damm-v2' as const : 'damm-v1' as const,
       }
     }));

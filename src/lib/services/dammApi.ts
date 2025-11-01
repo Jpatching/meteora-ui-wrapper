@@ -5,12 +5,12 @@
 
 import { PublicKey } from '@solana/web3.js';
 
-// DAMM v2 API base URLs (from Meteora Telegram dev channel)
-// Source: https://t.me/meteora_dev/37
+// DAMM v2 API base URLs
+// Source: https://docs.meteora.ag/resources/meteora-apis
 const DAMM_V2_API_URLS = {
-  'mainnet-beta': 'https://amm-v2-api.meteora.ag',
-  'devnet': 'https://amm-v2-api.meteora.ag', // Use mainnet for now
-  'localhost': 'https://amm-v2-api.meteora.ag', // Use mainnet for now
+  'mainnet-beta': 'https://dammv2-api.meteora.ag',
+  'devnet': 'https://dammv2-api.devnet.meteora.ag',
+  'localhost': 'https://dammv2-api.meteora.ag', // Use mainnet for localhost
 };
 
 // DAMM v1 uses on-chain fetching (no dedicated API endpoint)
@@ -32,6 +32,7 @@ export interface DAMMPool {
   apy?: number;
   pool_type: 'stable' | 'non-stable';
   version: 'v1' | 'v2';
+  base_fee?: number; // Fee in percentage (e.g., 1.0 = 1%)
 }
 
 export interface FetchDAMMPoolsOptions {
@@ -41,9 +42,8 @@ export interface FetchDAMMPoolsOptions {
 
 /**
  * Fetch DAMM v2 pools from Meteora API
- * Official endpoint: https://amm-v2-api.meteora.ag/pools
- * Rate limit: 10 requests per second
- * Source: https://t.me/meteora_dev/37
+ * Official endpoint: https://dammv2-api.meteora.ag/pools
+ * Source: https://docs.meteora.ag/resources/meteora-apis
  */
 export async function fetchDAMMv2Pools(
   options: FetchDAMMPoolsOptions = {}
@@ -66,26 +66,29 @@ export async function fetchDAMMv2Pools(
       return [];
     }
 
-    const data = await response.json();
-    const pools = (data.pools || data || []).map((pool: any) => ({
-      pool_address: pool.pool_address || pool.address,
-      pool_name: pool.pool_name || pool.name || `${pool.token_a_symbol}-${pool.token_b_symbol}`,
-      token_a_mint: pool.token_a_mint || pool.token_a?.mint,
-      token_b_mint: pool.token_b_mint || pool.token_b?.mint,
-      token_a_symbol: pool.token_a_symbol || pool.token_a?.symbol,
-      token_b_symbol: pool.token_b_symbol || pool.token_b?.symbol,
-      token_a_amount: pool.token_a_amount || pool.token_a?.reserve || 0,
-      token_b_amount: pool.token_b_amount || pool.token_b?.reserve || 0,
+    const result = await response.json();
+
+    // API returns { data: [...], status: 'ok', total: N, pages: N, current_page: N }
+    const pools = (result.data || []).map((pool: any) => ({
+      pool_address: pool.pool_address,
+      pool_name: pool.pool_name || `${pool.token_a_symbol}-${pool.token_b_symbol}`,
+      token_a_mint: pool.token_a_mint,
+      token_b_mint: pool.token_b_mint,
+      token_a_symbol: pool.token_a_symbol,
+      token_b_symbol: pool.token_b_symbol,
+      token_a_amount: pool.token_a_amount || 0,
+      token_b_amount: pool.token_b_amount || 0,
       tvl: pool.tvl || 0,
-      volume_24h: pool.volume_24h || pool.trade_volume_24h || 0,
-      fees_24h: pool.fees_24h || pool.today_fees || 0,
+      volume_24h: pool.volume24h || 0,
+      fees_24h: pool.fee24h || 0,
       apr: pool.apr || 0,
-      apy: pool.apy || 0,
-      pool_type: pool.pool_type || (pool.is_stable ? 'stable' : 'non-stable'),
+      apy: 0, // Not provided by API
+      pool_type: pool.pool_type === 0 ? 'non-stable' : 'stable',
       version: 'v2' as const,
+      base_fee: pool.base_fee || 0.25, // Fee in percentage (e.g., 1.0 = 1%)
     }));
 
-    console.log(`✅ Fetched ${pools.length} DAMM v2 pools`);
+    console.log(`✅ Fetched ${pools.length} DAMM v2 pools from ${result.total} total`);
     return pools;
   } catch (error: any) {
     console.error('❌ Error fetching DAMM v2 pools:', error.message);
@@ -190,5 +193,6 @@ export function transformDAMMPoolToPool(dammPool: DAMMPool): any {
     apr: dammPool.apr,
     apy: dammPool.apy,
     fees24h: dammPool.fees_24h,
+    baseFee: dammPool.base_fee,
   };
 }
