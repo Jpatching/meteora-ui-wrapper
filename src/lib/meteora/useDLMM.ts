@@ -1492,14 +1492,18 @@ export function useDLMM() {
           let totalUnclaimedFeesBase = 0;
           let totalUnclaimedFeesQuote = 0;
 
+          // TokenReserve might have different property names depending on SDK version
+          const tokenXDecimals = (tokenX as any).decimals ?? (tokenX as any).decimal ?? 9;
+          const tokenYDecimals = (tokenY as any).decimals ?? (tokenY as any).decimal ?? 9;
+
           for (const position of lbPairPositionsData) {
             // Sum up amounts across all bins
-            totalBaseAmount += Number(position.positionData.totalXAmount) / Math.pow(10, tokenX.decimals);
-            totalQuoteAmount += Number(position.positionData.totalYAmount) / Math.pow(10, tokenY.decimals);
+            totalBaseAmount += Number(position.positionData.totalXAmount) / Math.pow(10, tokenXDecimals);
+            totalQuoteAmount += Number(position.positionData.totalYAmount) / Math.pow(10, tokenYDecimals);
 
             // Sum up unclaimed fees
-            totalUnclaimedFeesBase += Number(position.positionData.feeX) / Math.pow(10, tokenX.decimals);
-            totalUnclaimedFeesQuote += Number(position.positionData.feeY) / Math.pow(10, tokenY.decimals);
+            totalUnclaimedFeesBase += Number(position.positionData.feeX) / Math.pow(10, tokenXDecimals);
+            totalUnclaimedFeesQuote += Number(position.positionData.feeY) / Math.pow(10, tokenYDecimals);
           }
 
           userPositions.push({
@@ -1515,8 +1519,8 @@ export function useDLMM() {
             unclaimedFeesQuote: totalUnclaimedFeesQuote,
             binPositions: lbPairPositionsData.map((p) => ({
               binId: p.binId,
-              baseAmount: Number(p.positionData.totalXAmount) / Math.pow(10, tokenX.decimals),
-              quoteAmount: Number(p.positionData.totalYAmount) / Math.pow(10, tokenY.decimals),
+              baseAmount: Number(p.positionData.totalXAmount) / Math.pow(10, tokenXDecimals),
+              quoteAmount: Number(p.positionData.totalYAmount) / Math.pow(10, tokenYDecimals),
             })),
           });
         } catch (error) {
