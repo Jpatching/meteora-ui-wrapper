@@ -252,7 +252,7 @@ export default function DiscoverPage() {
         {!error && (
           <div className="flex-1 overflow-hidden bg-background flex">
               {/* Left: Token Column with Filter Bar */}
-              <div className="w-[35%] border-r border-border-light flex flex-col">
+              <div className="w-1/2 border-r border-border-light flex flex-col">
                 {/* Token Filter Bar */}
                 <div className="px-4 py-2 border-b border-border-light">
                   <div className="flex items-center justify-between gap-2">
