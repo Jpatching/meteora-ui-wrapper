@@ -142,12 +142,12 @@ export function Sidebar() {
   return (
     <aside className={`relative border-r border-border bg-background-secondary/50 backdrop-blur-xl flex flex-col transition-all duration-200 ${isCollapsed ? 'w-20' : 'w-32'}`}>
       {/* Logo Section */}
-      <div className="p-4 border-b border-border flex items-center justify-center">
+      <div className="p-3 border-b border-border flex items-center justify-center">
         <Image
           src="/metatools-logo-alt2.png"
           alt="MetaTools Logo"
-          width={isCollapsed ? 56 : 48}
-          height={isCollapsed ? 56 : 48}
+          width={isCollapsed ? 60 : 84}
+          height={isCollapsed ? 60 : 84}
           className="transition-all duration-200"
         />
       </div>
