@@ -27,8 +27,7 @@ export default function DiscoverPage() {
   const [poolSortBy, setPoolSortBy] = useState<PoolSortOption>('volume');
   const [viewMode, setViewMode] = useState<ViewMode>('pair');
   const [showChartModal, setShowChartModal] = useState(false);
-  const [tokenSearchTerm, setTokenSearchTerm] = useState('');
-  const [poolSearchTerm, setPoolSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(''); // Unified search for both tokens and pools
   const [minLiquidity, setMinLiquidity] = useState<string>('');
   const [maxLiquidity, setMaxLiquidity] = useState<string>('');
   const [minMarketCap, setMinMarketCap] = useState<string>('');
@@ -237,7 +236,7 @@ export default function DiscoverPage() {
   }, [filteredPools, selectedPool]);
 
   return (
-    <MainLayout>
+    <MainLayout searchTerm={searchTerm} onSearchChange={setSearchTerm}>
       <div className="h-[calc(100vh-80px)] flex flex-col">
 
         {/* Error State */}
@@ -284,25 +283,18 @@ export default function DiscoverPage() {
                     {/* Filters Row */}
                     <div className="flex items-center gap-2">
                       <input
-                        type="text"
-                        placeholder="Search tokens..."
-                        value={tokenSearchTerm}
-                        onChange={(e) => setTokenSearchTerm(e.target.value)}
-                        className="flex-1 px-2 py-1 bg-background-secondary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-foreground-muted"
-                      />
-                      <input
                         type="number"
-                        placeholder="Min Liq"
+                        placeholder="Min Liquidity"
                         value={minLiquidity}
                         onChange={(e) => setMinLiquidity(e.target.value)}
-                        className="w-20 px-2 py-1 bg-background-secondary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-foreground-muted"
+                        className="flex-1 px-3 py-1.5 bg-background-secondary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-foreground-muted"
                       />
                       <input
                         type="number"
-                        placeholder="Max Liq"
+                        placeholder="Max Liquidity"
                         value={maxLiquidity}
                         onChange={(e) => setMaxLiquidity(e.target.value)}
-                        className="w-20 px-2 py-1 bg-background-secondary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-foreground-muted"
+                        className="flex-1 px-3 py-1.5 bg-background-secondary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-foreground-muted"
                       />
                     </div>
                   </div>
@@ -320,9 +312,9 @@ export default function DiscoverPage() {
                   ) : (
                     <TokenTable
                       tokens={filteredTokens.filter(token =>
-                        tokenSearchTerm
-                          ? token.symbol.toLowerCase().includes(tokenSearchTerm.toLowerCase()) ||
-                            token.name.toLowerCase().includes(tokenSearchTerm.toLowerCase())
+                        searchTerm
+                          ? token.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            token.name.toLowerCase().includes(searchTerm.toLowerCase())
                           : true
                       )}
                       onTokenClick={(token) => {
@@ -359,7 +351,7 @@ export default function DiscoverPage() {
                       ))}
                     </div>
 
-                    {/* Sort and Search Row */}
+                    {/* Sort and Pool Count Row */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <span className="text-foreground-muted text-xs">Sort:</span>
@@ -374,19 +366,10 @@ export default function DiscoverPage() {
                           <option value="feeTV">Fee/TV</option>
                         </select>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <div className="px-2 py-1 bg-background-secondary rounded-lg border border-border-light">
-                          <span className="text-xs font-medium text-foreground-muted">
-                            {filteredPools.length} pools
-                          </span>
-                        </div>
-                        <input
-                          type="text"
-                          placeholder="Search pools..."
-                          value={poolSearchTerm}
-                          onChange={(e) => setPoolSearchTerm(e.target.value)}
-                          className="px-3 py-1.5 bg-background-secondary border border-border-light rounded-lg text-sm text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-foreground-muted w-48"
-                        />
+                      <div className="px-2 py-1 bg-background-secondary rounded-lg border border-border-light">
+                        <span className="text-xs font-medium text-foreground-muted">
+                          {filteredPools.length} pools
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -404,9 +387,9 @@ export default function DiscoverPage() {
                   ) : (
                     <PoolTable
                       pools={filteredPools.filter(pool =>
-                        poolSearchTerm
-                          ? pool.baseAsset.symbol.toLowerCase().includes(poolSearchTerm.toLowerCase()) ||
-                            pool.baseAsset.name.toLowerCase().includes(poolSearchTerm.toLowerCase())
+                        searchTerm
+                          ? pool.baseAsset.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            pool.baseAsset.name.toLowerCase().includes(searchTerm.toLowerCase())
                           : true
                       )}
                       onPoolClick={(pool) => {
