@@ -15,17 +15,24 @@ import { useAllPublicPools } from '@/lib/hooks/usePublicPools';
 import { Pool } from '@/lib/jupiter/types';
 
 type ProtocolFilter = 'all' | 'dlmm' | 'damm-v1' | 'damm-v2' | 'dbc' | 'alpha';
-type SortOption = 'volume' | 'liquidity' | 'holders' | 'txs';
+type TokenSortOption = 'volume' | 'liquidity' | 'holders' | 'txs' | 'marketCap';
+type PoolSortOption = 'volume' | 'liquidity' | 'fees' | 'feeTV';
 type ViewMode = 'token' | 'pair';
 
 export default function DiscoverPage() {
   const router = useRouter();
   const [selectedPool, setSelectedPool] = useState<Pool | null>(null);
   const [protocolFilter, setProtocolFilter] = useState<ProtocolFilter>('all');
-  const [sortBy, setSortBy] = useState<SortOption>('volume');
+  const [tokenSortBy, setTokenSortBy] = useState<TokenSortOption>('volume');
+  const [poolSortBy, setPoolSortBy] = useState<PoolSortOption>('volume');
   const [viewMode, setViewMode] = useState<ViewMode>('pair');
   const [showChartModal, setShowChartModal] = useState(false);
-  const [tableSearchTerm, setTableSearchTerm] = useState('');
+  const [tokenSearchTerm, setTokenSearchTerm] = useState('');
+  const [poolSearchTerm, setPoolSearchTerm] = useState('');
+  const [minLiquidity, setMinLiquidity] = useState<string>('');
+  const [maxLiquidity, setMaxLiquidity] = useState<string>('');
+  const [minMarketCap, setMinMarketCap] = useState<string>('');
+  const [maxMarketCap, setMaxMarketCap] = useState<string>('');
   const [poolsWithDetails, setPoolsWithDetails] = useState<Map<string, { binStep?: number; baseFee?: number }>>(new Map());
 
   // Fetch all public pools - DISABLED auto-refresh to prevent rapid polling
@@ -145,7 +152,7 @@ export default function DiscoverPage() {
     return Array.from(tokenMap.values());
   }, [allPools]);
 
-  // Apply filters and sorting
+  // Apply filters and sorting to pools
   const filteredPools = useMemo(() => {
     let filtered = allPools;
 
@@ -161,46 +168,57 @@ export default function DiscoverPage() {
       });
     }
 
-    // Sort
+    // Sort pools
     filtered.sort((a, b) => {
-      if (sortBy === 'volume') return (b.volume24h || 0) - (a.volume24h || 0);
-      if (sortBy === 'liquidity') return (b.baseAsset.liquidity || 0) - (a.baseAsset.liquidity || 0);
-      if (sortBy === 'holders') return (b.baseAsset.holderCount || 0) - (a.baseAsset.holderCount || 0);
-      if (sortBy === 'txs') {
-        const aTxs = (a.baseAsset.stats24h?.numBuys || 0) + (a.baseAsset.stats24h?.numSells || 0);
-        const bTxs = (b.baseAsset.stats24h?.numBuys || 0) + (b.baseAsset.stats24h?.numSells || 0);
-        return bTxs - aTxs;
+      if (poolSortBy === 'volume') return (b.volume24h || 0) - (a.volume24h || 0);
+      if (poolSortBy === 'liquidity') return (b.baseAsset.liquidity || 0) - (a.baseAsset.liquidity || 0);
+      if (poolSortBy === 'fees') {
+        const aFees = (a.baseAsset.stats24h?.fees || 0);
+        const bFees = (b.baseAsset.stats24h?.fees || 0);
+        return bFees - aFees;
+      }
+      if (poolSortBy === 'feeTV') {
+        const aFeeTV = (a.baseAsset.stats24h?.fees || 0) / (a.baseAsset.liquidity || 1);
+        const bFeeTV = (b.baseAsset.stats24h?.fees || 0) / (b.baseAsset.liquidity || 1);
+        return bFeeTV - aFeeTV;
       }
       return 0;
     });
 
     return filtered;
-  }, [allPools, protocolFilter, sortBy]);
+  }, [allPools, protocolFilter, poolSortBy]);
 
   // Apply filters and sorting to tokens
   const filteredTokens = useMemo(() => {
     let filtered = aggregatedTokens;
 
-    // Protocol filter for tokens (filter by any pool matching the protocol)
-    if (protocolFilter !== 'all') {
-      filtered = filtered.filter((token) => {
-        return token.pools.some((pool) => {
-          if (protocolFilter === 'dbc') return pool.baseAsset.launchpad === 'met-dbc';
-          if (protocolFilter === 'dlmm') return pool.type === 'dlmm';
-          if (protocolFilter === 'damm-v1') return pool.type === 'damm-v1' || pool.type === 'damm';
-          if (protocolFilter === 'damm-v2') return pool.type === 'damm-v2';
-          if (protocolFilter === 'alpha') return pool.type === 'alpha-vault';
-          return true;
-        });
-      });
+    // Min/Max Liquidity filter
+    if (minLiquidity) {
+      const minLiq = parseFloat(minLiquidity);
+      filtered = filtered.filter(token => token.totalLiquidity >= minLiq);
+    }
+    if (maxLiquidity) {
+      const maxLiq = parseFloat(maxLiquidity);
+      filtered = filtered.filter(token => token.totalLiquidity <= maxLiq);
     }
 
-    // Sort
+    // Min/Max Market Cap filter (using liquidity as proxy for now)
+    if (minMarketCap) {
+      const minMC = parseFloat(minMarketCap);
+      filtered = filtered.filter(token => token.totalLiquidity >= minMC);
+    }
+    if (maxMarketCap) {
+      const maxMC = parseFloat(maxMarketCap);
+      filtered = filtered.filter(token => token.totalLiquidity <= maxMC);
+    }
+
+    // Sort tokens
     filtered.sort((a, b) => {
-      if (sortBy === 'volume') return b.totalVolume24h - a.totalVolume24h;
-      if (sortBy === 'liquidity') return b.totalLiquidity - a.totalLiquidity;
-      if (sortBy === 'holders') return b.holders - a.holders;
-      if (sortBy === 'txs') {
+      if (tokenSortBy === 'volume') return b.totalVolume24h - a.totalVolume24h;
+      if (tokenSortBy === 'liquidity') return b.totalLiquidity - a.totalLiquidity;
+      if (tokenSortBy === 'marketCap') return b.totalLiquidity - a.totalLiquidity; // Using liquidity as proxy
+      if (tokenSortBy === 'holders') return b.holders - a.holders;
+      if (tokenSortBy === 'txs') {
         const aTxs = a.pools.reduce((sum, p) => sum + (p.baseAsset.stats24h?.numBuys || 0) + (p.baseAsset.stats24h?.numSells || 0), 0);
         const bTxs = b.pools.reduce((sum, p) => sum + (p.baseAsset.stats24h?.numBuys || 0) + (p.baseAsset.stats24h?.numSells || 0), 0);
         return bTxs - aTxs;
@@ -209,7 +227,7 @@ export default function DiscoverPage() {
     });
 
     return filtered;
-  }, [aggregatedTokens, protocolFilter, sortBy]);
+  }, [aggregatedTokens, tokenSortBy, minLiquidity, maxLiquidity, minMarketCap, maxMarketCap]);
 
   // Auto-select first pool
   useEffect(() => {
@@ -234,13 +252,97 @@ export default function DiscoverPage() {
 
         {/* Split Layout - Tokens (Left) + Pools (Right) */}
         {!error && (
-          <div className="flex-1 overflow-hidden bg-background flex flex-col">
-              {/* Clean Filter Bar - Minimal Spacing */}
-              <div className="px-6 py-2 border-b border-border-light">
-                <div className="flex items-center justify-between gap-6">
-                  {/* Left: Protocol Filters */}
-                  <div className="flex items-center gap-4">
-                    {/* Protocol Filters */}
+          <div className="flex-1 overflow-hidden bg-background flex">
+              {/* Left: Token Column with Filter Bar */}
+              <div className="w-[40%] border-r border-border-light flex flex-col">
+                {/* Token Filter Bar */}
+                <div className="px-4 py-2 border-b border-border-light">
+                  <div className="flex flex-col gap-2">
+                    {/* Sort and Search Row */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-foreground-muted text-xs">Sort:</span>
+                        <select
+                          value={tokenSortBy}
+                          onChange={(e) => setTokenSortBy(e.target.value as TokenSortOption)}
+                          className="bg-background-secondary border border-border-light rounded-lg px-2 py-1 text-foreground text-xs focus:outline-none focus:border-foreground-muted cursor-pointer"
+                        >
+                          <option value="volume">Volume</option>
+                          <option value="liquidity">Liquidity</option>
+                          <option value="marketCap">Market Cap</option>
+                          <option value="holders">Holders</option>
+                          <option value="txs">Transactions</option>
+                        </select>
+                      </div>
+                      <div className="px-2 py-1 bg-background-secondary rounded-lg border border-border-light">
+                        <span className="text-xs font-medium text-foreground-muted">
+                          {filteredTokens.length} tokens
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Filters Row */}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="Search tokens..."
+                        value={tokenSearchTerm}
+                        onChange={(e) => setTokenSearchTerm(e.target.value)}
+                        className="flex-1 px-2 py-1 bg-background-secondary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-foreground-muted"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Min Liq"
+                        value={minLiquidity}
+                        onChange={(e) => setMinLiquidity(e.target.value)}
+                        className="w-20 px-2 py-1 bg-background-secondary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-foreground-muted"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Max Liq"
+                        value={maxLiquidity}
+                        onChange={(e) => setMaxLiquidity(e.target.value)}
+                        className="w-20 px-2 py-1 bg-background-secondary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-foreground-muted"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Token Table */}
+                <div className="flex-1 overflow-auto">
+                  {isLoading ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-center">
+                        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                        <p className="text-foreground-muted text-sm">Loading tokens...</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <TokenTable
+                      tokens={filteredTokens.filter(token =>
+                        tokenSearchTerm
+                          ? token.symbol.toLowerCase().includes(tokenSearchTerm.toLowerCase()) ||
+                            token.name.toLowerCase().includes(tokenSearchTerm.toLowerCase())
+                          : true
+                      )}
+                      onTokenClick={(token) => {
+                        // When clicking a token, navigate to its primary pool (highest volume)
+                        const primaryPool = token.pools.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0))[0];
+                        if (primaryPool) {
+                          router.push(`/pool/${primaryPool.id}`);
+                        }
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Right: Pool Column with Filter Bar */}
+              <div className="flex-1 flex flex-col">
+                {/* Pool Filter Bar */}
+                <div className="px-4 py-2 border-b border-border-light">
+                  <div className="flex flex-col gap-2">
+                    {/* Protocol Filters Row */}
                     <div className="flex items-center gap-1">
                       {(['all', 'dlmm', 'damm-v1', 'damm-v2', 'dbc', 'alpha'] as ProtocolFilter[]).map((filter) => (
                         <button
@@ -256,108 +358,63 @@ export default function DiscoverPage() {
                         </button>
                       ))}
                     </div>
+
+                    {/* Sort and Search Row */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-foreground-muted text-xs">Sort:</span>
+                        <select
+                          value={poolSortBy}
+                          onChange={(e) => setPoolSortBy(e.target.value as PoolSortOption)}
+                          className="bg-background-secondary border border-border-light rounded-lg px-2 py-1 text-foreground text-xs focus:outline-none focus:border-foreground-muted cursor-pointer"
+                        >
+                          <option value="volume">Volume</option>
+                          <option value="liquidity">Liquidity</option>
+                          <option value="fees">Fees</option>
+                          <option value="feeTV">Fee/TV</option>
+                        </select>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="px-2 py-1 bg-background-secondary rounded-lg border border-border-light">
+                          <span className="text-xs font-medium text-foreground-muted">
+                            {filteredPools.length} pools
+                          </span>
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="Search pools..."
+                          value={poolSearchTerm}
+                          onChange={(e) => setPoolSearchTerm(e.target.value)}
+                          className="px-3 py-1.5 bg-background-secondary border border-border-light rounded-lg text-sm text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-foreground-muted w-48"
+                        />
+                      </div>
+                    </div>
                   </div>
+                </div>
 
-                  {/* Right: Sort + Count + Search */}
-                  <div className="flex items-center gap-3">
-                    {/* Sort Dropdown */}
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="text-foreground-muted text-xs">Sort:</span>
-                      <select
-                        value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value as SortOption)}
-                        className="bg-background-secondary border border-border-light rounded-lg px-2 py-1 text-foreground text-xs focus:outline-none focus:border-foreground-muted cursor-pointer"
-                      >
-                        <option value="volume">Volume</option>
-                        <option value="liquidity">Liquidity</option>
-                        <option value="holders">Holders</option>
-                        <option value="txs">Transactions</option>
-                      </select>
-                    </div>
-
-                    {/* Counts */}
-                    <div className="flex items-center gap-2">
-                      <div className="px-2 py-1 bg-background-secondary rounded-lg border border-border-light">
-                        <span className="text-xs font-medium text-foreground-muted">
-                          {filteredTokens.length} tokens
-                        </span>
-                      </div>
-                      <div className="px-2 py-1 bg-background-secondary rounded-lg border border-border-light">
-                        <span className="text-xs font-medium text-foreground-muted">
-                          {filteredPools.length} pools
-                        </span>
+                {/* Pool Table */}
+                <div className="flex-1 overflow-auto">
+                  {isLoading ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-center">
+                        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                        <p className="text-foreground-muted text-sm">Loading pools...</p>
                       </div>
                     </div>
-
-                    {/* Search */}
-                    <input
-                      type="text"
-                      placeholder="Search..."
-                      value={tableSearchTerm}
-                      onChange={(e) => setTableSearchTerm(e.target.value)}
-                      className="px-3 py-1.5 bg-background-secondary border border-border-light rounded-lg text-sm text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-foreground-muted w-48"
+                  ) : (
+                    <PoolTable
+                      pools={filteredPools.filter(pool =>
+                        poolSearchTerm
+                          ? pool.baseAsset.symbol.toLowerCase().includes(poolSearchTerm.toLowerCase()) ||
+                            pool.baseAsset.name.toLowerCase().includes(poolSearchTerm.toLowerCase())
+                          : true
+                      )}
+                      onPoolClick={(pool) => {
+                        // Navigate to pool detail page instead of showing modal
+                        router.push(`/pool/${pool.id}`);
+                      }}
                     />
-                  </div>
-                </div>
-              </div>
-
-              {/* Split View - Tokens + Pools Side-by-Side */}
-              <div className="flex-1 flex overflow-hidden">
-                {/* Left: Token Table */}
-                <div className="w-[40%] border-r border-border-light flex flex-col">
-                  <div className="flex-1 overflow-auto">
-                    {isLoading ? (
-                      <div className="flex items-center justify-center h-full">
-                        <div className="text-center">
-                          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                          <p className="text-foreground-muted text-sm">Loading tokens...</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <TokenTable
-                        tokens={filteredTokens.filter(token =>
-                          tableSearchTerm
-                            ? token.symbol.toLowerCase().includes(tableSearchTerm.toLowerCase()) ||
-                              token.name.toLowerCase().includes(tableSearchTerm.toLowerCase())
-                            : true
-                        )}
-                        onTokenClick={(token) => {
-                          // When clicking a token, navigate to its primary pool (highest volume)
-                          const primaryPool = token.pools.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0))[0];
-                          if (primaryPool) {
-                            router.push(`/pool/${primaryPool.id}`);
-                          }
-                        }}
-                      />
-                    )}
-                  </div>
-                </div>
-
-                {/* Right: Pool Table */}
-                <div className="flex-1 flex flex-col">
-                  <div className="flex-1 overflow-auto">
-                    {isLoading ? (
-                      <div className="flex items-center justify-center h-full">
-                        <div className="text-center">
-                          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                          <p className="text-foreground-muted text-sm">Loading pools...</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <PoolTable
-                        pools={filteredPools.filter(pool =>
-                          tableSearchTerm
-                            ? pool.baseAsset.symbol.toLowerCase().includes(tableSearchTerm.toLowerCase()) ||
-                              pool.baseAsset.name.toLowerCase().includes(tableSearchTerm.toLowerCase())
-                            : true
-                        )}
-                        onPoolClick={(pool) => {
-                          // Navigate to pool detail page instead of showing modal
-                          router.push(`/pool/${pool.id}`);
-                        }}
-                      />
-                    )}
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
