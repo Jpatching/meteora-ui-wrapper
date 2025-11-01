@@ -203,9 +203,16 @@ export function useDBC() {
         throw new Error(`No DBC pool found for base mint ${baseMint.toBase58()}`);
       }
 
-      const virtualPoolState = await dbcClient.state.getPool(poolAccount.pubkey);
+      // ProgramAccount contains the account data directly, and publicKey property
+      const poolPublicKey = (poolAccount as any).publicKey || (poolAccount as any).pubkey;
+      if (!poolPublicKey) {
+        console.error('Pool account structure:', poolAccount);
+        throw new Error(`Unable to extract public key from pool account`);
+      }
+
+      const virtualPoolState = await dbcClient.state.getPool(poolPublicKey);
       if (!virtualPoolState) {
-        throw new Error(`Failed to fetch pool state for address ${poolAccount.pubkey.toBase58()}`);
+        throw new Error(`Failed to fetch pool state for address ${poolPublicKey.toBase58()}`);
       }
 
       const poolConfigState = await dbcClient.state.getPoolConfig(virtualPoolState.config);
@@ -237,7 +244,7 @@ export function useDBC() {
         amountIn,
         minimumAmountOut,
         owner: publicKey,
-        pool: poolAccount.pubkey,
+        pool: poolPublicKey,
         swapBaseForQuote,
         referralTokenAccount: params.referralTokenAccount ? new PublicKey(params.referralTokenAccount) : undefined,
       });
