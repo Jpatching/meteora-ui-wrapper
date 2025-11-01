@@ -1275,12 +1275,13 @@ export function useDLMM() {
 
       // PRE-FLIGHT CHECK: Verify pool activation point has passed
       console.log('Checking pool activation status...');
-      const poolState = await dlmmInstance.refetchStates();
+      await dlmmInstance.refetchStates(); // This updates the internal state
+      const lbPair = await dlmmInstance.getLbPair(); // Get the updated pool state
       const currentTimestamp = Math.floor(Date.now() / 1000);
 
       // Check if pool has an activation point and if it has passed
-      if (poolState.activationPoint && poolState.activationPoint.toNumber() > 0) {
-        const activationTime = poolState.activationPoint.toNumber();
+      if (lbPair.activationPoint && lbPair.activationPoint.toNumber() > 0) {
+        const activationTime = lbPair.activationPoint.toNumber();
         if (currentTimestamp < activationTime) {
           const timeUntilActivation = activationTime - currentTimestamp;
           const hoursUntil = Math.floor(timeUntilActivation / 3600);
@@ -1300,7 +1301,7 @@ export function useDLMM() {
       }
 
       // PRE-FLIGHT CHECK: Verify wallet is the pool creator (if creator control enabled)
-      const lbPair = await dlmmInstance.getLbPair();
+      // lbPair already fetched above
       console.log('Pool creator:', lbPair.creator.toString());
       console.log('Connected wallet:', publicKey.toString());
       console.log('Creator control enabled:', lbPair.creatorPoolOnOffControl);
