@@ -251,7 +251,7 @@ export function useDBC() {
         owner: publicKey,
         pool: poolPublicKey,
         swapBaseForQuote,
-        referralTokenAccount: params.referralTokenAccount ? new PublicKey(params.referralTokenAccount) : undefined,
+        referralTokenAccount: params.referralTokenAccount ? new PublicKey(params.referralTokenAccount) : null,
       });
 
       tx.instructions.unshift(
