@@ -1494,12 +1494,12 @@ export function useDLMM() {
 
           for (const position of lbPairPositionsData) {
             // Sum up amounts across all bins
-            totalBaseAmount += Number(position.positionData.totalXAmount) / Math.pow(10, tokenX.decimal);
-            totalQuoteAmount += Number(position.positionData.totalYAmount) / Math.pow(10, tokenY.decimal);
+            totalBaseAmount += Number(position.positionData.totalXAmount) / Math.pow(10, tokenX.decimals);
+            totalQuoteAmount += Number(position.positionData.totalYAmount) / Math.pow(10, tokenY.decimals);
 
             // Sum up unclaimed fees
-            totalUnclaimedFeesBase += Number(position.positionData.feeX) / Math.pow(10, tokenX.decimal);
-            totalUnclaimedFeesQuote += Number(position.positionData.feeY) / Math.pow(10, tokenY.decimal);
+            totalUnclaimedFeesBase += Number(position.positionData.feeX) / Math.pow(10, tokenX.decimals);
+            totalUnclaimedFeesQuote += Number(position.positionData.feeY) / Math.pow(10, tokenY.decimals);
           }
 
           userPositions.push({
@@ -1515,8 +1515,8 @@ export function useDLMM() {
             unclaimedFeesQuote: totalUnclaimedFeesQuote,
             binPositions: lbPairPositionsData.map((p) => ({
               binId: p.binId,
-              baseAmount: Number(p.positionData.totalXAmount) / Math.pow(10, tokenX.decimal),
-              quoteAmount: Number(p.positionData.totalYAmount) / Math.pow(10, tokenY.decimal),
+              baseAmount: Number(p.positionData.totalXAmount) / Math.pow(10, tokenX.decimals),
+              quoteAmount: Number(p.positionData.totalYAmount) / Math.pow(10, tokenY.decimals),
             })),
           });
         } catch (error) {
