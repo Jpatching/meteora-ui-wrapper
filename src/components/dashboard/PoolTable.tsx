@@ -174,7 +174,7 @@ export function PoolTable({ pools, onPoolClick, sortBy, onSortChange }: PoolTabl
                         </span>
                       </div>
                       <div>
-                        <PoolMetadataDisplay poolAddress={pool.id} poolType={pool.type} />
+                        <PoolMetadataDisplay meteoraData={(pool as any).meteoraData} />
                       </div>
                     </div>
                   </div>

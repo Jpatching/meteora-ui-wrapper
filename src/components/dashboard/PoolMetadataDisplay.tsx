@@ -1,56 +1,43 @@
 /**
  * Component to display pool metadata (binStep, baseFee)
- * Fetches REAL data from Meteora APIs
+ * Now receives REAL data directly from Meteora API via pool object
  */
 
 'use client';
 
-import { useEffect, useState } from 'react';
-import { getPoolMetadata, formatPoolMetadata, PoolMetadata } from '@/lib/services/meteoraPoolMetadata';
-
 interface PoolMetadataDisplayProps {
-  poolAddress: string;
-  poolType: string;
+  meteoraData?: {
+    binStep?: number;
+    baseFeePercentage?: string;
+    poolType: 'dlmm' | 'damm-v1' | 'damm-v2';
+  };
 }
 
-export function PoolMetadataDisplay({ poolAddress, poolType }: PoolMetadataDisplayProps) {
-  const [metadata, setMetadata] = useState<PoolMetadata | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function fetchData() {
-      try {
-        const poolMetadata = await getPoolMetadata(poolAddress);
-        if (mounted) {
-          setMetadata(poolMetadata);
-          setIsLoading(false);
-        }
-      } catch (error) {
-        console.error(`Failed to fetch metadata for ${poolAddress}:`, error);
-        if (mounted) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    fetchData();
-
-    return () => {
-      mounted = false;
-    };
-  }, [poolAddress]);
-
-  if (isLoading) {
-    return <span className="text-[10px] text-foreground-muted/50">...</span>;
+export function PoolMetadataDisplay({ meteoraData }: PoolMetadataDisplayProps) {
+  if (!meteoraData) {
+    return <span className="text-[10px] text-foreground-muted/50">-</span>;
   }
 
-  const display = formatPoolMetadata(metadata);
+  const { binStep, baseFeePercentage, poolType } = meteoraData;
 
-  return (
-    <span className="text-[10px] text-foreground-muted/70">
-      {display}
-    </span>
-  );
+  // Format display based on pool type
+  if (poolType === 'dlmm' && binStep !== undefined && baseFeePercentage !== undefined) {
+    const feePercent = parseFloat(baseFeePercentage);
+    return (
+      <span className="text-[10px] text-foreground-muted/70">
+        binStep: {binStep} | fee: {feePercent.toFixed(2)}%
+      </span>
+    );
+  }
+
+  if (baseFeePercentage !== undefined) {
+    const feePercent = parseFloat(baseFeePercentage);
+    return (
+      <span className="text-[10px] text-foreground-muted/70">
+        fee: {feePercent.toFixed(2)}%
+      </span>
+    );
+  }
+
+  return <span className="text-[10px] text-foreground-muted/50">-</span>;
 }

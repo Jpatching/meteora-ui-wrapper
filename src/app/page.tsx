@@ -12,6 +12,10 @@ import { PoolTable } from '@/components/dashboard/PoolTable';
 import { TokenTable, type TokenData } from '@/components/dashboard/TokenTable';
 import { ChartDetailsPanel } from '@/components/dashboard/ChartDetailsPanel';
 import { useAllPublicPools } from '@/lib/hooks/usePublicPools';
+import { useDLMMPools } from '@/lib/hooks/useDLMMPools';
+import { useDAMMPools } from '@/lib/hooks/useDAMMPools';
+import { transformMeteoraPoolToPool } from '@/lib/services/meteoraApi';
+import { transformDAMMPoolToPool } from '@/lib/services/dammApi';
 import { Pool } from '@/lib/jupiter/types';
 
 type ProtocolFilter = 'all' | 'dlmm' | 'damm-v1' | 'damm-v2' | 'dbc' | 'alpha';
@@ -33,100 +37,73 @@ export default function DiscoverPage() {
   const [maxLiquidity, setMaxLiquidity] = useState<string>('');
   const [minMarketCap, setMinMarketCap] = useState<string>('');
   const [maxMarketCap, setMaxMarketCap] = useState<string>('');
-  const [poolsWithDetails, setPoolsWithDetails] = useState<Map<string, { binStep?: number; baseFee?: number }>>(new Map());
 
-  // Fetch all public pools - DISABLED auto-refresh to prevent rapid polling
-  const { data, isLoading, error } = useAllPublicPools({
+  // Fetch Jupiter pools for TOKEN aggregation (LEFT SIDE)
+  const { data: jupiterData, isLoading: isLoadingJupiter, error: jupiterError } = useAllPublicPools({
     timeframe: '24h',
     refetchInterval: false, // Disabled - manual refresh only
   });
 
-  // Combine and filter pools
-  const allPools = useMemo(() => {
+  // Fetch Meteora DLMM pools (RIGHT SIDE)
+  const { data: dlmmPools = [], isLoading: isLoadingDLMM } = useDLMMPools({
+    refetchInterval: false,
+    sortBy: 'liquidity',
+  });
+
+  // Fetch Meteora DAMM pools (RIGHT SIDE)
+  const { data: dammPools = [], isLoading: isLoadingDAMM } = useDAMMPools({
+    refetchInterval: false,
+    version: 'all',
+  });
+
+  // Combine Jupiter pools for TOKEN view (LEFT SIDE ONLY)
+  const jupiterPools = useMemo(() => {
     const combined = [
-      ...(data?.recent?.pools || []),
-      ...(data?.aboutToGraduate?.pools || []),
-      ...(data?.graduated?.pools || []),
+      ...(jupiterData?.recent?.pools || []),
+      ...(jupiterData?.aboutToGraduate?.pools || []),
+      ...(jupiterData?.graduated?.pools || []),
     ];
 
-    // Remove duplicates and enrich with fetched details
-    const uniquePools = Array.from(
+    // Remove duplicates
+    return Array.from(
       new Map(combined.map(pool => [pool.id, pool])).values()
     );
+  }, [jupiterData]);
 
-    // Add fetched details to pools
-    return uniquePools.map(pool => {
-      const details = poolsWithDetails.get(pool.id);
-      if (details) {
-        return { ...pool, ...details };
+  // Transform and combine Meteora pools for POOL view (RIGHT SIDE)
+  const meteoraPools = useMemo(() => {
+    // Transform DLMM pools to Pool format
+    const dlmmTransformed = dlmmPools.map(pool => ({
+      ...transformMeteoraPoolToPool(pool),
+      // Keep original Meteora data for metadata display
+      meteoraData: {
+        binStep: pool.bin_step,
+        baseFeePercentage: pool.base_fee_percentage,
+        poolType: 'dlmm' as const,
       }
-      return pool;
-    });
-  }, [data, poolsWithDetails]);
+    }));
 
-  // Fetch REAL pool details (binStep, baseFee) from Meteora SDK
-  useEffect(() => {
-    async function fetchDetails() {
-      const pools = [
-        ...(data?.recent?.pools || []),
-        ...(data?.aboutToGraduate?.pools || []),
-        ...(data?.graduated?.pools || []),
-      ];
-
-      // Get unique Meteora pools that need details
-      const meteoraPools = Array.from(
-        new Map(pools.map(pool => [pool.id, pool])).values()
-      ).filter(pool => pool.type === 'dlmm' || pool.type.startsWith('damm'));
-
-      // Skip if no Meteora pools to fetch
-      if (meteoraPools.length === 0) {
-        return;
+    // Transform DAMM pools to Pool format
+    const dammTransformed = dammPools.map(pool => ({
+      ...transformDAMMPoolToPool(pool),
+      // Keep original Meteora data for metadata display
+      meteoraData: {
+        baseFeePercentage: '0.25', // DAMM standard fee
+        poolType: pool.version === 'v2' ? 'damm-v2' as const : 'damm-v1' as const,
       }
+    }));
 
-      console.log(`🚀 Fetching details for ALL ${meteoraPools.length} Meteora pools in ONE request...`);
+    // Combine all Meteora pools
+    return [...dlmmTransformed, ...dammTransformed];
+  }, [dlmmPools, dammPools]);
 
-      // Fetch ALL pools in ONE bulk request - instant like charting.ag!
-      const poolsPayload = meteoraPools.map(pool => ({
-        poolAddress: pool.id,
-        poolType: pool.type,
-      }));
+  // No need to fetch pool details separately - Meteora API provides them!
 
-      try {
-        const response = await fetch('/api/pool-details', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pools: poolsPayload }),
-        });
-
-        const result = await response.json();
-
-        if (result.success && result.detailsMap) {
-          // Update all pools at once
-          const newDetailsMap = new Map(poolsWithDetails);
-          Object.entries(result.detailsMap).forEach(([poolId, details]: [string, any]) => {
-            if (details && (details.binStep || details.baseFee)) {
-              newDetailsMap.set(poolId, details);
-            }
-          });
-          setPoolsWithDetails(newDetailsMap);
-          console.log(`✅ Loaded REAL data for ${newDetailsMap.size} pools instantly!`);
-        }
-      } catch (error) {
-        console.error('❌ Failed to bulk fetch pool details:', error);
-      }
-    }
-
-    // Only fetch if we have data and haven't fetched details yet
-    if (data && poolsWithDetails.size === 0) {
-      fetchDetails();
-    }
-  }, [data]); // Removed poolsWithDetails from deps to prevent infinite loop
-
-  // Aggregate pools by token (for Token view)
+  // Aggregate Jupiter pools by token (for Token view - LEFT SIDE)
   const aggregatedTokens = useMemo(() => {
     const tokenMap = new Map<string, TokenData>();
 
-    allPools.forEach(pool => {
+    jupiterPools.forEach(pool => {
       const tokenId = pool.baseAsset.id;
 
       if (!tokenMap.has(tokenId)) {
@@ -150,11 +127,11 @@ export default function DiscoverPage() {
     });
 
     return Array.from(tokenMap.values());
-  }, [allPools]);
+  }, [jupiterPools]);
 
-  // Apply filters and sorting to pools
+  // Apply filters and sorting to Meteora pools (RIGHT SIDE)
   const filteredPools = useMemo(() => {
-    let filtered = allPools;
+    let filtered = meteoraPools;
 
     // Protocol filter
     if (protocolFilter !== 'all') {
@@ -176,7 +153,7 @@ export default function DiscoverPage() {
     });
 
     return filtered;
-  }, [allPools, protocolFilter, poolSortBy]);
+  }, [meteoraPools, protocolFilter, poolSortBy]);
 
   // Apply filters and sorting to tokens
   const filteredTokens = useMemo(() => {
@@ -239,17 +216,17 @@ export default function DiscoverPage() {
       <div className="h-[calc(100vh-80px)] flex flex-col">
 
         {/* Error State */}
-        {error && (
+        {jupiterError && (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <p className="text-error font-medium mb-2">Failed to load pools</p>
-              <p className="text-sm text-foreground-muted">{error.message}</p>
+              <p className="text-error font-medium mb-2">Failed to load token data</p>
+              <p className="text-sm text-foreground-muted">{jupiterError.message}</p>
             </div>
           </div>
         )}
 
         {/* Split Layout - Tokens (Left) + Pools (Right) */}
-        {!error && (
+        {!jupiterError && (
           <div className="flex-1 overflow-hidden bg-background flex">
               {/* Left: Token Column with Filter Bar */}
               <div className="w-1/2 border-r border-border-light flex flex-col">
@@ -359,7 +336,7 @@ export default function DiscoverPage() {
 
                 {/* Token Table */}
                 <div className="flex-1 overflow-auto hide-scrollbar">
-                  {isLoading ? (
+                  {isLoadingJupiter ? (
                     <div className="flex items-center justify-center h-full">
                       <div className="text-center">
                         <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
@@ -434,11 +411,11 @@ export default function DiscoverPage() {
 
                 {/* Pool Table */}
                 <div className="flex-1 overflow-auto hide-scrollbar">
-                  {isLoading ? (
+                  {(isLoadingDLMM || isLoadingDAMM) ? (
                     <div className="flex items-center justify-center h-full">
                       <div className="text-center">
                         <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                        <p className="text-foreground-muted text-sm">Loading pools...</p>
+                        <p className="text-foreground-muted text-sm">Loading Meteora pools...</p>
                       </div>
                     </div>
                   ) : (
