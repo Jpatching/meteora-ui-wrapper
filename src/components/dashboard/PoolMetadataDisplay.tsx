@@ -1,12 +1,12 @@
 /**
  * Component to display pool metadata (binStep, baseFee)
- * Shows smart defaults immediately, then fetches real data in background
+ * Fetches REAL data from Meteora APIs
  */
 
 'use client';
 
 import { useEffect, useState } from 'react';
-import { fetchPoolDetails, formatPoolDetails } from '@/lib/meteora/poolDetails';
+import { getPoolMetadata, formatPoolMetadata, PoolMetadata } from '@/lib/services/meteoraPoolMetadata';
 
 interface PoolMetadataDisplayProps {
   poolAddress: string;
@@ -14,49 +14,39 @@ interface PoolMetadataDisplayProps {
 }
 
 export function PoolMetadataDisplay({ poolAddress, poolType }: PoolMetadataDisplayProps) {
-  // Start with smart defaults based on pool type
-  const getDefaultDisplay = () => {
-    if (poolType === 'dlmm') return 'binStep: 10 | fee: 0.25%';
-    if (poolType.startsWith('damm')) return 'fee: 0.25%';
-    return 'fee: 0.30%';
-  };
-
-  const [display, setDisplay] = useState<string>(getDefaultDisplay());
-  const [isFetching, setIsFetching] = useState(false);
+  const [metadata, setMetadata] = useState<PoolMetadata | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
 
     async function fetchData() {
-      if (isFetching) return;
-      setIsFetching(true);
-
       try {
-        const details = await fetchPoolDetails(poolAddress, poolType);
+        const poolMetadata = await getPoolMetadata(poolAddress);
         if (mounted) {
-          const formatted = formatPoolDetails(details, poolType);
-          setDisplay(formatted);
+          setMetadata(poolMetadata);
+          setIsLoading(false);
         }
       } catch (error) {
-        console.error(`Failed to fetch pool details for ${poolAddress}:`, error);
-        // Keep showing default on error
-      } finally {
+        console.error(`Failed to fetch metadata for ${poolAddress}:`, error);
         if (mounted) {
-          setIsFetching(false);
+          setIsLoading(false);
         }
       }
     }
 
-    // Fetch in background after a small delay to avoid overwhelming the RPC
-    const timer = setTimeout(() => {
-      fetchData();
-    }, Math.random() * 1000); // Stagger requests
+    fetchData();
 
     return () => {
       mounted = false;
-      clearTimeout(timer);
     };
-  }, [poolAddress, poolType, isFetching]);
+  }, [poolAddress]);
+
+  if (isLoading) {
+    return <span className="text-[10px] text-foreground-muted/50">...</span>;
+  }
+
+  const display = formatPoolMetadata(metadata);
 
   return (
     <span className="text-[10px] text-foreground-muted/70">
