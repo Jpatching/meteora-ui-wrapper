@@ -18,7 +18,8 @@ import { runMigrations } from './migrations';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.BACKEND_PORT || 4000;
+// Railway uses PORT env var, fallback to BACKEND_PORT for local dev
+const PORT = process.env.PORT || process.env.BACKEND_PORT || 4000;
 
 // Middleware
 app.use(helmet({
