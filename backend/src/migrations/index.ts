@@ -1,10 +1,12 @@
 import * as migration001 from './001_create_pools_table';
+import * as migration002 from './002_increase_apr_precision';
 
 /**
  * List of all migrations in order
  */
 const migrations = [
   { version: '001', name: 'create_pools_table', ...migration001 },
+  { version: '002', name: 'increase_apr_precision', ...migration002 },
 ];
 
 /**

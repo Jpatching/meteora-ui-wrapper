@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS pools (
   tvl DECIMAL(20, 2) DEFAULT 0,
   volume_24h DECIMAL(20, 2) DEFAULT 0,
   fees_24h DECIMAL(20, 2) DEFAULT 0,
-  apr DECIMAL(10, 4) DEFAULT 0,
+  apr DECIMAL(15, 4) DEFAULT 0, -- Increased to handle very high APR values
 
   -- Protocol-specific data (stored as JSONB for flexibility)
   metadata JSONB NOT NULL DEFAULT '{}',
