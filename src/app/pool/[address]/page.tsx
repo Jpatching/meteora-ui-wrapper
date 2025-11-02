@@ -95,10 +95,10 @@ export default function PoolPage({ params }: PoolPageProps) {
               The pool at address {address} could not be found.
             </p>
             <Link
-              href="/discover"
+              href="/"
               className="inline-block px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
             >
-              ← Back to Discover
+              ← Back to Dashboard
             </Link>
           </div>
         </div>
@@ -112,13 +112,13 @@ export default function PoolPage({ params }: PoolPageProps) {
         {/* Breadcrumb Navigation */}
         <nav className="mb-6">
           <Link
-            href="/discover"
+            href="/"
             className="text-gray-400 hover:text-white transition-colors inline-flex items-center gap-2 text-sm"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            Discover
+            Dashboard
           </Link>
           <span className="mx-2 text-gray-600">/</span>
           <span className="text-white font-medium">
