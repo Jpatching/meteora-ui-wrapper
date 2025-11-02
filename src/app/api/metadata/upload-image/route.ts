@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import lighthouse from '@lighthouse-web3/sdk';
-import imageCompression from 'browser-image-compression';
 
 // Validate image file
 const validateImage = (file: File): { valid: boolean; error?: string } => {
@@ -22,31 +21,6 @@ const validateImage = (file: File): { valid: boolean; error?: string } => {
   }
 
   return { valid: true };
-};
-
-// Compress image if needed
-const compressImageIfNeeded = async (file: File): Promise<File> => {
-  const compressionThreshold = 1 * 1024 * 1024; // 1MB
-
-  if (file.size <= compressionThreshold) {
-    return file;
-  }
-
-  // Compress the image
-  const options = {
-    maxSizeMB: 0.8, // Target size
-    maxWidthOrHeight: 2048, // Max dimension
-    useWebWorker: false, // Disable for Node.js environment
-    fileType: file.type as any,
-  };
-
-  try {
-    const compressedFile = await imageCompression(file, options);
-    return compressedFile;
-  } catch (error) {
-    console.error('Compression failed, using original file:', error);
-    return file;
-  }
 };
 
 export async function POST(request: NextRequest) {
@@ -82,15 +56,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Compress image if needed
-    const processedFile = await compressImageIfNeeded(file);
-
     // Convert File to Buffer for Lighthouse
-    const arrayBuffer = await processedFile.arrayBuffer();
+    const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
     // Upload to Lighthouse (IPFS)
-    const uploadResponse = await lighthouse.uploadBuffer(buffer, apiKey, processedFile.name);
+    const uploadResponse = await lighthouse.uploadBuffer(buffer, apiKey, file.name);
 
     if (!uploadResponse || !uploadResponse.data || !uploadResponse.data.Hash) {
       throw new Error('Failed to get CID from Lighthouse response');
@@ -103,8 +74,8 @@ export async function POST(request: NextRequest) {
       success: true,
       uri: ipfsUri,
       originalSize: file.size,
-      processedSize: processedFile.size,
-      compressed: processedFile.size < file.size,
+      processedSize: file.size,
+      compressed: false,
     });
   } catch (error: any) {
     console.error('Image upload error:', error);

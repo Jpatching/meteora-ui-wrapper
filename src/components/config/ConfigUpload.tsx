@@ -96,7 +96,7 @@ export function ConfigUpload({ onConfigLoaded, expectedProtocol, templateFile }:
 
   return (
     <Card className={isDragging ? 'border-primary/50 bg-primary/5' : ''}>
-      <CardContent className="p-6">
+      <CardContent className="p-4">
         <div
           onDragOver={(e) => {
             e.preventDefault();
@@ -105,14 +105,14 @@ export function ConfigUpload({ onConfigLoaded, expectedProtocol, templateFile }:
           onDragLeave={() => setIsDragging(false)}
           onDrop={handleDrop}
           className={`
-            border-2 border-dashed rounded-lg p-8 text-center transition-colors
+            border-2 border-dashed rounded-lg p-4 text-center transition-colors
             ${isDragging ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/30'}
           `}
         >
-          <div className="space-y-4">
-            <div className="text-4xl">📁</div>
+          <div className="space-y-3">
+            <div className="text-3xl">📁</div>
             <div>
-              <p className="text-lg font-semibold text-foreground mb-1">
+              <p className="text-base font-semibold text-foreground mb-1">
                 Upload Config File
               </p>
               <p className="text-sm text-foreground-muted">
@@ -129,10 +129,11 @@ export function ConfigUpload({ onConfigLoaded, expectedProtocol, templateFile }:
               disabled={uploading}
             />
 
-            <div className="flex gap-3 justify-center">
+            <div className="flex gap-2 justify-center">
               <Button
                 type="button"
                 variant="outline"
+                size="sm"
                 onClick={() => document.getElementById('config-upload')?.click()}
                 loading={uploading}
                 disabled={uploading}
@@ -144,6 +145,7 @@ export function ConfigUpload({ onConfigLoaded, expectedProtocol, templateFile }:
                 <Button
                   type="button"
                   variant="secondary"
+                  size="sm"
                   onClick={() => {
                     const link = document.createElement('a');
                     link.href = `/config-templates/${templateFile}`;
@@ -154,19 +156,18 @@ export function ConfigUpload({ onConfigLoaded, expectedProtocol, templateFile }:
                     toast.success('Template downloaded!');
                   }}
                 >
-                  📥 Download Template
+                  📥 Template
                 </Button>
               )}
             </div>
 
-            <div className="text-xs text-foreground-muted">
-              <p>Accepted formats: .jsonc, .json</p>
-              {templateFile && (
-                <p className="mt-1 text-success">
-                  💡 Download the template above to see an example config with all options
+            {templateFile && (
+              <div className="text-xs text-foreground-muted">
+                <p className="text-success">
+                  💡 Download template to see example config with all options
                 </p>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </CardContent>
