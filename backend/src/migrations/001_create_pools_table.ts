@@ -22,7 +22,7 @@ export async function up(): Promise<void> {
       tvl DECIMAL(20, 2) DEFAULT 0,
       volume_24h DECIMAL(20, 2) DEFAULT 0,
       fees_24h DECIMAL(20, 2) DEFAULT 0,
-      apr DECIMAL(15, 4) DEFAULT 0, -- Increased to handle very high APR values (up to 99,999,999,999.9999%)
+      apr DECIMAL(20, 4) DEFAULT 0, -- Handle extreme APR values (up to 9,999,999,999,999,999.9999%)
 
       metadata JSONB NOT NULL DEFAULT '{}',
 
