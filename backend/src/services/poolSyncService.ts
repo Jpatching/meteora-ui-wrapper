@@ -137,10 +137,11 @@ async function upsertDLMMPool(pool: DLMMPool): Promise<void> {
  * Upsert DAMM pool into database
  */
 async function upsertDAMMPool(pool: DAMMPool): Promise<void> {
-  // CRITICAL: Calculate TVL from token amounts since API returns tvl=0 for all pools
-  // DAMM v2 API issue: tvl field is always 0, but token_a_amount_usd + token_b_amount_usd has real values
-  const calculatedTvl = (pool.token_a_amount_usd || 0) + (pool.token_b_amount_usd || 0);
-  const tvl = calculatedTvl > 0 ? calculatedTvl : (pool.tvl || 0);
+  // Use API's TVL if available (when sorted by TVL, API returns correct values)
+  // Otherwise calculate from token amounts as fallback
+  const tvl = pool.tvl > 0
+    ? pool.tvl
+    : ((pool.token_a_amount_usd || 0) + (pool.token_b_amount_usd || 0));
 
   const metadata = {
     base_fee: pool.base_fee,
