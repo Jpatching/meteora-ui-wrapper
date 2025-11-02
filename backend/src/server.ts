@@ -12,6 +12,7 @@ import analyticsRoutes from './routes/analytics';
 import poolsRoutes from './routes/pools';
 import { startCronJobs } from './services/cronService';
 import { syncAllPools } from './services/poolSyncService';
+import { runMigrations } from './migrations';
 
 // Load environment variables
 dotenv.config();
@@ -89,6 +90,14 @@ const server = app.listen(PORT, async () => {
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🌐 Port: ${PORT}`);
   console.log(`🔗 Frontend: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+
+  // Run database migrations first
+  try {
+    await runMigrations();
+  } catch (error) {
+    console.error('❌ Failed to run migrations:', error);
+    console.error('⚠️ Server may not function properly');
+  }
 
   // Start cron jobs for pool syncing
   startCronJobs();
