@@ -41,7 +41,6 @@ const exo2 = Exo_2({
 export const metadata: Metadata = {
   title: "MetaTools - Meteora Protocol Suite",
   description: "Your comprehensive toolkit for Meteora protocols - create and manage DLMM, DAMM, DBC, and Alpha Vault pools",
-  // Icons are automatically loaded from src/app/icon.png and src/app/icon.svg
 };
 
 export default function RootLayout({
