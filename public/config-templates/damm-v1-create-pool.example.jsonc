@@ -1,0 +1,42 @@
+{
+  // ============================================
+  // DAMM v1 CREATE POOL - Example Configuration
+  // ============================================
+  // Creates a constant product AMM pool (x * y = k formula)
+  // DAMM v1 = Dynamic AMM with customizable fees
+
+  // REQUIRED: Solana RPC endpoint
+  "rpcUrl": "https://api.devnet.solana.com",
+
+  // REQUIRED: Dry run mode
+  "dryRun": false,
+
+  // REQUIRED: Compute unit price
+  "computeUnitPriceMicroLamports": 1000,
+
+  // REQUIRED: Quote token mint
+  "quoteMint": "So11111111111111111111111111111111111111112",  // SOL
+
+  // OPTION 1: Create new base token
+  "createBaseToken": {
+    "name": "Test Token B",
+    "symbol": "TTB",
+    "uri": "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
+    "decimals": 9,
+    "supply": "1000000000"
+  },
+
+  // OPTION 2: Use existing token (uncomment and remove createBaseToken)
+  // "baseMint": "YourExistingTokenMintAddress...",
+
+  // DAMM v1 Configuration
+  "dammV1Config": {
+    // REQUIRED: Initial liquidity amounts
+    "baseAmount": "1000",        // Base token amount
+    "quoteAmount": "100",        // Quote token amount (determines initial price)
+
+    // REQUIRED: Trading fee in basis points
+    // Standard: 25 (0.25%), Low: 5 (0.05%), High: 100 (1%)
+    "fee": 25
+  }
+}

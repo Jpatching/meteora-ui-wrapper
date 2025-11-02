@@ -1,0 +1,34 @@
+{
+  // ============================================
+  // DBC SWAP - Example Configuration
+  // ============================================
+  // Swaps tokens on a Dynamic Bonding Curve
+  // Buy = spend quote tokens, get base tokens
+  // Sell = spend base tokens, get quote tokens
+
+  // REQUIRED: Solana RPC endpoint
+  "rpcUrl": "https://api.devnet.solana.com",
+
+  // REQUIRED: Dry run mode
+  "dryRun": false,
+
+  // REQUIRED: Compute unit price
+  "computeUnitPriceMicroLamports": 1000,
+
+  // DBC Swap Configuration
+  "dbcSwap": {
+    // REQUIRED: Pool/token address to swap
+    "poolAddress": "YourPoolOrBaseMintAddress...",
+
+    // REQUIRED: Amount to swap
+    "amount": "10",              // Amount in the input token
+
+    // REQUIRED: Swap direction
+    // "buy" = buy base tokens with quote tokens (price goes up)
+    // "sell" = sell base tokens for quote tokens (price goes down)
+    "side": "buy",
+
+    // OPTIONAL: Slippage tolerance in basis points
+    "slippageBps": 100           // 1% slippage tolerance
+  }
+}

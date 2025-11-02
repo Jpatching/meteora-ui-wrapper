@@ -1,0 +1,945 @@
+'use client';
+
+import { useConnection, useWallet } from '@solana/wallet-adapter-react';
+import {
+  PublicKey,
+  Transaction,
+  sendAndConfirmTransaction,
+  ComputeBudgetProgram,
+  SystemProgram,
+  Keypair,
+} from '@solana/web3.js';
+import {
+  getMint,
+  createInitializeMint2Instruction,
+  createAssociatedTokenAccountIdempotentInstruction,
+  createMintToInstruction,
+  getAssociatedTokenAddressSync,
+  TOKEN_PROGRAM_ID,
+  MINT_SIZE,
+  getMinimumBalanceForRentExemptMint,
+} from '@solana/spl-token';
+import {
+  createCreateMetadataAccountV3Instruction,
+  PROGRAM_ID as METADATA_PROGRAM_ID,
+} from '@metaplex-foundation/mpl-token-metadata';
+import DLMM, { deriveCustomizablePermissionlessLbPair } from '@meteora-ag/dlmm';
+import BN from 'bn.js';
+import { DLMMCreatePoolParams, TokenCreateConfig } from '@/types/meteora';
+import { useNetwork } from '@/contexts/NetworkContext';
+import { useTransactionHistory } from '@/contexts/TransactionHistoryContext';
+import { useReferral } from '@/contexts/ReferralContext';
+import { getFeeDistributionInstructions, getFeeBreakdown } from '@/lib/feeDistribution';
+import { recordReferralEarning } from '@/lib/referrals';
+import { confirmTransactionWithRetry } from '@/lib/transactionUtils';
+
+const DLMM_PROGRAM_IDS = {
+  'mainnet-beta': 'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo',
+  'devnet': 'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo',
+  'localnet': 'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo',
+};
+
+/**
+ * Validation helper: Validate and parse PublicKey
+ */
+function validatePublicKey(address: string, fieldName: string): PublicKey {
+  if (!address || address.trim() === '') {
+    throw new Error(`${fieldName} is required`);
+  }
+  try {
+    return new PublicKey(address);
+  } catch (error) {
+    throw new Error(`Invalid ${fieldName}: ${address} is not a valid Solana address`);
+  }
+}
+
+/**
+ * Validation helper: Validate and parse BN amount
+ */
+function validateBN(value: string | number, fieldName: string): BN {
+  try {
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+    if (isNaN(numValue) || numValue < 0) {
+      throw new Error(`${fieldName} must be a positive number`);
+    }
+    // Convert to lamports (assuming 9 decimals for most tokens)
+    const lamports = Math.floor(numValue * 1e9);
+    return new BN(lamports);
+  } catch (error: any) {
+    throw new Error(`Invalid ${fieldName}: ${error.message}`);
+  }
+}
+
+/**
+ * Validation helper: Validate price
+ */
+function validatePrice(value: string, fieldName: string): number {
+  const price = parseFloat(value);
+  if (isNaN(price) || price <= 0) {
+    throw new Error(`${fieldName} must be a positive number`);
+  }
+  return price;
+}
+
+/**
+ * Validation helper: Validate curvature (0 to 1)
+ */
+function validateCurvature(value: string): number {
+  const curvature = parseFloat(value);
+  if (isNaN(curvature) || curvature < 0 || curvature > 1) {
+    throw new Error('Curvature must be between 0 and 1');
+  }
+  return curvature;
+}
+
+/**
+ * Helper function to derive metadata PDA
+ */
+function findMetadataPda(mint: PublicKey): PublicKey {
+  const [publicKey] = PublicKey.findProgramAddressSync(
+    [Buffer.from('metadata'), METADATA_PROGRAM_ID.toBuffer(), mint.toBuffer()],
+    METADATA_PROGRAM_ID
+  );
+  return publicKey;
+}
+
+/**
+ * Build token creation instructions (without sending transaction)
+ * Returns instructions and the mint keypair
+ */
+async function buildTokenCreationInstructions(
+  config: TokenCreateConfig,
+  connection: any,
+  publicKey: PublicKey
+): Promise<{ instructions: any[]; mintKeypair: Keypair; mintPubkey: PublicKey }> {
+  const decimals = config.decimals ?? 9;
+  const supply = config.supply ? parseFloat(config.supply) : 0;
+
+  // Generate new mint keypair
+  const mintKeypair = Keypair.generate();
+  const mintPubkey = mintKeypair.publicKey;
+
+  // Get associated token account for minting
+  const ata = getAssociatedTokenAddressSync(mintPubkey, publicKey);
+
+  // Get rent-exempt balance for mint
+  const lamports = await getMinimumBalanceForRentExemptMint(connection);
+
+  const instructions = [];
+
+  // Create mint account
+  instructions.push(
+    SystemProgram.createAccount({
+      fromPubkey: publicKey,
+      newAccountPubkey: mintPubkey,
+      space: MINT_SIZE,
+      lamports,
+      programId: TOKEN_PROGRAM_ID,
+    })
+  );
+
+  // Initialize mint
+  instructions.push(
+    createInitializeMint2Instruction(
+      mintPubkey,
+      decimals,
+      publicKey, // mint authority
+      publicKey, // freeze authority
+      TOKEN_PROGRAM_ID
+    )
+  );
+
+  // Create associated token account
+  instructions.push(
+    createAssociatedTokenAccountIdempotentInstruction(
+      publicKey, // payer
+      ata, // associated token account
+      publicKey, // owner
+      mintPubkey // mint
+    )
+  );
+
+  // Mint initial supply if specified
+  if (supply > 0) {
+    const amount = new BN(supply).mul(new BN(10).pow(new BN(decimals)));
+    instructions.push(
+      createMintToInstruction(
+        mintPubkey,
+        ata,
+        publicKey, // mint authority
+        BigInt(amount.toString())
+      )
+    );
+  }
+
+  // Create metadata account
+  const metadataPda = findMetadataPda(mintPubkey);
+  instructions.push(
+    createCreateMetadataAccountV3Instruction(
+      {
+        metadata: metadataPda,
+        mint: mintPubkey,
+        mintAuthority: publicKey,
+        payer: publicKey,
+        updateAuthority: publicKey,
+      },
+      {
+        createMetadataAccountArgsV3: {
+          data: {
+            name: config.name,
+            symbol: config.symbol,
+            uri: config.uri,
+            sellerFeeBasisPoints: 0,
+            creators: null,
+            collection: null,
+            uses: null,
+          },
+          isMutable: true,
+          collectionDetails: null,
+        },
+      }
+    )
+  );
+
+  return { instructions, mintKeypair, mintPubkey };
+}
+
+/**
+ * Create a new SPL token with Metaplex metadata
+ * Exported separately so it can be used by other hooks (DBC, etc.)
+ * Uses the buildTokenCreationInstructions helper
+ */
+export async function createTokenWithMetadata(
+  config: TokenCreateConfig,
+  connection: any,
+  publicKey: PublicKey,
+  sendTransaction: any
+): Promise<PublicKey> {
+  if (!publicKey) {
+    throw new Error('Wallet not connected');
+  }
+
+  const { instructions, mintKeypair, mintPubkey } = await buildTokenCreationInstructions(
+    config,
+    connection,
+    publicKey
+  );
+
+  // Build transaction
+  const transaction = new Transaction();
+
+  // Add compute budget for better priority
+  transaction.add(
+    ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
+  );
+  transaction.add(
+    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5_000_000 })
+  );
+
+  // Add all token creation instructions
+  instructions.forEach(ix => transaction.add(ix));
+
+  // Send transaction with improved retry logic
+  const signature = await sendTransaction(transaction, connection, {
+    signers: [mintKeypair],
+    skipPreflight: true,
+    maxRetries: 5,
+  });
+
+  // Wait for confirmation
+  await new Promise(resolve => setTimeout(resolve, 500));
+  await confirmTransactionWithRetry(connection, signature, { maxRetries: 10 });
+
+  return mintPubkey;
+}
+
+/**
+ * Hook for DLMM pool operations using Meteora SDK
+ * Based on /studio/src/lib/dlmm/index.ts
+ */
+export function useDLMM() {
+  const { connection } = useConnection();
+  const { publicKey, sendTransaction } = useWallet();
+  const { network } = useNetwork();
+  const { referrerWallet, recordEarning } = useReferral();
+  const { addTransaction } = useTransactionHistory();
+
+  /**
+   * Create a customizable permissionless DLMM pool
+   * Handles both scenarios: creating new token or using existing token
+   */
+  const createPool = async (params: DLMMCreatePoolParams) => {
+    if (!publicKey) {
+      throw new Error('Wallet not connected');
+    }
+
+    // console.log('Creating DLMM pool with params:', params);
+
+    try {
+      // Validate that we have either baseMint OR createBaseToken
+      if (!params.baseMint && !params.createBaseToken) {
+        throw new Error('Either baseMint or createBaseToken must be provided');
+      }
+
+      if (params.baseMint && params.createBaseToken) {
+        throw new Error('Provide only baseMint OR createBaseToken, not both');
+      }
+
+      let baseMint: PublicKey;
+      let tokenCreationInstructions: any[] = [];
+      let mintKeypair: Keypair | null = null;
+
+      // Handle token creation if needed
+      if (params.createBaseToken) {
+        console.log('[ATOMIC TX] Building token creation instructions...');
+        const tokenBuild = await buildTokenCreationInstructions(
+          params.createBaseToken,
+          connection,
+          publicKey
+        );
+        baseMint = tokenBuild.mintPubkey;
+        tokenCreationInstructions = tokenBuild.instructions;
+        mintKeypair = tokenBuild.mintKeypair;
+      } else {
+        baseMint = validatePublicKey(params.baseMint!, 'Base mint');
+      }
+
+      const quoteMint = validatePublicKey(params.quoteMint, 'Quote mint');
+
+      // Get decimals for both mints
+      let baseMintAccount, quoteMintAccount;
+
+      if (params.createBaseToken) {
+        // For new token, use the decimals from config
+        const decimals = params.createBaseToken.decimals ?? 9;
+        baseMintAccount = { decimals };
+        quoteMintAccount = await getMint(connection, quoteMint);
+      } else {
+        // For existing token, fetch from chain
+        baseMintAccount = await getMint(connection, baseMint);
+        quoteMintAccount = await getMint(connection, quoteMint);
+      }
+
+      const baseDecimals = baseMintAccount.decimals;
+      const quoteDecimals = quoteMintAccount.decimals;
+
+      // Calculate price per lamport
+      const initPrice = DLMM.getPricePerLamport(
+        baseDecimals,
+        quoteDecimals,
+        Number(params.initialPrice || 1)
+      );
+
+      // Get bin ID from price
+      const activateBinId = DLMM.getBinIdFromPrice(
+        initPrice,
+        Number(params.binStep || 25),
+        true // round up
+      );
+
+      const dlmmProgramId = new PublicKey(
+        DLMM_PROGRAM_IDS[network as keyof typeof DLMM_PROGRAM_IDS]
+      );
+
+      // Create pool transaction using Meteora SDK
+      const initPoolTx = await DLMM.createCustomizablePermissionlessLbPair2(
+        connection,
+        new BN(params.binStep || 25),
+        baseMint,
+        quoteMint,
+        new BN(activateBinId.toString()),
+        new BN(params.feeBps || 1),
+        params.activationType || 1,
+        params.hasAlphaVault || false,
+        publicKey,
+        params.activationPoint ? new BN(params.activationPoint) : undefined,
+        params.creatorPoolOnOffControl || false,
+        {
+          cluster: network as 'mainnet-beta' | 'devnet' | 'localhost',
+          programId: dlmmProgramId,
+        }
+      );
+
+      // ===== ATOMIC TRANSACTION: Add ATAs + Fees + Pool Creation =====
+      // Create ATA instructions (idempotent - safe to call even if ATAs exist)
+      const baseTokenATA = getAssociatedTokenAddressSync(baseMint, publicKey);
+      const quoteTokenATA = getAssociatedTokenAddressSync(quoteMint, publicKey);
+
+      const ataInstructions = [
+        createAssociatedTokenAccountIdempotentInstruction(
+          publicKey,      // payer
+          baseTokenATA,   // associated token account address
+          publicKey,      // owner
+          baseMint        // mint
+        ),
+        createAssociatedTokenAccountIdempotentInstruction(
+          publicKey,      // payer
+          quoteTokenATA,  // associated token account address
+          publicKey,      // owner
+          quoteMint       // mint
+        ),
+      ];
+
+      // Add fee distribution instructions (3-way split: referral/buyback/treasury)
+      const feeInstructions = await getFeeDistributionInstructions(
+        publicKey,
+        referrerWallet || undefined
+      );
+      const feeBreakdown = getFeeBreakdown(referrerWallet || undefined);
+      const platformFeePaid = feeBreakdown.total.lamports;
+
+      // Build atomic transaction in correct order: Fees → Compute Budget → Token Creation → ATAs → Pool Creation
+      // Note: unshift() adds to the FRONT, so we add in REVERSE order of what we want
+
+      // 1. First unshift ATAs (will end up after token/compute budget, before pool)
+      ataInstructions.reverse().forEach((instruction) => {
+        initPoolTx.instructions.unshift(instruction);
+      });
+
+      // 2. Unshift token creation instructions if creating new token (will end up after compute budget, before ATAs)
+      if (tokenCreationInstructions.length > 0) {
+        tokenCreationInstructions.reverse().forEach((instruction) => {
+          initPoolTx.instructions.unshift(instruction);
+        });
+        console.log(`[ATOMIC TX] Added ${tokenCreationInstructions.length} token creation instructions`);
+      }
+
+      // 3. Then unshift compute budget (will end up after fees, before token/ATAs)
+      const computeUnits = tokenCreationInstructions.length > 0 ? 1_200_000 : 800_000; // Higher limit if creating token
+      initPoolTx.instructions.unshift(
+        ComputeBudgetProgram.setComputeUnitLimit({ units: computeUnits })
+      );
+      initPoolTx.instructions.unshift(
+        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5_000_000 })
+      );
+
+      // 4. Finally unshift fee instructions (will end up first, atomic with everything)
+      if (feeInstructions.length > 0) {
+        feeInstructions.reverse().forEach((instruction) => {
+          initPoolTx.instructions.unshift(instruction);
+        });
+      }
+
+      const txDescription = tokenCreationInstructions.length > 0
+        ? 'Fees + Compute + Token Creation + ATAs + Pool Creation'
+        : 'Fees + Compute + ATAs + Pool Creation';
+      console.log(`[ATOMIC TRANSACTION] Single transaction with ${initPoolTx.instructions.length} instructions: ${txDescription}`);
+      // ===== END ATOMIC TRANSACTION BUILD =====
+
+      // Prepare signers array (wallet is implicit, but we need mintKeypair if creating token)
+      const signers = mintKeypair ? [mintKeypair] : [];
+
+      // Send and confirm transaction with improved retry logic
+      const signature = await sendTransaction(initPoolTx, connection, {
+        signers,
+        skipPreflight: true,  // Skip simulation to avoid timing issues
+        maxRetries: 5,
+      });
+      console.log('Transaction sent:', signature);
+
+      // Wait for transaction propagation
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await confirmTransactionWithRetry(connection, signature, { maxRetries: 10 });
+      console.log('Transaction confirmed:', signature);
+
+      // Derive pool address
+      const [poolAddress] = deriveCustomizablePermissionlessLbPair(
+        baseMint,
+        quoteMint,
+        dlmmProgramId
+      );
+
+      // Record referral earning if applicable
+      if (referrerWallet && feeBreakdown.referral.lamports > 0) {
+        recordEarning(
+          feeBreakdown.referral.lamports,
+          publicKey.toBase58(),
+          signature
+        );
+      }
+
+      // Track transaction in history
+      addTransaction({
+        signature,
+        walletAddress: publicKey.toBase58(),
+        network,
+        protocol: 'dlmm',
+        action: 'dlmm-create-pool',
+        status: 'success',
+        params,
+        poolAddress: poolAddress.toString(),
+        tokenAddress: baseMint.toString(),
+        platformFee: platformFeePaid,
+      });
+
+      return {
+        success: true,
+        signature,
+        poolAddress: poolAddress.toString(),
+        baseMint: baseMint.toString(),
+      };
+    } catch (error: any) {
+      console.error('Error creating DLMM pool:', error);
+      throw new Error(error.message || 'Failed to create DLMM pool');
+    }
+  };
+
+  /**
+   * Seed liquidity using LFG (Launch Fair Guarantee) strategy
+   * Multi-phase transaction execution
+   */
+  const seedLiquidityLFG = async (params: any) => {
+    if (!publicKey) throw new Error('Wallet not connected');
+
+    console.log('Seeding liquidity (LFG) with params:', params);
+
+    try {
+      // Validate parameters
+      const baseMint = validatePublicKey(params.baseMint, 'Base mint');
+      const quoteMint = validatePublicKey(params.quoteMint, 'Quote mint');
+      const minPrice = validatePrice(params.minPrice, 'Min price');
+      const maxPrice = validatePrice(params.maxPrice, 'Max price');
+      const curvature = validateCurvature(params.curvature);
+      const seedAmount = validateBN(params.seedAmount, 'Seed amount');
+
+      // Default positionOwner and feeOwner to connected wallet if not provided
+      const positionOwner = params.positionOwner
+        ? validatePublicKey(params.positionOwner, 'Position owner')
+        : publicKey;
+      const feeOwner = params.feeOwner
+        ? validatePublicKey(params.feeOwner, 'Fee owner')
+        : positionOwner;
+
+      const lockReleasePoint = new BN(params.lockReleasePoint || 0);
+
+      if (maxPrice <= minPrice) {
+        throw new Error('Max price must be greater than min price');
+      }
+
+      // Generate required keypairs for transaction signing
+      const baseKeypair = Keypair.generate();
+      const operatorKeypair = Keypair.generate();
+
+      // Derive pool address
+      const dlmmProgramId = new PublicKey(
+        DLMM_PROGRAM_IDS[network as keyof typeof DLMM_PROGRAM_IDS]
+      );
+      const [poolAddress] = deriveCustomizablePermissionlessLbPair(
+        baseMint,
+        quoteMint,
+        dlmmProgramId
+      );
+
+      console.log('Pool address:', poolAddress.toString());
+
+      // Create DLMM instance
+      const dlmmInstance = await DLMM.create(connection, poolAddress, {
+        cluster: network as 'mainnet-beta' | 'devnet' | 'localhost',
+      });
+
+      // Call seedLiquidity SDK method with generated keypairs
+      const {
+        sendPositionOwnerTokenProveIxs,
+        initializeBinArraysAndPositionIxs,
+        addLiquidityIxs,
+      } = await dlmmInstance.seedLiquidity(
+        positionOwner,
+        seedAmount,
+        curvature,
+        minPrice,
+        maxPrice,
+        baseKeypair.publicKey, // base (ephemeral keypair)
+        publicKey, // payer
+        feeOwner,
+        operatorKeypair.publicKey, // operator (ephemeral keypair)
+        lockReleasePoint,
+        true // shouldSeedPositionOwner
+      );
+
+      const signatures: string[] = [];
+
+      // Get fee breakdown for tracking
+      const feeBreakdown = getFeeBreakdown(referrerWallet || undefined);
+      const platformFeePaid = feeBreakdown.total.lamports;
+
+      // Get fee instructions to prepend atomically
+      console.log('Preparing platform fee instructions...');
+      const feeInstructions = await getFeeDistributionInstructions(
+        publicKey,
+        referrerWallet || undefined
+      );
+
+      // Phase 1: Send position owner token prove WITH ATOMIC FEES (if needed)
+      if (sendPositionOwnerTokenProveIxs.length > 0) {
+        console.log('Phase 1: Sending position owner token prove with atomic fees...');
+        const tx1 = new Transaction()
+          .add(ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }))
+          .add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5_000_000 }))
+          .add(...sendPositionOwnerTokenProveIxs);
+
+        // ATOMIC: Prepend fee instructions to first transaction
+        if (feeInstructions.length > 0) {
+          feeInstructions.reverse().forEach((ix) => {
+            tx1.instructions.unshift(ix);
+          });
+        }
+
+        const sig1 = await sendTransaction(tx1, connection, {
+          signers: [baseKeypair, operatorKeypair],
+          skipPreflight: true,
+          maxRetries: 5,
+        });
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await confirmTransactionWithRetry(connection, sig1, { maxRetries: 10 });
+        signatures.push(sig1);
+        console.log('Phase 1 complete with atomic fees:', sig1);
+
+        // Record referral earning if applicable
+        if (referrerWallet && feeBreakdown.referral.lamports > 0) {
+          recordEarning(
+            feeBreakdown.referral.lamports,
+            publicKey.toBase58(),
+            sig1
+          );
+        }
+      }
+
+      // Phase 2: Initialize bin arrays and position (sequential to prevent wallet conflicts)
+      console.log('Phase 2: Initializing bin arrays and position...');
+      let feesAlreadyPaid = sendPositionOwnerTokenProveIxs.length > 0;
+
+      for (let i = 0; i < initializeBinArraysAndPositionIxs.length; i++) {
+        const groupIx = initializeBinArraysAndPositionIxs[i];
+        const tx = new Transaction()
+          .add(ComputeBudgetProgram.setComputeUnitLimit({ units: 600_000 }))
+          .add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5_000_000 }))
+          .add(...groupIx);
+
+        // ATOMIC: If fees not yet paid (Phase 1 was skipped), add to FIRST Phase 2 transaction
+        const addingFeesHere = !feesAlreadyPaid && i === 0 && feeInstructions.length > 0;
+        if (addingFeesHere) {
+          feeInstructions.reverse().forEach((ix) => {
+            tx.instructions.unshift(ix);
+          });
+          console.log('Adding atomic fees to first Phase 2 transaction');
+        }
+
+        const sig = await sendTransaction(tx, connection, {
+          signers: [baseKeypair, operatorKeypair],
+          skipPreflight: true,
+          maxRetries: 5,
+        });
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await confirmTransactionWithRetry(connection, sig, { maxRetries: 10 });
+        signatures.push(sig);
+        console.log(`Bin array/position initialized (${i + 1}/${initializeBinArraysAndPositionIxs.length}):`, sig);
+
+        // Record referral earning on first Phase 2 transaction if fees added here
+        if (addingFeesHere && referrerWallet && feeBreakdown.referral.lamports > 0) {
+          recordEarning(
+            feeBreakdown.referral.lamports,
+            publicKey.toBase58(),
+            sig
+          );
+          feesAlreadyPaid = true;
+        }
+
+        // Add 200ms delay between transactions to allow state settlement
+        if (i < initializeBinArraysAndPositionIxs.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
+      console.log(`Phase 2 complete: ${initializeBinArraysAndPositionIxs.length} transactions`);
+
+      // Phase 3: Add liquidity (sequential)
+      console.log('Phase 3: Adding liquidity...');
+      for (let i = 0; i < addLiquidityIxs.length; i++) {
+        const groupIx = addLiquidityIxs[i];
+        const tx = new Transaction()
+          .add(ComputeBudgetProgram.setComputeUnitLimit({ units: 600_000 }))
+          .add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5_000_000 }))
+          .add(...groupIx);
+
+        const sig = await sendTransaction(tx, connection, {
+          signers: [baseKeypair, operatorKeypair],
+          skipPreflight: true,
+          maxRetries: 5,
+        });
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await confirmTransactionWithRetry(connection, sig, { maxRetries: 10 });
+        signatures.push(sig);
+        console.log(`Liquidity added (${i + 1}/${addLiquidityIxs.length}):`, sig);
+
+        // Add 200ms delay between transactions
+        if (i < addLiquidityIxs.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
+
+      console.log('LFG seeding complete!');
+
+      // Track transaction in history
+      addTransaction({
+        signature: signatures[signatures.length - 1],
+        walletAddress: publicKey.toBase58(),
+        network,
+        protocol: 'dlmm',
+        action: 'dlmm-seed-lfg',
+        status: 'success',
+        params,
+        poolAddress: poolAddress.toString(),
+        platformFee: platformFeePaid,
+      });
+
+      return {
+        success: true,
+        signatures,
+        poolAddress: poolAddress.toString(),
+      };
+    } catch (error: any) {
+      console.error('Error seeding LFG liquidity:', error);
+      throw new Error(error.message || 'Failed to seed LFG liquidity');
+    }
+  };
+
+  /**
+   * Seed liquidity in a single bin at a specific price
+   */
+  const seedLiquiditySingleBin = async (params: any) => {
+    if (!publicKey) throw new Error('Wallet not connected');
+
+    console.log('Seeding liquidity (single bin) with params:', params);
+
+    try {
+      // Validate parameters
+      const baseMint = validatePublicKey(params.baseMint, 'Base mint');
+      const quoteMint = validatePublicKey(params.quoteMint, 'Quote mint');
+      const price = validatePrice(params.price, 'Price');
+      const roundingUp = params.priceRounding === 'up';
+      const seedAmount = validateBN(params.seedAmount, 'Seed amount');
+
+      // Default positionOwner and feeOwner to connected wallet if not provided
+      const positionOwner = params.positionOwner
+        ? validatePublicKey(params.positionOwner, 'Position owner')
+        : publicKey;
+      const feeOwner = params.feeOwner
+        ? validatePublicKey(params.feeOwner, 'Fee owner')
+        : positionOwner;
+
+      const lockReleasePoint = new BN(params.lockReleasePoint || 0);
+
+      // Generate required keypairs for transaction signing
+      const baseKeypair = Keypair.generate();
+      const operatorKeypair = Keypair.generate();
+
+      // Derive pool address
+      const dlmmProgramId = new PublicKey(
+        DLMM_PROGRAM_IDS[network as keyof typeof DLMM_PROGRAM_IDS]
+      );
+      const [poolAddress] = deriveCustomizablePermissionlessLbPair(
+        baseMint,
+        quoteMint,
+        dlmmProgramId
+      );
+
+      console.log('Pool address:', poolAddress.toString());
+
+      // Create DLMM instance
+      const dlmmInstance = await DLMM.create(connection, poolAddress, {
+        cluster: network as 'mainnet-beta' | 'devnet' | 'localhost',
+      });
+
+      // Call seedLiquiditySingleBin SDK method with generated keypairs
+      const { instructions } = await dlmmInstance.seedLiquiditySingleBin(
+        publicKey, // payer
+        baseKeypair.publicKey, // base (ephemeral keypair)
+        seedAmount,
+        price,
+        roundingUp,
+        positionOwner,
+        feeOwner,
+        operatorKeypair.publicKey, // operator (ephemeral keypair)
+        lockReleasePoint,
+        true // shouldSeedPositionOwner
+      );
+
+      const signatures: string[] = [];
+
+      // Get fee breakdown for tracking
+      const feeBreakdown = getFeeBreakdown(referrerWallet || undefined);
+      const platformFeePaid = feeBreakdown.total.lamports;
+
+      // Get fee instructions to prepend atomically
+      console.log('Preparing platform fee instructions...');
+      const feeInstructions = await getFeeDistributionInstructions(
+        publicKey,
+        referrerWallet || undefined
+      );
+
+      // Build main transaction with additional signers
+      const transaction = new Transaction()
+        .add(ComputeBudgetProgram.setComputeUnitLimit({ units: 600_000 }))
+        .add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5_000_000 }))
+        .add(...instructions);
+
+      // ATOMIC: Prepend fee instructions to main transaction
+      if (feeInstructions.length > 0) {
+        feeInstructions.reverse().forEach((ix) => {
+          transaction.instructions.unshift(ix);
+        });
+        console.log('Fee instructions prepended atomically to transaction');
+      }
+
+      // Send single atomic transaction with additional signers
+      const signature = await sendTransaction(transaction, connection, {
+        signers: [baseKeypair, operatorKeypair],
+        skipPreflight: true,
+        maxRetries: 5,
+      });
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await confirmTransactionWithRetry(connection, signature, { maxRetries: 10 });
+      signatures.push(signature);
+
+      // Record referral earning if applicable
+      if (referrerWallet && feeBreakdown.referral.lamports > 0) {
+        recordEarning(
+          feeBreakdown.referral.lamports,
+          publicKey.toBase58(),
+          signature
+        );
+      }
+
+      console.log('Single bin seeding complete:', signature);
+
+      // Track transaction in history
+      addTransaction({
+        signature,
+        walletAddress: publicKey.toBase58(),
+        network,
+        protocol: 'dlmm',
+        action: 'dlmm-seed-single',
+        status: 'success',
+        params,
+        poolAddress: poolAddress.toString(),
+        platformFee: platformFeePaid,
+      });
+
+      return {
+        success: true,
+        signature,
+        signatures,
+        poolAddress: poolAddress.toString(),
+      };
+    } catch (error: any) {
+      console.error('Error seeding single bin liquidity:', error);
+      throw new Error(error.message || 'Failed to seed single bin liquidity');
+    }
+  };
+
+  /**
+   * Set pool status (enabled/disabled)
+   * Only pool creator can change status
+   */
+  const setPoolStatus = async (params: any) => {
+    if (!publicKey) throw new Error('Wallet not connected');
+
+    console.log('Setting pool status with params:', params);
+
+    try {
+      // Validate parameters
+      const poolAddress = validatePublicKey(params.poolAddress, 'Pool address');
+      const enabled = params.status === 'enabled';
+
+      console.log(`Setting pool status to: ${enabled ? 'enabled' : 'disabled'}`);
+
+      // Create DLMM instance
+      const dlmmInstance = await DLMM.create(connection, poolAddress, {
+        cluster: network as 'mainnet-beta' | 'devnet' | 'localhost',
+      });
+
+      // Call setPairStatusPermissionless SDK method
+      const transaction = await dlmmInstance.setPairStatusPermissionless(
+        enabled,
+        publicKey // creator (must be pool creator)
+      );
+
+      const signatures: string[] = [];
+
+      // Get fee breakdown for tracking
+      const feeBreakdown = getFeeBreakdown(referrerWallet || undefined);
+      const platformFeePaid = feeBreakdown.total.lamports;
+
+      // Get fee instructions to prepend atomically
+      console.log('Preparing platform fee instructions...');
+      const feeInstructions = await getFeeDistributionInstructions(
+        publicKey,
+        referrerWallet || undefined
+      );
+
+      // Add compute budget
+      transaction.instructions.unshift(
+        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 3_000_000 })
+      );
+
+      // ATOMIC: Prepend fee instructions to status change transaction
+      if (feeInstructions.length > 0) {
+        feeInstructions.reverse().forEach((ix) => {
+          transaction.instructions.unshift(ix);
+        });
+        console.log('Fee instructions prepended atomically to transaction');
+      }
+
+      // Send single atomic transaction
+      const signature = await sendTransaction(transaction, connection);
+      await confirmTransactionWithRetry(connection, signature);
+      signatures.push(signature);
+
+      // Record referral earning if applicable
+      if (referrerWallet && feeBreakdown.referral.lamports > 0) {
+        recordEarning(
+          feeBreakdown.referral.lamports,
+          publicKey.toBase58(),
+          signature
+        );
+      }
+
+      console.log('Pool status updated:', signature);
+
+      // Track transaction in history
+      addTransaction({
+        signature,
+        walletAddress: publicKey.toBase58(),
+        network,
+        protocol: 'dlmm',
+        action: 'dlmm-set-status',
+        status: 'success',
+        params,
+        poolAddress: poolAddress.toString(),
+        platformFee: platformFeePaid,
+      });
+
+      return {
+        success: true,
+        signature,
+        signatures,
+        status: enabled ? 'enabled' : 'disabled',
+      };
+    } catch (error: any) {
+      console.error('Error setting pool status:', error);
+
+      // Check if error is about creator permissions
+      if (error.message?.includes('creator') || error.message?.includes('authority')) {
+        throw new Error('Only the pool creator can change pool status');
+      }
+
+      throw new Error(error.message || 'Failed to set pool status');
+    }
+  };
+
+  return {
+    createPool,
+    seedLiquidityLFG,
+    seedLiquiditySingleBin,
+    setPoolStatus,
+  };
+}

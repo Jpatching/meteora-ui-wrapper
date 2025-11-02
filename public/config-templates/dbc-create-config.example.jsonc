@@ -1,0 +1,33 @@
+{
+  // ============================================
+  // DBC CREATE CONFIG - Example Configuration
+  // ============================================
+  // Creates a configuration for Dynamic Bonding Curve pools
+  // The config defines fees and migration thresholds
+
+  // REQUIRED: Solana RPC endpoint
+  "rpcUrl": "https://api.devnet.solana.com",
+
+  // REQUIRED: Dry run mode
+  "dryRun": false,
+
+  // REQUIRED: Compute unit price
+  "computeUnitPriceMicroLamports": 1000,
+
+  // DBC Configuration Settings
+  "dbcConfig": {
+    // REQUIRED: Migration threshold in quote tokens
+    // When pool reaches this amount, it can migrate to AMM
+    "migrationQuoteThreshold": "10000",
+
+    // REQUIRED: Trading fee in basis points
+    // Goes to liquidity providers
+    "tradingFee": 25,            // 0.25%
+
+    // REQUIRED: Protocol fee in basis points
+    // Goes to protocol treasury
+    "protocolFee": 10            // 0.10%
+
+    // Total fee = tradingFee + protocolFee = 35 bps (0.35%)
+  }
+}

@@ -1,0 +1,40 @@
+{
+  // ============================================
+  // DBC CREATE POOL - Example Configuration
+  // ============================================
+  // Creates a Dynamic Bonding Curve pool for token launch
+  // Bonding curve = Price increases as more tokens are bought
+
+  // REQUIRED: Solana RPC endpoint
+  "rpcUrl": "https://api.devnet.solana.com",
+
+  // REQUIRED: Dry run mode
+  "dryRun": false,
+
+  // REQUIRED: Compute unit price
+  "computeUnitPriceMicroLamports": 1000,
+
+  // REQUIRED: Quote token (usually SOL)
+  "quoteMint": "So11111111111111111111111111111111111111112",
+
+  // OPTION 1: Create new token for bonding curve
+  "createBaseToken": {
+    "name": "Bonding Curve Token",
+    "symbol": "BCT",
+    "uri": "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
+    "decimals": 9,
+    "supply": "1000000000"       // Total supply
+  },
+
+  // OPTION 2: Use existing token
+  // "baseMint": "YourExistingTokenMintAddress...",
+
+  // DBC Pool Configuration
+  "dbcPool": {
+    // REQUIRED: DBC config address (from dbc-create-config)
+    "configAddress": "YourConfigAddress...",
+
+    // REQUIRED: Initial token price
+    "initialPrice": "0.001"      // Starting price in quote tokens
+  }
+}

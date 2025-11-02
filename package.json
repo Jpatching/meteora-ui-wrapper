@@ -6,13 +6,43 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "docs:validate": "find docs -name '*.md' -exec markdown-link-check {} \\;",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@metaplex-foundation/mpl-token-metadata": "^2.13.0",
+    "@meteora-ag/alpha-vault": "^1.1.14",
+    "@meteora-ag/cp-amm-sdk": "1.1.4",
+    "@meteora-ag/dlmm": "^1.7.3",
+    "@meteora-ag/dynamic-amm-sdk": "^1.4.1",
+    "@meteora-ag/dynamic-bonding-curve-sdk": "^1.4.4",
+    "@meteora-ag/dynamic-fee-sharing-sdk": "^1.0.5",
+    "@meteora-ag/farming-sdk": "^1.0.18",
+    "@meteora-ag/m3m3": "^1.0.10",
+    "@meteora-ag/presale": "^0.0.5",
+    "@meteora-ag/vault-sdk": "^2.3.1",
+    "@meteora-ag/zap-sdk": "^1.0.8",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-tabs": "^1.1.13",
+    "@solana/spl-token": "^0.4.14",
+    "@solana/wallet-adapter-base": "^0.9.27",
+    "@solana/wallet-adapter-react": "^0.15.39",
+    "@solana/wallet-adapter-react-ui": "^0.9.39",
+    "@solana/wallet-adapter-wallets": "^0.19.37",
+    "@solana/web3.js": "^1.98.4",
+    "bn.js": "^5.2.2",
+    "bs58": "^6.0.0",
+    "date-fns": "^4.1.0",
+    "decimal.js": "^10.6.0",
     "execa": "^9.6.0",
+    "framer-motion": "^12.23.24",
     "next": "16.0.1",
     "react": "19.2.0",
-    "react-dom": "19.2.0"
+    "react-dom": "19.2.0",
+    "react-hot-toast": "^2.6.0",
+    "recharts": "^3.3.0",
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -22,7 +52,12 @@
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.0.1",
+    "markdown-link-check": "^3.14.1",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "@meteora-ag/cp-amm-sdk": "1.1.4",
+    "@solana/web3.js": "$@solana/web3.js"
   }
 }
