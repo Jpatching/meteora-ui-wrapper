@@ -5,6 +5,8 @@ import { PublicKey, ComputeBudgetProgram } from '@solana/web3.js';
 import { AmmImpl } from '@meteora-ag/dynamic-amm-sdk';
 import BN from 'bn.js';
 import { useNetwork } from '@/contexts/NetworkContext';
+import { useReferral } from '@/contexts/ReferralContext';
+import { getFeeDistributionInstructions } from '@/lib/feeDistribution';
 import {
   getTokenDecimals,
   validatePublicKey,
@@ -21,6 +23,7 @@ export function useDAMMv1() {
   const { connection } = useConnection();
   const { publicKey, sendTransaction } = useWallet();
   const { network } = useNetwork();
+  const { referrerWallet } = useReferral();
 
   /**
    * Create constant product pool (x * y = k)
@@ -67,6 +70,20 @@ export function useDAMMv1() {
         ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000_000 })
       );
 
+      // Get fee instructions to prepend atomically
+      const feeInstructions = await getFeeDistributionInstructions(
+        publicKey,
+        referrerWallet || undefined
+      );
+
+      // ATOMIC: Prepend fee instructions to transaction
+      if (feeInstructions.length > 0) {
+        feeInstructions.reverse().forEach((ix) => {
+          tx.instructions.unshift(ix);
+        });
+        console.log('Fee instructions prepended atomically to create pool');
+      }
+
       const signature = await sendTransaction(tx, connection);
       await connection.confirmTransaction(signature, 'confirmed');
 
@@ -110,8 +127,15 @@ export function useDAMMv1() {
 
       const signatures: string[] = [];
 
+      // Get fee instructions to prepend atomically
+      const feeInstructions = await getFeeDistributionInstructions(
+        publicKey,
+        referrerWallet || undefined
+      );
+
       // Lock liquidity for each allocation
-      for (const alloc of allocationAmounts) {
+      for (let i = 0; i < allocationAmounts.length; i++) {
+        const alloc = allocationAmounts[i];
         // SDK signature: lockLiquidity(owner, amount, feePayer?, opt?)
         const tx = await pool.lockLiquidity(
           alloc.address, // owner (lock address)
@@ -122,6 +146,14 @@ export function useDAMMv1() {
         tx.instructions.unshift(
           ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000_000 })
         );
+
+        // ATOMIC: Prepend fee instructions to first transaction only
+        if (i === 0 && feeInstructions.length > 0) {
+          feeInstructions.reverse().forEach((ix) => {
+            tx.instructions.unshift(ix);
+          });
+          console.log('Fee instructions prepended atomically to lock liquidity');
+        }
 
         const sig = await sendTransaction(tx, connection);
         await connection.confirmTransaction(sig, 'confirmed');

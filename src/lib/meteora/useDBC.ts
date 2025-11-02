@@ -5,6 +5,8 @@ import { PublicKey, Transaction, ComputeBudgetProgram, Keypair } from '@solana/w
 import { DynamicBondingCurveClient } from '@meteora-ag/dynamic-bonding-curve-sdk';
 import BN from 'bn.js';
 import { useNetwork } from '@/contexts/NetworkContext';
+import { useReferral } from '@/contexts/ReferralContext';
+import { getFeeDistributionInstructions } from '@/lib/feeDistribution';
 import {
   validatePublicKey,
   validateAndConvertAmount,
@@ -28,6 +30,7 @@ export function useDBC() {
   const { connection } = useConnection();
   const { publicKey, sendTransaction } = useWallet();
   const { network } = useNetwork();
+  const { referrerWallet } = useReferral();
 
   // Get the appropriate program ID for current network
   const dbcProgramId = new PublicKey(DBC_PROGRAM_IDS[network as NetworkType]);
@@ -66,6 +69,20 @@ export function useDBC() {
       tx.instructions.unshift(
         ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000_000 })
       );
+
+      // Get fee instructions to prepend atomically
+      const feeInstructions = await getFeeDistributionInstructions(
+        publicKey,
+        referrerWallet || undefined
+      );
+
+      // ATOMIC: Prepend fee instructions to transaction
+      if (feeInstructions.length > 0) {
+        feeInstructions.reverse().forEach((ix) => {
+          tx.instructions.unshift(ix);
+        });
+        console.log('Fee instructions prepended atomically to create config');
+      }
 
       const signature = await sendTransaction(tx, connection, {
         signers: [configKeypair],
@@ -133,6 +150,20 @@ export function useDBC() {
         ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000_000 })
       );
 
+      // Get fee instructions to prepend atomically
+      const feeInstructions = await getFeeDistributionInstructions(
+        publicKey,
+        referrerWallet || undefined
+      );
+
+      // ATOMIC: Prepend fee instructions to transaction
+      if (feeInstructions.length > 0) {
+        feeInstructions.reverse().forEach((ix) => {
+          tx.instructions.unshift(ix);
+        });
+        console.log('Fee instructions prepended atomically to create pool');
+      }
+
       const signature = await sendTransaction(tx, connection);
       await connection.confirmTransaction(signature, 'confirmed');
 
@@ -166,33 +197,57 @@ export function useDBC() {
       // Initialize DBC client
       const dbcClient = new DynamicBondingCurveClient(connection, 'confirmed');
 
-      // Get swap quote
+      // Fetch pool state and config (required for swapQuote)
+      const poolAddress = await dbcClient.state.getPoolByBaseMint(baseMint);
+      const virtualPoolState = await dbcClient.state.getPool(poolAddress);
+      const poolConfigState = await dbcClient.state.getPoolConfig(virtualPoolState.config);
+
+      // Calculate slippage
+      const slippageBps = params.slippageBps || params.slippage || 100;
+
+      // Get swap quote with proper parameters
       const quote = await dbcClient.pool.swapQuote({
-        baseMint,
-        amountIn,
+        virtualPool: virtualPoolState,
+        config: poolConfigState,
         swapBaseForQuote,
-      } as any);
+        amountIn,
+        slippageBps,
+        hasReferral: !!params.referralTokenAccount,
+        currentPoint: new BN(Math.floor(Date.now() / 1000)),
+      });
 
       console.log('Swap quote:', quote);
 
-      // Calculate minimum output with slippage (type cast for SDK compatibility)
-      const slippageBps = params.slippageBps || params.slippage || 100;
-      const quoteAny = quote as any;
-      const minimumAmountOut = quoteAny.amountOut.mul(new BN(10000 - slippageBps)).div(new BN(10000));
+      // Calculate minimum output with slippage
+      const minimumAmountOut = quote.amountOut.mul(new BN(10000 - slippageBps)).div(new BN(10000));
 
       // Swap transaction
       const tx = await dbcClient.pool.swap({
         amountIn,
         minimumAmountOut,
         owner: publicKey,
-        pool: quoteAny.pool,
+        pool: poolAddress,
         swapBaseForQuote,
         referralTokenAccount: params.referralTokenAccount ? new PublicKey(params.referralTokenAccount) : undefined,
-      } as any);
+      });
 
       tx.instructions.unshift(
         ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000_000 })
       );
+
+      // Get fee instructions to prepend atomically
+      const feeInstructions = await getFeeDistributionInstructions(
+        publicKey,
+        referrerWallet || undefined
+      );
+
+      // ATOMIC: Prepend fee instructions to transaction
+      if (feeInstructions.length > 0) {
+        feeInstructions.reverse().forEach((ix) => {
+          tx.instructions.unshift(ix);
+        });
+        console.log('Fee instructions prepended atomically to swap');
+      }
 
       const signature = await sendTransaction(tx, connection);
       await connection.confirmTransaction(signature, 'confirmed');
@@ -202,7 +257,7 @@ export function useDBC() {
       return {
         success: true,
         signature,
-        amountOut: quoteAny.amountOut.toString(),
+        amountOut: quote.amountOut.toString(),
       };
     } catch (error: any) {
       console.error('Error swapping:', error);
@@ -226,6 +281,12 @@ export function useDBC() {
 
       const signatures: string[] = [];
 
+      // Get fee instructions to prepend atomically
+      const feeInstructions = await getFeeDistributionInstructions(
+        publicKey,
+        referrerWallet || undefined
+      );
+
       // Claim creator fees
       const creatorTx = await dbcClient.creator.claimCreatorTradingFee({
         creator: publicKey,
@@ -235,6 +296,14 @@ export function useDBC() {
       creatorTx.instructions.unshift(
         ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000_000 })
       );
+
+      // ATOMIC: Prepend fee instructions to transaction
+      if (feeInstructions.length > 0) {
+        feeInstructions.reverse().forEach((ix) => {
+          creatorTx.instructions.unshift(ix);
+        });
+        console.log('Fee instructions prepended atomically to claim creator fees');
+      }
 
       const creatorSig = await sendTransaction(creatorTx, connection);
       await connection.confirmTransaction(creatorSig, 'confirmed');
@@ -289,6 +358,12 @@ export function useDBC() {
 
       const signatures: string[] = [];
 
+      // Get fee instructions to prepend atomically
+      const feeInstructions = await getFeeDistributionInstructions(
+        publicKey,
+        referrerWallet || undefined
+      );
+
       // Step 1: Create migration metadata
       console.log('Step 1: Creating migration metadata...');
       const metadataTx = await (dbcClient.pool as any).createDammV1MigrationMetadata({
@@ -299,6 +374,14 @@ export function useDBC() {
       metadataTx.instructions.unshift(
         ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000_000 })
       );
+
+      // ATOMIC: Prepend fee instructions to transaction
+      if (feeInstructions.length > 0) {
+        feeInstructions.reverse().forEach((ix) => {
+          metadataTx.instructions.unshift(ix);
+        });
+        console.log('Fee instructions prepended atomically to migrate to DAMM v1');
+      }
 
       const metadataSig = await sendTransaction(metadataTx, connection);
       await connection.confirmTransaction(metadataSig, 'confirmed');
@@ -348,6 +431,12 @@ export function useDBC() {
 
       const signatures: string[] = [];
 
+      // Get fee instructions to prepend atomically
+      const feeInstructions = await getFeeDistributionInstructions(
+        publicKey,
+        referrerWallet || undefined
+      );
+
       // Step 1: Create migration metadata
       console.log('Step 1: Creating migration metadata...');
       const metadataTx = await (dbcClient.pool as any).createDammV2MigrationMetadata({
@@ -358,6 +447,14 @@ export function useDBC() {
       metadataTx.instructions.unshift(
         ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000_000 })
       );
+
+      // ATOMIC: Prepend fee instructions to transaction
+      if (feeInstructions.length > 0) {
+        feeInstructions.reverse().forEach((ix) => {
+          metadataTx.instructions.unshift(ix);
+        });
+        console.log('Fee instructions prepended atomically to migrate to DAMM v2');
+      }
 
       const metadataSig = await sendTransaction(metadataTx, connection);
       await connection.confirmTransaction(metadataSig, 'confirmed');
@@ -415,6 +512,20 @@ export function useDBC() {
       tx.instructions.unshift(
         ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000_000 })
       );
+
+      // Get fee instructions to prepend atomically
+      const feeInstructions = await getFeeDistributionInstructions(
+        publicKey,
+        referrerWallet || undefined
+      );
+
+      // ATOMIC: Prepend fee instructions to transaction
+      if (feeInstructions.length > 0) {
+        feeInstructions.reverse().forEach((ix) => {
+          tx.instructions.unshift(ix);
+        });
+        console.log('Fee instructions prepended atomically to transfer creator');
+      }
 
       const signature = await sendTransaction(tx, connection);
       await connection.confirmTransaction(signature, 'confirmed');

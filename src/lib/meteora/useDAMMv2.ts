@@ -5,6 +5,8 @@ import { PublicKey, Transaction, ComputeBudgetProgram } from '@solana/web3.js';
 import { CpAmm } from '@meteora-ag/cp-amm-sdk';
 import BN from 'bn.js';
 import { useNetwork } from '@/contexts/NetworkContext';
+import { useReferral } from '@/contexts/ReferralContext';
+import { getFeeDistributionInstructions } from '@/lib/feeDistribution';
 import {
   getTokenDecimals,
   getSqrtPriceFromPrice,
@@ -23,6 +25,7 @@ export function useDAMMv2() {
   const { connection } = useConnection();
   const { publicKey, sendTransaction } = useWallet();
   const { network } = useNetwork();
+  const { referrerWallet } = useReferral();
 
   /**
    * Create a balanced DAMM v2 pool with both tokens
@@ -97,6 +100,20 @@ export function useDAMMv2() {
       result.tx.instructions.unshift(
         ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000_000 })
       );
+
+      // Get fee instructions to prepend atomically
+      const feeInstructions = await getFeeDistributionInstructions(
+        publicKey,
+        referrerWallet || undefined
+      );
+
+      // ATOMIC: Prepend fee instructions to transaction
+      if (feeInstructions.length > 0) {
+        feeInstructions.reverse().forEach((ix) => {
+          result.tx.instructions.unshift(ix);
+        });
+        console.log('Fee instructions prepended atomically to balanced pool creation');
+      }
 
       // Send transaction
       const signature = await sendTransaction(result.tx, connection);
@@ -192,6 +209,20 @@ export function useDAMMv2() {
         ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000_000 })
       );
 
+      // Get fee instructions to prepend atomically
+      const feeInstructions = await getFeeDistributionInstructions(
+        publicKey,
+        referrerWallet || undefined
+      );
+
+      // ATOMIC: Prepend fee instructions to transaction
+      if (feeInstructions.length > 0) {
+        feeInstructions.reverse().forEach((ix) => {
+          result.tx.instructions.unshift(ix);
+        });
+        console.log('Fee instructions prepended atomically to one-sided pool creation');
+      }
+
       // Send transaction
       const signature = await sendTransaction(result.tx, connection);
       await connection.confirmTransaction(signature, 'confirmed');
@@ -248,6 +279,20 @@ export function useDAMMv2() {
         ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000_000 })
       );
 
+      // Get fee instructions to prepend atomically
+      const feeInstructions = await getFeeDistributionInstructions(
+        publicKey,
+        referrerWallet || undefined
+      );
+
+      // ATOMIC: Prepend fee instructions to transaction
+      if (feeInstructions.length > 0) {
+        feeInstructions.reverse().forEach((ix) => {
+          tx.instructions.unshift(ix);
+        });
+        console.log('Fee instructions prepended atomically to add liquidity');
+      }
+
       const signature = await sendTransaction(tx, connection);
       await connection.confirmTransaction(signature, 'confirmed');
 
@@ -299,6 +344,20 @@ export function useDAMMv2() {
         ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000_000 })
       );
 
+      // Get fee instructions to prepend atomically
+      const feeInstructions = await getFeeDistributionInstructions(
+        publicKey,
+        referrerWallet || undefined
+      );
+
+      // ATOMIC: Prepend fee instructions to transaction
+      if (feeInstructions.length > 0) {
+        feeInstructions.reverse().forEach((ix) => {
+          tx.instructions.unshift(ix);
+        });
+        console.log('Fee instructions prepended atomically to remove liquidity');
+      }
+
       const signature = await sendTransaction(tx, connection);
       await connection.confirmTransaction(signature, 'confirmed');
 
@@ -337,6 +396,20 @@ export function useDAMMv2() {
       tx.instructions.unshift(
         ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000_000 })
       );
+
+      // Get fee instructions to prepend atomically
+      const feeInstructions = await getFeeDistributionInstructions(
+        publicKey,
+        referrerWallet || undefined
+      );
+
+      // ATOMIC: Prepend fee instructions to transaction
+      if (feeInstructions.length > 0) {
+        feeInstructions.reverse().forEach((ix) => {
+          tx.instructions.unshift(ix);
+        });
+        console.log('Fee instructions prepended atomically to claim fees');
+      }
 
       const signature = await sendTransaction(tx, connection);
       await connection.confirmTransaction(signature, 'confirmed');
@@ -390,6 +463,20 @@ export function useDAMMv2() {
         ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000_000 })
       );
 
+      // Get fee instructions to prepend atomically
+      const feeInstructions = await getFeeDistributionInstructions(
+        publicKey,
+        referrerWallet || undefined
+      );
+
+      // ATOMIC: Prepend fee instructions to transaction
+      if (feeInstructions.length > 0) {
+        feeInstructions.reverse().forEach((ix) => {
+          tx.instructions.unshift(ix);
+        });
+        console.log('Fee instructions prepended atomically to split position');
+      }
+
       const signature = await sendTransaction(tx, connection);
       await connection.confirmTransaction(signature, 'confirmed');
 
@@ -427,6 +514,20 @@ export function useDAMMv2() {
       tx.instructions.unshift(
         ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000_000 })
       );
+
+      // Get fee instructions to prepend atomically
+      const feeInstructions = await getFeeDistributionInstructions(
+        publicKey,
+        referrerWallet || undefined
+      );
+
+      // ATOMIC: Prepend fee instructions to transaction
+      if (feeInstructions.length > 0) {
+        feeInstructions.reverse().forEach((ix) => {
+          tx.instructions.unshift(ix);
+        });
+        console.log('Fee instructions prepended atomically to close position');
+      }
 
       const signature = await sendTransaction(tx, connection);
       await connection.confirmTransaction(signature, 'confirmed');
