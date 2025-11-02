@@ -62,21 +62,28 @@ async function fetchAllDLMMPools(): Promise<DLMMPool[]> {
 }
 
 /**
- * Fetch ALL DAMM v2 pools
+ * Fetch TOP DAMM v2 pools sorted by TVL
+ * API returns 233k+ pools total, but we only want active ones with real TVL
  */
 async function fetchAllDAMMPools(): Promise<DAMMPool[]> {
-  console.log('🌊 Fetching ALL DAMM v2 pools from Meteora API...');
+  console.log('🌊 Fetching TOP DAMM v2 pools from Meteora API (sorted by TVL)...');
 
   try {
-    const response = await fetch('https://dammv2-api.meteora.ag/pools');
+    // CRITICAL: Use order_by=tvl to get pools with actual liquidity!
+    // Without this, API returns oldest/inactive pools first
+    const response = await fetch('https://dammv2-api.meteora.ag/pools?limit=1000&order_by=tvl&order=desc');
     if (!response.ok) {
       throw new Error(`DAMM API error: ${response.status}`);
     }
 
     const result = await response.json() as any;
     const pools = result.data || [];
-    console.log(`✅ Fetched ${pools.length} DAMM v2 pools`);
-    return pools;
+
+    // Filter out pools with very low TVL (likely abandoned)
+    const activePools = pools.filter((p: any) => p.tvl > 1); // At least $1 TVL
+
+    console.log(`✅ Fetched ${pools.length} DAMM v2 pools, ${activePools.length} active (TVL > $1)`);
+    return activePools;
   } catch (error: any) {
     console.error('❌ Error fetching DAMM pools:', error.message);
     return [];
