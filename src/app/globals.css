@@ -9,11 +9,15 @@
   --foreground-secondary: #a1a1aa;
   --foreground-muted: #71717a;
 
-  /* Brand colors - Purple/Blue gradients */
-  --primary: #8b5cf6;
-  --primary-dark: #7c3aed;
-  --secondary: #3b82f6;
-  --secondary-dark: #2563eb;
+  /* Brand colors - Vibrant MetaTools gradient */
+  --primary: #00D9FF;
+  --primary-dark: #0088FF;
+  --secondary: #9C27B0;
+  --secondary-dark: #7B1FA2;
+  --accent-orange: #FF6B35;
+  --accent-pink: #E91E63;
+  --accent-blue: #0033A0;
+  --accent-cyan: #00D9FF;
 
   /* Status colors */
   --success: #10b981;
@@ -31,8 +35,8 @@
 
   /* Card colors */
   --card-bg: rgba(18, 18, 26, 0.8);
-  --card-border: rgba(139, 92, 246, 0.1);
-  --card-hover: rgba(139, 92, 246, 0.05);
+  --card-border: rgba(0, 217, 255, 0.15);
+  --card-hover: rgba(0, 217, 255, 0.08);
 }
 
 @theme inline {
@@ -60,14 +64,56 @@
   --color-border: var(--border);
   --color-border-light: var(--border-light);
 
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* MetaTools Unique Font System */
+  --font-sans: var(--font-syne);
+  --font-brand: var(--font-audiowide);
+  --font-ui: var(--font-chakra-petch);
+  --font-mono: var(--font-share-tech-mono);
+  --font-accent: var(--font-exo-2);
 }
 
 body {
   background: linear-gradient(135deg, #0a0a0f 0%, #1a0f2e 100%);
   color: var(--foreground);
   min-height: 100vh;
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Font Hierarchy - MetaTools Distinctive System */
+
+/* H1 - Hero headings use Audiowide for commanding presence */
+h1 {
+  font-family: var(--font-brand), var(--font-sans);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+/* H2-H4 - Section headings use Chakra Petch for sharp, technical feel */
+h2, h3, h4 {
+  font-family: var(--font-ui), var(--font-sans);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* H5-H6 - Smaller headings use Exo 2 for softer accents */
+h5, h6 {
+  font-family: var(--font-accent), var(--font-sans);
+  font-weight: 600;
+  letter-spacing: 0.005em;
+}
+
+/* Buttons and interactive UI use Chakra Petch for precision */
+button, .button {
+  font-family: var(--font-ui), var(--font-sans);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Code, addresses, and numerical data use Share Tech Mono */
+code, pre, .mono, .address, .number {
+  font-family: var(--font-mono), monospace;
+  font-weight: 400;
+  letter-spacing: 0.02em;
 }
 
 /* Custom scrollbar */
@@ -104,16 +150,108 @@ body {
   background: linear-gradient(
     90deg,
     rgba(255, 255, 255, 0) 0%,
-    rgba(139, 92, 246, 0.1) 50%,
+    rgba(0, 217, 255, 0.1) 50%,
     rgba(255, 255, 255, 0) 100%
   );
   background-size: 1000px 100%;
 }
 
-/* Gradient text */
+/* Gradient text - Matches MetaTools logo colors */
 .gradient-text {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent-pink) 35%, var(--accent-orange) 70%, var(--secondary) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  font-family: var(--font-brand), var(--font-sans);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+/* Font Utility Classes - Apply specific fonts directly */
+.font-brand {
+  font-family: var(--font-brand), var(--font-sans);
+  letter-spacing: -0.02em;
+}
+
+.font-ui {
+  font-family: var(--font-ui), var(--font-sans);
+  letter-spacing: 0.01em;
+}
+
+.font-mono {
+  font-family: var(--font-mono), monospace;
+  letter-spacing: 0.02em;
+}
+
+.font-accent {
+  font-family: var(--font-accent), var(--font-sans);
+  letter-spacing: 0.005em;
+}
+
+.font-sans {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+/* 3D Floating Hero Text Animation */
+@keyframes float-3d {
+  0%, 100% {
+    transform: perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0px);
+  }
+  25% {
+    transform: perspective(1000px) rotateX(2deg) rotateY(-3deg) translateY(-5px);
+  }
+  50% {
+    transform: perspective(1000px) rotateX(-1deg) rotateY(3deg) translateY(0px);
+  }
+  75% {
+    transform: perspective(1000px) rotateX(1deg) rotateY(-2deg) translateY(3px);
+  }
+}
+
+@keyframes gradient-shift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.hero-3d {
+  animation: float-3d 8s ease-in-out infinite;
+  transform-style: preserve-3d;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.gradient-text-animated {
+  background: linear-gradient(
+    135deg,
+    var(--primary) 0%,
+    var(--accent-pink) 25%,
+    var(--accent-orange) 50%,
+    var(--secondary) 75%,
+    var(--primary) 100%
+  );
+  background-size: 200% 200%;
+  animation: gradient-shift 6s ease infinite;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-family: var(--font-brand), var(--font-sans);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .hero-3d {
+    animation: none;
+    transform: none;
+  }
+  .gradient-text-animated {
+    animation: none;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--accent-pink) 35%, var(--accent-orange) 70%, var(--secondary) 100%);
+  }
 }

@@ -1,15 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { NFTStorage } from 'nft.storage';
+import lighthouse from '@lighthouse-web3/sdk';
 import imageCompression from 'browser-image-compression';
-
-// Initialize NFT.Storage client
-const getNFTStorageClient = () => {
-  const apiKey = process.env.NFT_STORAGE_API_KEY;
-  if (!apiKey) {
-    throw new Error('NFT_STORAGE_API_KEY is not configured');
-  }
-  return new NFTStorage({ token: apiKey });
-};
 
 // Validate image file
 const validateImage = (file: File): { valid: boolean; error?: string } => {
@@ -60,6 +51,18 @@ const compressImageIfNeeded = async (file: File): Promise<File> => {
 
 export async function POST(request: NextRequest) {
   try {
+    const apiKey = process.env.LIGHTHOUSE_API_KEY;
+
+    if (!apiKey) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Lighthouse API key is not configured. Please set LIGHTHOUSE_API_KEY in your environment.',
+        },
+        { status: 500 }
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get('image') as File | null;
 
@@ -82,9 +85,18 @@ export async function POST(request: NextRequest) {
     // Compress image if needed
     const processedFile = await compressImageIfNeeded(file);
 
-    // Upload to NFT.Storage
-    const client = getNFTStorageClient();
-    const cid = await client.storeBlob(processedFile);
+    // Convert File to Buffer for Lighthouse
+    const arrayBuffer = await processedFile.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Upload to Lighthouse (IPFS)
+    const uploadResponse = await lighthouse.uploadBuffer(buffer, apiKey, processedFile.name);
+
+    if (!uploadResponse || !uploadResponse.data || !uploadResponse.data.Hash) {
+      throw new Error('Failed to get CID from Lighthouse response');
+    }
+
+    const cid = uploadResponse.data.Hash;
     const ipfsUri = `ipfs://${cid}`;
 
     return NextResponse.json({
@@ -96,16 +108,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('Image upload error:', error);
-
-    if (error.message?.includes('NFT_STORAGE_API_KEY')) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'NFT.Storage API key is not configured. Please set NFT_STORAGE_API_KEY in your environment.',
-        },
-        { status: 500 }
-      );
-    }
 
     return NextResponse.json(
       {

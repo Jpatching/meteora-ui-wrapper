@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useNetwork, NetworkType } from '@/contexts/NetworkContext';
-import { Select } from '@/components/ui';
+import { Select, Logo } from '@/components/ui';
 
 export function Header() {
   const { publicKey } = useWallet();
@@ -17,8 +17,10 @@ export function Header() {
 
   return (
     <header className="h-16 border-b border-border bg-background-secondary/50 backdrop-blur-xl flex items-center justify-between px-6">
-      {/* Left side - breadcrumb/title could go here */}
-      <div className="flex items-center gap-4">
+      {/* Left side - Logo and title */}
+      <div className="flex items-center gap-3">
+        <Logo size="md" />
+        <div className="h-6 w-px bg-border"></div>
         <h2 className="text-lg font-semibold text-foreground">Dashboard</h2>
       </div>
 

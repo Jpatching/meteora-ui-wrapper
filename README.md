@@ -1,6 +1,6 @@
-# Meteora Invent Studio UI
+# MetaTools - Meteora Protocol Suite
 
-A beautiful, dark-mode web interface for the Meteora Invent protocol. Create and manage Meteora pools (DLMM, DAMM v1/v2, DBC, Alpha Vault) with an intuitive, polished UI and full Solana wallet integration.
+A beautiful, dark-mode web interface for the Meteora protocols. Your comprehensive toolkit to create and manage Meteora pools (DLMM, DAMM v1/v2, DBC, Alpha Vault) with an intuitive, polished UI and full Solana wallet integration.
 
 ## 📚 Documentation
 

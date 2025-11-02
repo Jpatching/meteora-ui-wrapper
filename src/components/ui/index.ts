@@ -16,5 +16,8 @@ export { Tooltip } from './Tooltip';
 export type { TooltipProps } from './Tooltip';
 
 export { FeeDisclosure } from './FeeDisclosure';
+export type { FeeTier } from './FeeDisclosure';
 export { ReferralInput } from './ReferralInput';
 export { ReferralDisplay } from './ReferralDisplay';
+
+export { Logo } from './Logo';

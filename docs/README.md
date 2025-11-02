@@ -1,6 +1,6 @@
-# Meteora UI Wrapper Documentation
+# MetaTools Documentation
 
-Welcome to the Meteora UI Wrapper documentation. This directory contains all project documentation organized by category.
+Welcome to the MetaTools documentation. This directory contains all project documentation organized by category.
 
 ## Quick Links
 
@@ -48,6 +48,13 @@ Step-by-step guides for common development tasks:
   - Form component guidelines
   - SDK hook integration
   - UI component usage
+
+- **[PRODUCTION_DEPLOYMENT.md](guides/PRODUCTION_DEPLOYMENT.md)** - Production deployment guide
+  - Platform recommendations (Vercel, Netlify, VPS)
+  - Environment configuration
+  - Security checklist
+  - Monitoring and logging
+  - Cost estimates and scaling
 
 ### 🧪 Testing Documentation
 

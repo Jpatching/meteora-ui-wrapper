@@ -1,7 +1,9 @@
 /**
  * IPFS Client for MetaTools
  *
- * Handles uploading images and metadata JSON to IPFS via NFT.Storage
+ * Handles uploading images and metadata JSON to IPFS via Lighthouse (https://lighthouse.storage)
+ * Lighthouse offers a "pay once, store forever" model with generous free tier
+ * Perfect for token metadata that needs permanent, decentralized storage
  */
 
 export interface TokenMetadata {

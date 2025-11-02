@@ -2,29 +2,39 @@
 
 import Link from 'next/link';
 import { MainLayout } from '@/components/layout';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button } from '@/components/ui';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Logo } from '@/components/ui';
+import { useCountUp } from '@/hooks/useCountUp';
 
 export default function Home() {
+  // Count-up animations for stats
+  const poolTypes = useCountUp({ end: 5, duration: 1500 });
+  const totalFunctions = useCountUp({ end: 23, duration: 2000 });
+
   return (
     <MainLayout>
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Welcome Section */}
         <div className="text-center">
-          <h1 className="text-5xl font-bold gradient-text mb-3">
-            Welcome to Meteora Invent Studio
+          {/* Large Logo */}
+          <div className="flex justify-center mb-6 animate-fade-in">
+            <Logo size="xl" />
+          </div>
+
+          <h1 className="text-5xl font-bold gradient-text-animated hero-3d mb-3">
+            Welcome to MetaTools
           </h1>
           <p className="text-foreground-secondary text-xl mb-6">
-            Create and manage Meteora pools with an intuitive, powerful interface
+            Your comprehensive toolkit for Meteora protocols - create and manage pools with ease
           </p>
           <div className="flex gap-3 justify-center">
             <Link href="/dlmm/create-pool">
               <Button variant="primary" size="lg">
-                🚀 Create Your First Pool
+                Create Your First Pool
               </Button>
             </Link>
             <Link href="/analytics">
               <Button variant="outline" size="lg">
-                📊 View Analytics
+                View Analytics
               </Button>
             </Link>
           </div>
@@ -39,8 +49,8 @@ export default function Home() {
                   🏊
                 </div>
                 <div>
-                  <p className="text-foreground-muted text-sm">Pool Types</p>
-                  <p className="text-2xl font-bold text-foreground">5 Protocols</p>
+                  <p className="text-foreground-muted text-sm font-accent">Pool Types</p>
+                  <p ref={poolTypes.ref} className="text-2xl font-bold text-foreground font-mono">{poolTypes.count} Protocols</p>
                 </div>
               </div>
             </CardContent>
@@ -53,8 +63,8 @@ export default function Home() {
                   ⚡
                 </div>
                 <div>
-                  <p className="text-foreground-muted text-sm">Total Actions</p>
-                  <p className="text-2xl font-bold text-foreground">23 Functions</p>
+                  <p className="text-foreground-muted text-sm font-accent">Total Actions</p>
+                  <p ref={totalFunctions.ref} className="text-2xl font-bold text-foreground font-mono">{totalFunctions.count} Functions</p>
                 </div>
               </div>
             </CardContent>
@@ -67,8 +77,8 @@ export default function Home() {
                   💰
                 </div>
                 <div>
-                  <p className="text-foreground-muted text-sm">Platform Fee</p>
-                  <p className="text-2xl font-bold text-foreground">0.1 SOL</p>
+                  <p className="text-foreground-muted text-sm font-accent">Platform Fee</p>
+                  <p className="text-xl font-bold text-foreground font-mono">From 0.0075 SOL</p>
                 </div>
               </div>
             </CardContent>
@@ -81,8 +91,8 @@ export default function Home() {
                   🎯
                 </div>
                 <div>
-                  <p className="text-foreground-muted text-sm">Status</p>
-                  <p className="text-2xl font-bold text-foreground">Ready</p>
+                  <p className="text-foreground-muted text-sm font-accent">Status</p>
+                  <p className="text-2xl font-bold text-foreground font-ui">Ready</p>
                 </div>
               </div>
             </CardContent>
@@ -149,25 +159,46 @@ export default function Home() {
               </CardTitle>
               <CardDescription>How fees work on this platform</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <p className="text-sm font-medium text-foreground mb-1">Fee Structure</p>
-                <p className="text-xs text-foreground-secondary">
-                  A small platform fee of 0.1 SOL is charged per transaction to support development and maintenance
-                </p>
+            <CardContent className="space-y-4">
+              {/* Free Tier */}
+              <div className="p-3 rounded-lg bg-background-tertiary border border-border-light">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-semibold text-foreground font-ui">Free Tier</h4>
+                  <span className="text-lg font-bold text-success font-mono">0.0075 SOL</span>
+                </div>
+                <ul className="text-xs text-foreground-secondary space-y-1">
+                  <li>• Standard mainnet RPC</li>
+                  <li>• Rate limited</li>
+                  <li>• Perfect for testing & casual use</li>
+                </ul>
               </div>
-              <div>
-                <p className="text-sm font-medium text-foreground mb-1">Fee Distribution</p>
+
+              {/* Pro Tier */}
+              <div className="p-3 rounded-lg bg-primary/5 border border-primary/30">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-semibold text-primary font-ui">Pro Tier</h4>
+                    <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-primary/20 text-primary font-ui">
+                      Recommended
+                    </span>
+                  </div>
+                  <span className="text-lg font-bold text-primary font-mono">0.0085 SOL</span>
+                </div>
+                <ul className="text-xs text-foreground-secondary space-y-1">
+                  <li>• Premium Helius + Alchemy RPCs</li>
+                  <li>• Higher rate limits</li>
+                  <li>• Faster, more reliable transactions</li>
+                  <li>• Priority support</li>
+                </ul>
+              </div>
+
+              <div className="pt-2 border-t border-border-primary">
+                <p className="text-sm font-medium text-foreground mb-1 font-accent">Fee Distribution</p>
                 <ul className="text-xs text-foreground-secondary space-y-1">
                   <li>• 10% - Referral rewards (if applicable)</li>
                   <li>• 45% - Token buyback program</li>
                   <li>• 45% - Treasury & development</li>
                 </ul>
-              </div>
-              <div className="pt-2 border-t border-border-primary">
-                <p className="text-xs text-foreground-muted">
-                  All fees are collected on-chain and transparently distributed
-                </p>
               </div>
             </CardContent>
           </Card>

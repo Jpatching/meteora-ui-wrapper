@@ -1,15 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { NFTStorage } from 'nft.storage';
+import lighthouse from '@lighthouse-web3/sdk';
 import { TokenMetadata } from '@/lib/storage/ipfs-client';
-
-// Initialize NFT.Storage client
-const getNFTStorageClient = () => {
-  const apiKey = process.env.NFT_STORAGE_API_KEY;
-  if (!apiKey) {
-    throw new Error('NFT_STORAGE_API_KEY is not configured');
-  }
-  return new NFTStorage({ token: apiKey });
-};
 
 // Validate metadata
 const validateMetadata = (metadata: any): { valid: boolean; error?: string } => {
@@ -35,6 +26,18 @@ const validateMetadata = (metadata: any): { valid: boolean; error?: string } => 
 
 export async function POST(request: NextRequest) {
   try {
+    const apiKey = process.env.LIGHTHOUSE_API_KEY;
+
+    if (!apiKey) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Lighthouse API key is not configured. Please set LIGHTHOUSE_API_KEY in your environment.',
+        },
+        { status: 500 }
+      );
+    }
+
     const body = await request.json();
     const metadata: TokenMetadata = body.metadata;
 
@@ -54,13 +57,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Convert metadata to JSON blob
+    // Convert metadata to JSON string and Buffer
     const metadataJson = JSON.stringify(metadata, null, 2);
-    const metadataBlob = new Blob([metadataJson], { type: 'application/json' });
+    const buffer = Buffer.from(metadataJson, 'utf-8');
 
-    // Upload to NFT.Storage
-    const client = getNFTStorageClient();
-    const cid = await client.storeBlob(metadataBlob);
+    // Upload to Lighthouse (IPFS)
+    const uploadResponse = await lighthouse.uploadBuffer(buffer, apiKey, 'metadata.json');
+
+    if (!uploadResponse || !uploadResponse.data || !uploadResponse.data.Hash) {
+      throw new Error('Failed to get CID from Lighthouse response');
+    }
+
+    const cid = uploadResponse.data.Hash;
     const ipfsUri = `ipfs://${cid}`;
 
     return NextResponse.json({
@@ -70,16 +78,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('Metadata upload error:', error);
-
-    if (error.message?.includes('NFT_STORAGE_API_KEY')) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'NFT.Storage API key is not configured. Please set NFT_STORAGE_API_KEY in your environment.',
-        },
-        { status: 500 }
-      );
-    }
 
     return NextResponse.json(
       {

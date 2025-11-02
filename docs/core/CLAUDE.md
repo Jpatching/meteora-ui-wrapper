@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a comprehensive Next.js 16 web UI for the Meteora Invent protocol. It provides a beautiful, dark-mode interface to create and manage Meteora pools (DLMM, DAMM v1/v2, DBC, Alpha Vault) on Solana with full wallet integration.
+This is MetaTools - a comprehensive Next.js 16 web UI for Meteora protocols. It provides a beautiful, dark-mode interface to create and manage Meteora pools (DLMM, DAMM v1/v2, DBC, Alpha Vault) on Solana with full wallet integration.
 
 ## Key Architecture Concepts
 
