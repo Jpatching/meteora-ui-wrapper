@@ -14,69 +14,77 @@ interface NavItem {
 
 interface NavSection {
   title: string;
+  icon: string;
   items: NavItem[];
 }
 
 const navigation: NavSection[] = [
   {
     title: 'Navigation',
+    icon: '🧭',
     items: [
-      { name: 'Dashboard', href: '/', icon: '🏠' },
-      { name: 'Analytics', href: '/analytics', icon: '📊' },
+      { name: 'Dashboard', href: '/' },
+      { name: 'Analytics', href: '/analytics' },
     ],
   },
   {
     title: 'DLMM',
+    icon: '💎',
     items: [
-      { name: 'Create Pool', href: '/dlmm/create-pool', icon: '🏊' },
-      { name: 'Seed Liquidity (LFG)', href: '/dlmm/seed-lfg', icon: '💧' },
-      { name: 'Seed Liquidity (Single)', href: '/dlmm/seed-single', icon: '💦' },
-      { name: 'Set Pool Status', href: '/dlmm/set-status', icon: '⚙️' },
+      { name: 'Create Pool', href: '/dlmm/create-pool' },
+      { name: 'Seed Liquidity (LFG)', href: '/dlmm/seed-lfg' },
+      { name: 'Seed Liquidity (Single)', href: '/dlmm/seed-single' },
+      { name: 'Set Pool Status', href: '/dlmm/set-status' },
     ],
   },
   {
     title: 'DAMM v2',
+    icon: '⚡',
     items: [
-      { name: 'Create Balanced Pool', href: '/damm-v2/create-balanced', icon: '⚖️' },
-      { name: 'Create One-Sided Pool', href: '/damm-v2/create-one-sided', icon: '📊' },
-      { name: 'Add Liquidity', href: '/damm-v2/add-liquidity', icon: '➕' },
-      { name: 'Remove Liquidity', href: '/damm-v2/remove-liquidity', icon: '➖' },
-      { name: 'Split Position', href: '/damm-v2/split-position', icon: '✂️' },
-      { name: 'Claim Fees', href: '/damm-v2/claim-fees', icon: '💰' },
-      { name: 'Close Position', href: '/damm-v2/close-position', icon: '❌' },
+      { name: 'Create Balanced Pool', href: '/damm-v2/create-balanced' },
+      { name: 'Create One-Sided Pool', href: '/damm-v2/create-one-sided' },
+      { name: 'Add Liquidity', href: '/damm-v2/add-liquidity' },
+      { name: 'Remove Liquidity', href: '/damm-v2/remove-liquidity' },
+      { name: 'Split Position', href: '/damm-v2/split-position' },
+      { name: 'Claim Fees', href: '/damm-v2/claim-fees' },
+      { name: 'Close Position', href: '/damm-v2/close-position' },
     ],
   },
   {
     title: 'DAMM v1',
+    icon: '🔷',
     items: [
-      { name: 'Create Pool', href: '/damm-v1/create-pool', icon: '🏊' },
-      { name: 'Lock Liquidity', href: '/damm-v1/lock-liquidity', icon: '🔒' },
-      { name: 'Create Stake2Earn', href: '/damm-v1/create-stake2earn', icon: '🌾' },
-      { name: 'Lock (Stake2Earn)', href: '/damm-v1/lock-stake2earn', icon: '🔐' },
+      { name: 'Create Pool', href: '/damm-v1/create-pool' },
+      { name: 'Lock Liquidity', href: '/damm-v1/lock-liquidity' },
+      { name: 'Create Stake2Earn', href: '/damm-v1/create-stake2earn' },
+      { name: 'Lock (Stake2Earn)', href: '/damm-v1/lock-stake2earn' },
     ],
   },
   {
     title: 'DBC',
+    icon: '📈',
     items: [
-      { name: 'Create Config', href: '/dbc/create-config', icon: '📝' },
-      { name: 'Create Pool', href: '/dbc/create-pool', icon: '🏊' },
-      { name: 'Swap', href: '/dbc/swap', icon: '🔄' },
-      { name: 'Claim Fees', href: '/dbc/claim-fees', icon: '💰' },
-      { name: 'Migrate to DAMM v1', href: '/dbc/migrate-v1', icon: '⬆️' },
-      { name: 'Migrate to DAMM v2', href: '/dbc/migrate-v2', icon: '⬆️' },
-      { name: 'Transfer Creator', href: '/dbc/transfer-creator', icon: '👤' },
+      { name: 'Create Config', href: '/dbc/create-config' },
+      { name: 'Create Pool', href: '/dbc/create-pool' },
+      { name: 'Swap', href: '/dbc/swap' },
+      { name: 'Claim Fees', href: '/dbc/claim-fees' },
+      { name: 'Migrate to DAMM v1', href: '/dbc/migrate-v1' },
+      { name: 'Migrate to DAMM v2', href: '/dbc/migrate-v2' },
+      { name: 'Transfer Creator', href: '/dbc/transfer-creator' },
     ],
   },
   {
     title: 'Alpha Vault',
-    items: [{ name: 'Create Vault', href: '/alpha-vault/create', icon: '🏦' }],
+    icon: '🏦',
+    items: [{ name: 'Create Vault', href: '/alpha-vault/create' }],
   },
   {
     title: 'Settings',
+    icon: '⚙️',
     items: [
-      { name: 'RPC Configuration', href: '/settings/rpc', icon: '🔧' },
-      { name: 'Generate Keypair', href: '/settings/keypair', icon: '🔑' },
-      { name: 'Airdrop SOL', href: '/settings/airdrop', icon: '🪂' },
+      { name: 'RPC Configuration', href: '/settings/rpc' },
+      { name: 'Generate Keypair', href: '/settings/keypair' },
+      { name: 'Airdrop SOL', href: '/settings/airdrop' },
     ],
   },
 ];
@@ -151,7 +159,10 @@ export function Sidebar() {
                 onClick={() => toggleSection(section.title)}
                 className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-foreground-muted uppercase tracking-wider hover:text-foreground transition-colors rounded-lg hover:bg-background-tertiary font-ui"
               >
-                <span>{section.title}</span>
+                <span className="flex items-center gap-2">
+                  <span className="text-base">{section.icon}</span>
+                  {section.title}
+                </span>
                 <svg
                   className={`w-4 h-4 transition-transform duration-200 ${
                     isExpanded ? 'rotate-180' : ''
@@ -201,20 +212,22 @@ export function Sidebar() {
                           }
                         `}
                       >
-                        {/* Animated icon container */}
-                        <div className={`
-                          relative w-8 h-8 rounded-lg flex items-center justify-center
-                          bg-gradient-to-br ${gradient}
-                          group-hover:scale-110 transition-transform duration-200
-                          ${isActive ? 'animate-pulse' : ''}
-                        `}>
-                          <span className="text-lg relative z-10">{item.icon}</span>
-                          {/* Glow effect on hover */}
+                        {/* Animated icon container - only show if icon exists */}
+                        {item.icon && (
                           <div className={`
-                            absolute inset-0 rounded-lg bg-gradient-to-br ${gradient}
-                            blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-200
-                          `} />
-                        </div>
+                            relative w-8 h-8 rounded-lg flex items-center justify-center
+                            bg-gradient-to-br ${gradient}
+                            group-hover:scale-110 transition-transform duration-200
+                            ${isActive ? 'animate-pulse' : ''}
+                          `}>
+                            <span className="text-lg relative z-10">{item.icon}</span>
+                            {/* Glow effect on hover */}
+                            <div className={`
+                              absolute inset-0 rounded-lg bg-gradient-to-br ${gradient}
+                              blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-200
+                            `} />
+                          </div>
+                        )}
 
                         <span className="flex-1">{item.name}</span>
                         {item.badge && (
