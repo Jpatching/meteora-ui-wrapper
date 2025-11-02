@@ -46,8 +46,8 @@ export function PoolTable({ pools, onPoolClick, sortBy, onSortChange }: PoolTabl
     // Charting.ag style badges - softer colors with glow effect
     if (pool.baseAsset.launchpad === 'met-dbc') return { label: 'DBC', color: 'bg-purple-500/10 text-purple-400/90 border border-purple-500/20' };
     if (pool.type === 'dlmm') return { label: 'DLMM', color: 'bg-orange-500/10 text-orange-400/90 border border-orange-500/20' };
-    if (pool.type === 'damm-v2') return { label: 'DAMM', color: 'bg-emerald-500/10 text-emerald-400/90 border border-emerald-500/20' };
-    if (pool.type === 'damm-v1' || pool.type === 'damm') return { label: 'DAMM', color: 'bg-emerald-500/10 text-emerald-400/90 border border-emerald-500/20' };
+    if (pool.type === 'damm-v2') return { label: 'DAMM v2', color: 'bg-emerald-500/10 text-emerald-400/90 border border-emerald-500/20' };
+    if (pool.type === 'damm-v1' || pool.type === 'damm') return { label: 'DAMM v1', color: 'bg-teal-500/10 text-teal-400/90 border border-teal-500/20' };
     if (pool.type === 'alpha-vault') return { label: 'ALPHA', color: 'bg-pink-500/10 text-pink-400/90 border border-pink-500/20' };
     return { label: 'POOL', color: 'bg-gray-500/10 text-gray-400/90 border border-gray-500/20' };
   };
