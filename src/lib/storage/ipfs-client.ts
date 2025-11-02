@@ -195,11 +195,11 @@ export function validateImageFile(file: File): {
 }
 
 /**
- * Format IPFS URI for display
+ * Format IPFS URI for display using Lighthouse gateway
  */
 export function formatIPFSUri(uri: string): string {
   if (uri.startsWith('ipfs://')) {
-    return `https://nftstorage.link/ipfs/${uri.replace('ipfs://', '')}`;
+    return `https://gateway.lighthouse.storage/ipfs/${uri.replace('ipfs://', '')}`;
   }
   return uri;
 }

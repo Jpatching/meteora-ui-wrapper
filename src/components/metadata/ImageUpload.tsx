@@ -224,7 +224,7 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
         </div>
       </div>
       <p className="text-xs text-text-muted">
-        Your image will be uploaded to IPFS via NFT.Storage and automatically
+        Your image will be uploaded to IPFS via Lighthouse Storage and automatically
         compressed for optimal storage.
       </p>
     </div>

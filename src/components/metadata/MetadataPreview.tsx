@@ -41,7 +41,7 @@ export const MetadataPreview: React.FC<MetadataPreviewProps> = ({
   const formatIPFSUri = (uri: string) => {
     if (uri.startsWith('ipfs://')) {
       const cid = uri.replace('ipfs://', '');
-      return `https://nftstorage.link/ipfs/${cid}`;
+      return `https://gateway.lighthouse.storage/ipfs/${cid}`;
     }
     return uri;
   };
