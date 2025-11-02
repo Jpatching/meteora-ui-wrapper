@@ -11,6 +11,9 @@
     </linearGradient>
   </defs>
 
+  <!-- Background circle for better visibility -->
+  <circle cx="50" cy="50" r="48" fill="#0f172a" />
+
   <!-- Main M shape - MetaTool -->
   <path
     d="M 15 75 L 15 35 C 15 30 17 28 21 28 C 23 28 25 29 26 31 L 35 55 L 44 31 C 45 29 47 28 49 28 C 53 28 55 30 55 35 L 55 75"
