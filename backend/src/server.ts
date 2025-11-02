@@ -26,8 +26,9 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
 // Parse FRONTEND_URL as comma-separated list or use default array
+// Strip trailing slashes to avoid CORS mismatches
 const allowedOrigins = process.env.FRONTEND_URL
-  ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
+  ? process.env.FRONTEND_URL.split(',').map(url => url.trim().replace(/\/$/, ''))
   : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'];
 
 console.log('🌐 CORS allowed origins:', allowedOrigins);
