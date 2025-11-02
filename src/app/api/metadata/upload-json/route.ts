@@ -62,7 +62,8 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(metadataJson, 'utf-8');
 
     // Upload to Lighthouse (IPFS)
-    const uploadResponse = await lighthouse.uploadBuffer(buffer, apiKey, 'metadata.json');
+    // uploadBuffer takes (buffer, apiKey, cidVersion?) - no filename parameter
+    const uploadResponse = await lighthouse.uploadBuffer(buffer, apiKey);
 
     if (!uploadResponse || !uploadResponse.data || !uploadResponse.data.Hash) {
       throw new Error('Failed to get CID from Lighthouse response');

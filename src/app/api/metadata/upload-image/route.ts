@@ -56,19 +56,55 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check image size more explicitly
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Image is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Please use an image under 5MB.`
+        },
+        { status: 400 }
+      );
+    }
+
     // Convert File to Buffer for Lighthouse
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Upload to Lighthouse (IPFS)
-    const uploadResponse = await lighthouse.uploadBuffer(buffer, apiKey, file.name);
+    console.log(`Uploading ${file.name} (${file.size} bytes) to Lighthouse...`);
+
+    // Upload to Lighthouse (IPFS) with proper error handling
+    let uploadResponse;
+    try {
+      // uploadBuffer takes (buffer, apiKey, cidVersion?) - no filename parameter
+      uploadResponse = await lighthouse.uploadBuffer(buffer, apiKey);
+    } catch (lighthouseError: any) {
+      console.error('Lighthouse SDK error:', lighthouseError);
+
+      // Check if it's an API key issue
+      if (lighthouseError.message?.includes('API Key') || lighthouseError.message?.includes('malformed')) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Invalid Lighthouse API key. Please check your LIGHTHOUSE_API_KEY environment variable.',
+          },
+          { status: 500 }
+        );
+      }
+
+      throw lighthouseError;
+    }
 
     if (!uploadResponse || !uploadResponse.data || !uploadResponse.data.Hash) {
+      console.error('Invalid Lighthouse response:', uploadResponse);
       throw new Error('Failed to get CID from Lighthouse response');
     }
 
     const cid = uploadResponse.data.Hash;
     const ipfsUri = `ipfs://${cid}`;
+
+    console.log(`Successfully uploaded to IPFS: ${ipfsUri}`);
 
     return NextResponse.json({
       success: true,
@@ -80,10 +116,23 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Image upload error:', error);
 
+    // Provide more specific error messages
+    let errorMessage = 'Failed to upload image to IPFS';
+
+    if (error.message) {
+      if (error.message.includes('JSON')) {
+        errorMessage = 'Lighthouse API error: Invalid response format. Please check your API key.';
+      } else if (error.message.includes('network') || error.message.includes('fetch')) {
+        errorMessage = 'Network error: Unable to connect to Lighthouse. Please try again.';
+      } else {
+        errorMessage = error.message;
+      }
+    }
+
     return NextResponse.json(
       {
         success: false,
-        error: error.message || 'Failed to upload image to IPFS',
+        error: errorMessage,
       },
       { status: 500 }
     );
