@@ -24,7 +24,7 @@ interface DAMMPool {
   pool_address: string;
   pool_name: string;
   base_fee: number;
-  tvl: number;
+  tvl: number; // Often 0 in API - calculate from token amounts
   volume24h: number;
   fee24h: number;
   apr: number;
@@ -32,7 +32,11 @@ interface DAMMPool {
   token_b_mint: string;
   token_a_symbol: string;
   token_b_symbol: string;
+  token_a_amount_usd?: number; // Use this to calculate TVL
+  token_b_amount_usd?: number; // Use this to calculate TVL
   pool_type: number;
+  tokens_verified?: boolean;
+  has_farm?: boolean;
 }
 
 /**
@@ -126,9 +130,16 @@ async function upsertDLMMPool(pool: DLMMPool): Promise<void> {
  * Upsert DAMM pool into database
  */
 async function upsertDAMMPool(pool: DAMMPool): Promise<void> {
+  // CRITICAL: Calculate TVL from token amounts since API returns tvl=0 for all pools
+  // DAMM v2 API issue: tvl field is always 0, but token_a_amount_usd + token_b_amount_usd has real values
+  const calculatedTvl = (pool.token_a_amount_usd || 0) + (pool.token_b_amount_usd || 0);
+  const tvl = calculatedTvl > 0 ? calculatedTvl : (pool.tvl || 0);
+
   const metadata = {
     base_fee: pool.base_fee,
     pool_type: pool.pool_type,
+    tokens_verified: pool.tokens_verified,
+    has_farm: pool.has_farm,
   };
 
   await db.query(
@@ -158,7 +169,7 @@ async function upsertDAMMPool(pool: DAMMPool): Promise<void> {
       pool.token_b_mint,
       pool.token_a_symbol,
       pool.token_b_symbol,
-      pool.tvl || 0,
+      tvl,
       pool.volume24h || 0,
       pool.fee24h || 0,
       pool.apr || 0,
@@ -190,9 +201,21 @@ export async function syncAllPools(): Promise<{ dlmm: number; damm: number }> {
 
     // Batch insert DAMM pools
     console.log(`💾 Syncing ${dammPools.length} DAMM pools to database...`);
+    let dammSuccess = 0;
+    let dammErrors = 0;
     for (const pool of dammPools) {
-      await upsertDAMMPool(pool);
+      try {
+        await upsertDAMMPool(pool);
+        dammSuccess++;
+      } catch (error: any) {
+        dammErrors++;
+        console.error(`❌ Error syncing DAMM pool ${pool.pool_name}:`, error.message);
+        if (dammErrors <= 3) {
+          console.error(`   Pool data:`, JSON.stringify(pool, null, 2));
+        }
+      }
     }
+    console.log(`✅ DAMM sync complete: ${dammSuccess} success, ${dammErrors} errors`);
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
     console.log(`✅ Pool sync complete in ${duration}s`);
