@@ -32,12 +32,7 @@ import { useReferral } from '@/contexts/ReferralContext';
 import { getFeeDistributionInstructions, getFeeBreakdown } from '@/lib/feeDistribution';
 import { recordReferralEarning } from '@/lib/referrals';
 import { confirmTransactionWithRetry } from '@/lib/transactionUtils';
-
-const DLMM_PROGRAM_IDS = {
-  'mainnet-beta': 'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo',
-  'devnet': 'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo',
-  'localnet': 'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo',
-};
+import { DLMM_PROGRAM_IDS, type NetworkType } from './programIds';
 
 /**
  * Validation helper: Validate and parse PublicKey
@@ -267,13 +262,12 @@ export function useDLMM() {
   /**
    * Create a customizable permissionless DLMM pool
    * Handles both scenarios: creating new token or using existing token
+   * TWO-TRANSACTION FLOW for new tokens (safer, more reliable)
    */
   const createPool = async (params: DLMMCreatePoolParams) => {
     if (!publicKey) {
       throw new Error('Wallet not connected');
     }
-
-    // console.log('Creating DLMM pool with params:', params);
 
     try {
       // Validate that we have either baseMint OR createBaseToken
@@ -286,40 +280,97 @@ export function useDLMM() {
       }
 
       let baseMint: PublicKey;
-      let tokenCreationInstructions: any[] = [];
-      let mintKeypair: Keypair | null = null;
+      const quoteMint = validatePublicKey(params.quoteMint, 'Quote mint');
 
-      // Handle token creation if needed
+      // Get fee breakdown for tracking
+      const feeBreakdown = getFeeBreakdown(referrerWallet || undefined);
+      const platformFeePaid = feeBreakdown.total.lamports;
+
+      // ===== TWO-TRANSACTION FLOW: Create token FIRST if needed =====
       if (params.createBaseToken) {
-        console.log('[ATOMIC TX] Building token creation instructions...');
-        const tokenBuild = await buildTokenCreationInstructions(
+        console.log('[STEP 1/2] Creating new token...');
+
+        // Build token creation instructions
+        const { instructions: tokenInstructions, mintKeypair, mintPubkey } = await buildTokenCreationInstructions(
           params.createBaseToken,
           connection,
           publicKey
         );
-        baseMint = tokenBuild.mintPubkey;
-        tokenCreationInstructions = tokenBuild.instructions;
-        mintKeypair = tokenBuild.mintKeypair;
+        baseMint = mintPubkey;
+
+        // Get fee instructions for token creation
+        const feeInstructions = await getFeeDistributionInstructions(
+          publicKey,
+          referrerWallet || undefined
+        );
+
+        // Build token creation transaction with fees
+        const tokenTx = new Transaction();
+
+        // Add compute budget
+        tokenTx.add(
+          ComputeBudgetProgram.setComputeUnitLimit({ units: 600_000 })
+        );
+        tokenTx.add(
+          ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5_000_000 })
+        );
+
+        // Add fee instructions atomically
+        if (feeInstructions.length > 0) {
+          feeInstructions.forEach(ix => tokenTx.add(ix));
+        }
+
+        // Add token creation instructions
+        tokenInstructions.forEach(ix => tokenTx.add(ix));
+
+        console.log(`[TOKEN TX] Sending transaction with ${tokenTx.instructions.length} instructions (fees + token creation)`);
+
+        // Send token creation transaction
+        const tokenSignature = await sendTransaction(tokenTx, connection, {
+          signers: [mintKeypair],
+          skipPreflight: true,
+          maxRetries: 5,
+        });
+        console.log('[STEP 1/2] Token creation transaction sent:', tokenSignature);
+
+        // Wait for confirmation
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await confirmTransactionWithRetry(connection, tokenSignature, { maxRetries: 10 });
+        console.log('[STEP 1/2] Token created successfully:', baseMint.toString());
+
+        // Record referral earning for token creation
+        if (referrerWallet && feeBreakdown.referral.lamports > 0) {
+          recordEarning(
+            feeBreakdown.referral.lamports,
+            publicKey.toBase58(),
+            tokenSignature
+          );
+        }
+
+        // Track token creation transaction
+        addTransaction({
+          signature: tokenSignature,
+          walletAddress: publicKey.toBase58(),
+          network,
+          protocol: 'dlmm',
+          action: 'dlmm-create-token',
+          status: 'success',
+          params: { tokenConfig: params.createBaseToken },
+          tokenAddress: baseMint.toString(),
+          platformFee: platformFeePaid,
+        });
       } else {
+        // Using existing token
         baseMint = validatePublicKey(params.baseMint!, 'Base mint');
+        console.log('[SINGLE TX] Using existing token:', baseMint.toString());
       }
 
-      const quoteMint = validatePublicKey(params.quoteMint, 'Quote mint');
+      // ===== STEP 2: Create Pool (always happens, with or without token creation) =====
+      console.log('[STEP 2/2] Creating DLMM pool...');
 
-      // Get decimals for both mints
-      let baseMintAccount, quoteMintAccount;
-
-      if (params.createBaseToken) {
-        // For new token, use the decimals from config
-        const decimals = params.createBaseToken.decimals ?? 9;
-        baseMintAccount = { decimals };
-        quoteMintAccount = await getMint(connection, quoteMint);
-      } else {
-        // For existing token, fetch from chain
-        baseMintAccount = await getMint(connection, baseMint);
-        quoteMintAccount = await getMint(connection, quoteMint);
-      }
-
+      // Fetch token decimals (token now exists on-chain)
+      const baseMintAccount = await getMint(connection, baseMint);
+      const quoteMintAccount = await getMint(connection, quoteMint);
       const baseDecimals = baseMintAccount.decimals;
       const quoteDecimals = quoteMintAccount.decimals;
 
@@ -341,7 +392,7 @@ export function useDLMM() {
         DLMM_PROGRAM_IDS[network as keyof typeof DLMM_PROGRAM_IDS]
       );
 
-      // Create pool transaction using Meteora SDK
+      // Create pool transaction using Meteora SDK (token exists now, so this works)
       const initPoolTx = await DLMM.createCustomizablePermissionlessLbPair2(
         connection,
         new BN(params.binStep || 25),
@@ -360,7 +411,6 @@ export function useDLMM() {
         }
       );
 
-      // ===== ATOMIC TRANSACTION: Add ATAs + Fees + Pool Creation =====
       // Create ATA instructions (idempotent - safe to call even if ATAs exist)
       const baseTokenATA = getAssociatedTokenAddressSync(baseMint, publicKey);
       const quoteTokenATA = getAssociatedTokenAddressSync(quoteMint, publicKey);
@@ -380,67 +430,51 @@ export function useDLMM() {
         ),
       ];
 
-      // Add fee distribution instructions (3-way split: referral/buyback/treasury)
-      const feeInstructions = await getFeeDistributionInstructions(
-        publicKey,
-        referrerWallet || undefined
-      );
-      const feeBreakdown = getFeeBreakdown(referrerWallet || undefined);
-      const platformFeePaid = feeBreakdown.total.lamports;
+      // Get fee instructions (only if we didn't create token - fees already paid in step 1)
+      const shouldPayFees = !params.createBaseToken;
+      const feeInstructions = shouldPayFees
+        ? await getFeeDistributionInstructions(publicKey, referrerWallet || undefined)
+        : [];
 
-      // Build atomic transaction in correct order: Fees → Compute Budget → Token Creation → ATAs → Pool Creation
-      // Note: unshift() adds to the FRONT, so we add in REVERSE order of what we want
+      // Build pool creation transaction in correct order: Fees → Compute Budget → ATAs → Pool Creation
+      // Note: unshift() adds to the FRONT, so we add in REVERSE order
 
-      // 1. First unshift ATAs (will end up after token/compute budget, before pool)
+      // 1. Unshift ATAs (will end up after compute budget, before pool)
       ataInstructions.reverse().forEach((instruction) => {
         initPoolTx.instructions.unshift(instruction);
       });
 
-      // 2. Unshift token creation instructions if creating new token (will end up after compute budget, before ATAs)
-      if (tokenCreationInstructions.length > 0) {
-        tokenCreationInstructions.reverse().forEach((instruction) => {
-          initPoolTx.instructions.unshift(instruction);
-        });
-        console.log(`[ATOMIC TX] Added ${tokenCreationInstructions.length} token creation instructions`);
-      }
-
-      // 3. Then unshift compute budget (will end up after fees, before token/ATAs)
-      const computeUnits = tokenCreationInstructions.length > 0 ? 1_200_000 : 800_000; // Higher limit if creating token
+      // 2. Unshift compute budget (will end up after fees, before ATAs)
       initPoolTx.instructions.unshift(
-        ComputeBudgetProgram.setComputeUnitLimit({ units: computeUnits })
+        ComputeBudgetProgram.setComputeUnitLimit({ units: 800_000 })
       );
       initPoolTx.instructions.unshift(
         ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5_000_000 })
       );
 
-      // 4. Finally unshift fee instructions (will end up first, atomic with everything)
+      // 3. Unshift fee instructions if needed (will end up first)
       if (feeInstructions.length > 0) {
         feeInstructions.reverse().forEach((instruction) => {
           initPoolTx.instructions.unshift(instruction);
         });
       }
 
-      const txDescription = tokenCreationInstructions.length > 0
-        ? 'Fees + Compute + Token Creation + ATAs + Pool Creation'
-        : 'Fees + Compute + ATAs + Pool Creation';
-      console.log(`[ATOMIC TRANSACTION] Single transaction with ${initPoolTx.instructions.length} instructions: ${txDescription}`);
-      // ===== END ATOMIC TRANSACTION BUILD =====
+      const txDescription = shouldPayFees
+        ? 'Fees + Compute + ATAs + Pool Creation'
+        : 'Compute + ATAs + Pool Creation (fees already paid)';
+      console.log(`[POOL TX] Transaction with ${initPoolTx.instructions.length} instructions: ${txDescription}`);
 
-      // Prepare signers array (wallet is implicit, but we need mintKeypair if creating token)
-      const signers = mintKeypair ? [mintKeypair] : [];
-
-      // Send and confirm transaction with improved retry logic
-      const signature = await sendTransaction(initPoolTx, connection, {
-        signers,
-        skipPreflight: true,  // Skip simulation to avoid timing issues
+      // Send and confirm pool creation transaction
+      const poolSignature = await sendTransaction(initPoolTx, connection, {
+        skipPreflight: true,
         maxRetries: 5,
       });
-      console.log('Transaction sent:', signature);
+      console.log('[STEP 2/2] Pool creation transaction sent:', poolSignature);
 
       // Wait for transaction propagation
       await new Promise(resolve => setTimeout(resolve, 500));
-      await confirmTransactionWithRetry(connection, signature, { maxRetries: 10 });
-      console.log('Transaction confirmed:', signature);
+      await confirmTransactionWithRetry(connection, poolSignature, { maxRetries: 10 });
+      console.log('[STEP 2/2] Pool created successfully!');
 
       // Derive pool address
       const [poolAddress] = deriveCustomizablePermissionlessLbPair(
@@ -449,18 +483,18 @@ export function useDLMM() {
         dlmmProgramId
       );
 
-      // Record referral earning if applicable
-      if (referrerWallet && feeBreakdown.referral.lamports > 0) {
+      // Record referral earning if applicable (and fees were paid in this transaction)
+      if (shouldPayFees && referrerWallet && feeBreakdown.referral.lamports > 0) {
         recordEarning(
           feeBreakdown.referral.lamports,
           publicKey.toBase58(),
-          signature
+          poolSignature
         );
       }
 
-      // Track transaction in history
+      // Track pool creation transaction
       addTransaction({
-        signature,
+        signature: poolSignature,
         walletAddress: publicKey.toBase58(),
         network,
         protocol: 'dlmm',
@@ -469,17 +503,24 @@ export function useDLMM() {
         params,
         poolAddress: poolAddress.toString(),
         tokenAddress: baseMint.toString(),
-        platformFee: platformFeePaid,
+        platformFee: shouldPayFees ? platformFeePaid : 0,
       });
 
       return {
         success: true,
-        signature,
+        signature: poolSignature,
         poolAddress: poolAddress.toString(),
         baseMint: baseMint.toString(),
+        tokenCreated: !!params.createBaseToken,
       };
     } catch (error: any) {
       console.error('Error creating DLMM pool:', error);
+
+      // Provide more specific error messages
+      if (error.message?.includes('owner')) {
+        throw new Error('Token account error. If creating a new token, the token may not have been confirmed yet. Please try again.');
+      }
+
       throw new Error(error.message || 'Failed to create DLMM pool');
     }
   };

@@ -11,16 +11,26 @@ import {
   getAmountInLamports,
 } from './helpers';
 import { createTokenWithMetadata } from './useDLMM';
+import { DBC_PROGRAM_IDS, type NetworkType } from './programIds';
 
 /**
  * Hook for DBC (Dynamic Bonding Curve) operations
  * SDK: @meteora-ag/dynamic-bonding-curve-sdk
  * Based on /studio/src/lib/dbc/index.ts
+ *
+ * Program IDs:
+ * - Mainnet: dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN
+ * - Devnet: dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN
+ *
+ * Note: DynamicBondingCurveClient handles program IDs internally based on network
  */
 export function useDBC() {
   const { connection } = useConnection();
   const { publicKey, sendTransaction } = useWallet();
   const { network } = useNetwork();
+
+  // Get the appropriate program ID for current network
+  const dbcProgramId = new PublicKey(DBC_PROGRAM_IDS[network as NetworkType]);
 
   /**
    * Create DBC configuration

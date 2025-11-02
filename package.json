@@ -1,5 +1,5 @@
 {
-  "name": "meteora-ui-wrapper",
+  "name": "metatools",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -32,14 +32,18 @@
     "@solana/wallet-adapter-wallets": "^0.19.37",
     "@solana/web3.js": "^1.98.4",
     "bn.js": "^5.2.2",
+    "browser-image-compression": "^2.0.2",
     "bs58": "^6.0.0",
     "date-fns": "^4.1.0",
     "decimal.js": "^10.6.0",
     "execa": "^9.6.0",
     "framer-motion": "^12.23.24",
+    "lucide-react": "^0.552.0",
     "next": "16.0.1",
+    "nft.storage": "^7.2.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
+    "react-dropzone": "^14.3.8",
     "react-hot-toast": "^2.6.0",
     "recharts": "^3.3.0",
     "zustand": "^5.0.8"
