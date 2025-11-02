@@ -11,6 +11,7 @@ import userRoutes from './routes/users';
 import analyticsRoutes from './routes/analytics';
 import poolsRoutes from './routes/pools';
 import { startCronJobs } from './services/cronService';
+import { syncAllPools } from './services/poolSyncService';
 
 // Load environment variables
 dotenv.config();
@@ -83,7 +84,7 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 // Start server
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, async () => {
   console.log('🚀 Backend server running');
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🌐 Port: ${PORT}`);
@@ -91,6 +92,33 @@ const server = app.listen(PORT, () => {
 
   // Start cron jobs for pool syncing
   startCronJobs();
+
+  // Check if database has pools, if not, trigger initial sync
+  try {
+    const result = await db.query('SELECT COUNT(*) as count FROM pools');
+    const poolCount = parseInt(result.rows[0]?.count || '0');
+
+    if (poolCount === 0) {
+      console.log('🔄 Database is empty - triggering initial pool sync...');
+      console.log('⏳ This will take 30-60 seconds...');
+
+      // Run sync in background so server starts immediately
+      syncAllPools()
+        .then((result) => {
+          console.log('✅ Initial pool sync complete:', result);
+          console.log('🎉 Ready to serve pool data!');
+        })
+        .catch((error) => {
+          console.error('❌ Initial pool sync failed:', error);
+          console.error('💡 You can manually trigger sync via: POST /api/pools/sync');
+        });
+    } else {
+      console.log(`✅ Database has ${poolCount} pools - ready to serve!`);
+    }
+  } catch (error) {
+    console.error('⚠️ Could not check pool count:', error);
+    console.log('💡 You can manually trigger sync via: POST /api/pools/sync');
+  }
 });
 
 // Graceful shutdown

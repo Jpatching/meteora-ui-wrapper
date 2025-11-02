@@ -47,7 +47,7 @@ async function fetchAllDLMMPools(): Promise<DLMMPool[]> {
       throw new Error(`DLMM API error: ${response.status}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as any;
     const pools = data.data || data || [];
     console.log(`✅ Fetched ${pools.length} DLMM pools`);
     return pools;
@@ -69,7 +69,7 @@ async function fetchAllDAMMPools(): Promise<DAMMPool[]> {
       throw new Error(`DAMM API error: ${response.status}`);
     }
 
-    const result = await response.json();
+    const result = await response.json() as any;
     const pools = result.data || [];
     console.log(`✅ Fetched ${pools.length} DAMM v2 pools`);
     return pools;

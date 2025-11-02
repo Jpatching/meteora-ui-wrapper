@@ -53,7 +53,7 @@ router.get('/dlmm', async (req: Request, res: Response) => {
       throw new Error(`Meteora API error: ${response.status}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as any;
     const pools = data.pairs || [];
 
     // Cache for 5 minutes
@@ -90,7 +90,7 @@ router.get('/damm', async (req: Request, res: Response) => {
       throw new Error(`Meteora API error: ${response.status}`);
     }
 
-    const result = await response.json();
+    const result = await response.json() as any;
     const pools = result.data || [];
 
     // Cache for 5 minutes
