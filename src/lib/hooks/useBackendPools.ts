@@ -74,39 +74,50 @@ export interface BackendDAMMPool {
 
 // Transform database pool to DLMM frontend format
 function transformDBPoolToDLMM(pool: DBPool): BackendDLMMPool {
+  // PostgreSQL returns DECIMAL as string - convert to numbers
+  const tvl = typeof pool.tvl === 'string' ? parseFloat(pool.tvl) : pool.tvl;
+  const volume24h = typeof pool.volume_24h === 'string' ? parseFloat(pool.volume_24h) : pool.volume_24h;
+  const apr = typeof pool.apr === 'string' ? parseFloat(pool.apr) : pool.apr;
+  const fees24h = typeof pool.fees_24h === 'string' ? parseFloat(pool.fees_24h) : pool.fees_24h;
+
   return {
     address: pool.pool_address,
     name: pool.pool_name,
     bin_step: pool.metadata.bin_step || 0,
     base_fee_percentage: pool.metadata.base_fee_percentage || '0',
-    liquidity: pool.metadata.liquidity || pool.tvl.toString(),
-    trade_volume_24h: pool.volume_24h,
+    liquidity: pool.metadata.liquidity || tvl.toString(),
+    trade_volume_24h: volume24h,
     mint_x: pool.token_a_mint,
     mint_y: pool.token_b_mint,
     reserve_x: pool.metadata.reserve_x || '0',
     reserve_y: pool.metadata.reserve_y || '0',
     current_price: pool.metadata.current_price || 0,
-    apr: pool.apr,
-    apy: pool.apr, // Use APR as APY for now
-    fees_24h: pool.fees_24h,
+    apr: apr,
+    apy: apr, // Use APR as APY for now
+    fees_24h: fees24h,
   };
 }
 
 // Transform database pool to DAMM frontend format
 function transformDBPoolToDAMM(pool: DBPool): BackendDAMMPool {
+  // PostgreSQL returns DECIMAL as string - convert to numbers
+  const tvl = typeof pool.tvl === 'string' ? parseFloat(pool.tvl) : pool.tvl;
+  const volume24h = typeof pool.volume_24h === 'string' ? parseFloat(pool.volume_24h) : pool.volume_24h;
+  const apr = typeof pool.apr === 'string' ? parseFloat(pool.apr) : pool.apr;
+
   return {
     pool_address: pool.pool_address,
     pool_name: pool.pool_name,
     base_fee: pool.metadata.base_fee || 0.25,
-    tvl: pool.tvl,
-    volume24h: pool.volume_24h,
+    tvl: tvl,
+    volume24h: volume24h,
     token_a_mint: pool.token_a_mint,
     token_b_mint: pool.token_b_mint,
     token_a_symbol: pool.token_a_symbol || '',
     token_b_symbol: pool.token_b_symbol || '',
     token_a_amount: 0, // Not stored in DB
     token_b_amount: 0, // Not stored in DB
-    apr: pool.apr,
+    apr: apr,
     pool_type: pool.metadata.pool_type || 0,
   };
 }
