@@ -20,9 +20,11 @@ import {
 } from '@/components/ui';
 import { ConfigUpload } from '@/components/config/ConfigUpload';
 import { ConfigExportButton } from '@/components/config/ConfigExportButton';
+import { MetadataBuilder } from '@/components/metadata';
 import { useNetwork } from '@/contexts/NetworkContext';
 import toast from 'react-hot-toast';
 import { useDLMM } from '@/lib/meteora/useDLMM';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function DLMMCreatePoolPage() {
   const router = useRouter();
@@ -32,6 +34,7 @@ export default function DLMMCreatePoolPage() {
   const [loading, setLoading] = useState(false);
   const [createNewToken, setCreateNewToken] = useState(true);
   const [newlyCreatedToken, setNewlyCreatedToken] = useState<string | null>(null);
+  const [showMetadataBuilder, setShowMetadataBuilder] = useState(false);
 
   const [formData, setFormData] = useState({
     // Token creation
@@ -65,9 +68,22 @@ export default function DLMMCreatePoolPage() {
     }
 
     setLoading(true);
-    const loadingToast = toast.loading('Creating DLMM pool...');
+
+    // Show appropriate loading message based on whether we're creating a token
+    const loadingMessage = createNewToken
+      ? 'Step 1/2: Creating token...'
+      : 'Creating DLMM pool...';
+    const loadingToast = toast.loading(loadingMessage);
 
     try {
+      // Update toast for step 2 if creating token
+      if (createNewToken) {
+        // Give user feedback that step 1 is in progress
+        setTimeout(() => {
+          toast.loading('Step 1/2: Creating token... (this may take a moment)', { id: loadingToast });
+        }, 1000);
+      }
+
       // Call Meteora SDK via our hook
       const result = await createDLMMPool({
         quoteMint: formData.quoteMint,
@@ -90,7 +106,7 @@ export default function DLMMCreatePoolPage() {
 
       toast.success('Pool created successfully!', { id: loadingToast });
 
-      // Show transaction link
+      // Show transaction link (pool creation transaction)
       if (result.signature) {
         const explorerUrl = network === 'mainnet-beta'
           ? `https://solscan.io/tx/${result.signature}`
@@ -104,7 +120,7 @@ export default function DLMMCreatePoolPage() {
               rel="noopener noreferrer"
               className="underline"
             >
-              View transaction on Solscan
+              View pool creation on Solscan
             </a>
           </div>,
           { duration: 10000 }
@@ -112,15 +128,44 @@ export default function DLMMCreatePoolPage() {
       }
 
       if (result.poolAddress) {
-        toast.success(`Pool address: ${result.poolAddress}`, { duration: 10000 });
+        const poolExplorerUrl = network === 'mainnet-beta'
+          ? `https://solscan.io/account/${result.poolAddress}`
+          : `https://solscan.io/account/${result.poolAddress}?cluster=${network}`;
+
+        toast.success(
+          <div className="flex flex-col gap-1">
+            <span className="font-semibold">Pool Created!</span>
+            <a
+              href={poolExplorerUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline text-xs font-mono"
+            >
+              {result.poolAddress}
+            </a>
+          </div>,
+          { duration: 15000 }
+        );
       }
 
       // Show newly created token address with copy button
       if (result.baseMint && createNewToken) {
         setNewlyCreatedToken(result.baseMint);
+        const tokenExplorerUrl = network === 'mainnet-beta'
+          ? `https://solscan.io/token/${result.baseMint}`
+          : `https://solscan.io/token/${result.baseMint}?cluster=${network}`;
+
         toast.success(
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-xs">Token: {result.baseMint}</span>
+          <div className="flex flex-col gap-2">
+            <span className="font-semibold">Token Created!</span>
+            <a
+              href={tokenExplorerUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-mono text-xs underline"
+            >
+              {result.baseMint}
+            </a>
             <button
               onClick={() => {
                 navigator.clipboard.writeText(result.baseMint!);
@@ -128,7 +173,7 @@ export default function DLMMCreatePoolPage() {
               }}
               className="px-2 py-1 text-xs bg-primary/20 hover:bg-primary/30 rounded transition-colors"
             >
-              📋 Copy
+              Copy Address
             </button>
           </div>,
           { duration: 15000 }
@@ -297,16 +342,54 @@ export default function DLMMCreatePoolPage() {
                     maxLength={10}
                     helperText="The ticker symbol (e.g., SOL, USDC)"
                   />
-                  <Input
-                    label="Metadata URI"
-                    placeholder="https://..."
-                    type="url"
-                    required
-                    value={formData.tokenUri}
-                    onChange={(e) => setFormData({ ...formData, tokenUri: e.target.value })}
-                    className="col-span-2"
-                    helperText="JSON metadata URI (logo, description, etc.)"
-                  />
+
+                  {/* Metadata Builder Toggle */}
+                  <div className="col-span-2 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-sm font-medium text-text-secondary">
+                        Token Metadata <span className="text-error">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowMetadataBuilder(!showMetadataBuilder)}
+                        className="flex items-center gap-1 text-sm text-primary hover:text-primary/80 transition-colors"
+                      >
+                        {showMetadataBuilder ? (
+                          <>
+                            <ChevronUp className="h-4 w-4" />
+                            Use URI instead
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="h-4 w-4" />
+                            Build metadata
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {showMetadataBuilder ? (
+                      <div className="p-6 rounded-xl bg-bg-tertiary border border-border-light">
+                        <MetadataBuilder
+                          tokenName={formData.tokenName}
+                          tokenSymbol={formData.tokenSymbol}
+                          onMetadataGenerated={(uri, metadata) => {
+                            setFormData({ ...formData, tokenUri: uri });
+                            toast.success('Metadata URI generated and set!');
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <Input
+                        placeholder="ipfs://... or https://..."
+                        type="url"
+                        required
+                        value={formData.tokenUri}
+                        onChange={(e) => setFormData({ ...formData, tokenUri: e.target.value })}
+                        helperText="JSON metadata URI (logo, description, etc.) or build metadata above"
+                      />
+                    )}
+                  </div>
                   <Input
                     label="Decimals"
                     type="number"
