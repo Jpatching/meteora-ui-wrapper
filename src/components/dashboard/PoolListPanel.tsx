@@ -114,10 +114,7 @@ export function PoolListPanel({
             key={pool.id}
             pool={pool}
             isSelected={pool.id === selectedPoolId}
-            onClick={() => {
-              onSelectPool(pool);
-              router.push(`/position/${pool.id}`);
-            }}
+            onClick={() => onSelectPool(pool)}
           />
         ))}
       </div>
