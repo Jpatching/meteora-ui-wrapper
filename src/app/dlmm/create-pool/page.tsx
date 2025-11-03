@@ -67,6 +67,30 @@ export default function DLMMCreatePoolPage() {
       return;
     }
 
+    // Validate initial price
+    const price = parseFloat(formData.initialPrice);
+    if (!formData.initialPrice || price <= 0) {
+      toast.error('Initial price must be greater than 0');
+      return;
+    }
+
+    // Calculate implied price from amounts if both are provided
+    if (formData.baseAmount && formData.quoteAmount) {
+      const baseAmt = parseFloat(formData.baseAmount);
+      const quoteAmt = parseFloat(formData.quoteAmount);
+      const impliedPrice = quoteAmt / baseAmt;
+      const priceDiff = Math.abs(price - impliedPrice) / impliedPrice;
+
+      // Warn if manual price differs by more than 5% from implied price
+      if (priceDiff > 0.05) {
+        toast.error(
+          `Initial price (${price.toFixed(6)}) differs significantly from calculated price (${impliedPrice.toFixed(6)}). Please verify your inputs.`,
+          { duration: 6000 }
+        );
+        return;
+      }
+    }
+
     setLoading(true);
 
     // Show appropriate loading message based on whether we're creating a token
@@ -484,10 +508,22 @@ export default function DLMMCreatePoolPage() {
                 />
               </div>
 
+              <Input
+                label="Initial Price"
+                type="number"
+                step="any"
+                min="0"
+                required
+                placeholder="0.0001"
+                value={formData.initialPrice}
+                onChange={(e) => setFormData({ ...formData, initialPrice: e.target.value })}
+                helperText="Price per base token in quote tokens (must be > 0)"
+              />
+
               {/* Price Preview */}
               {formData.baseAmount && formData.quoteAmount && (
                 <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-                  <p className="text-sm text-foreground-muted mb-1">Initial Price</p>
+                  <p className="text-sm text-foreground-muted mb-1">Calculated Price (from amounts)</p>
                   <p className="text-lg font-bold text-foreground">
                     1 {formData.tokenSymbol || 'BASE'} ≈{' '}
                     {(parseFloat(formData.quoteAmount) / parseFloat(formData.baseAmount)).toFixed(
@@ -497,6 +533,26 @@ export default function DLMMCreatePoolPage() {
                       ? 'SOL'
                       : 'QUOTE'}
                   </p>
+                  {formData.initialPrice && parseFloat(formData.initialPrice) > 0 && (
+                    <>
+                      {(() => {
+                        const calcPrice = parseFloat(formData.quoteAmount) / parseFloat(formData.baseAmount);
+                        const manualPrice = parseFloat(formData.initialPrice);
+                        const diff = Math.abs(calcPrice - manualPrice) / calcPrice;
+                        const isSignificantDiff = diff > 0.05;
+
+                        return (
+                          <div className={`mt-2 pt-2 border-t ${isSignificantDiff ? 'border-warning/30' : 'border-primary/20'}`}>
+                            <p className="text-sm text-foreground-muted">Manual Initial Price</p>
+                            <p className={`text-md font-semibold ${isSignificantDiff ? 'text-warning' : 'text-foreground'}`}>
+                              {manualPrice.toFixed(6)} {formData.quoteMint === 'So11111111111111111111111111111111111111112' ? 'SOL' : 'QUOTE'}
+                              {isSignificantDiff && ' ⚠️ Differs from calculated'}
+                            </p>
+                          </div>
+                        );
+                      })()}
+                    </>
+                  )}
                 </div>
               )}
             </CardContent>
