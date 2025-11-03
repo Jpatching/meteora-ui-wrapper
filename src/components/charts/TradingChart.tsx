@@ -6,16 +6,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import {
-  createChart,
-  IChartApi,
-  ISeriesApi,
-  CandlestickData,
-  HistogramData,
-  ColorType,
-  CrosshairMode,
-} from 'lightweight-charts';
-import type { OHLCDataPoint } from '@/lib/services/bitquery';
+import { createChart } from 'lightweight-charts';
+import type { OHLCVDataPoint } from '@/lib/services/geckoterminal';
+
+// Type alias for backwards compatibility
+type OHLCDataPoint = OHLCVDataPoint;
 
 export type ChartType = 'candlestick' | 'line' | 'area';
 export type TimeInterval = '1m' | '5m' | '15m' | '1h' | '4h' | '1d' | '1w';
@@ -34,9 +29,9 @@ interface TradingChartProps {
 const INTERVALS: TimeInterval[] = ['1m', '5m', '15m', '1h', '4h', '1d', '1w'];
 
 const CHART_COLORS = {
-  background: '#0a0a0a',
-  grid: '#1a1a1a',
-  text: '#9ca3af',
+  background: '#0a0a0f',
+  grid: '#27272a',
+  text: '#f5f5f7',
   up: '#10b981',
   down: '#ef4444',
   volume: '#3b82f6',
@@ -47,26 +42,26 @@ export function TradingChart({
   data,
   chartType = 'candlestick',
   interval = '15m',
-  height = 600,
+  height = 500,
   showVolume = true,
   loading = false,
   onIntervalChange,
   onChartTypeChange,
 }: TradingChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<IChartApi | null>(null);
-  const priceSeriesRef = useRef<ISeriesApi<'Candlestick' | 'Line' | 'Area'> | null>(null);
-  const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
+  const chartRef = useRef<any>(null);
+  const priceSeriesRef = useRef<any>(null);
+  const volumeSeriesRef = useRef<any>(null);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Initialize chart
+  // Initialize chart (runs once on mount)
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
     const chart = createChart(chartContainerRef.current, {
       layout: {
-        background: { type: ColorType.Solid, color: CHART_COLORS.background },
+        background: { color: CHART_COLORS.background },
         textColor: CHART_COLORS.text,
       },
       grid: {
@@ -74,19 +69,7 @@ export function TradingChart({
         horzLines: { color: CHART_COLORS.grid },
       },
       crosshair: {
-        mode: CrosshairMode.Normal,
-        vertLine: {
-          color: CHART_COLORS.crosshair,
-          width: 1,
-          style: 1,
-          labelBackgroundColor: CHART_COLORS.crosshair,
-        },
-        horzLine: {
-          color: CHART_COLORS.crosshair,
-          width: 1,
-          style: 1,
-          labelBackgroundColor: CHART_COLORS.crosshair,
-        },
+        mode: 1, // Normal crosshair mode
       },
       timeScale: {
         borderColor: CHART_COLORS.grid,
@@ -97,6 +80,7 @@ export function TradingChart({
         borderColor: CHART_COLORS.grid,
       },
       height,
+      width: chartContainerRef.current.clientWidth,
     });
 
     chartRef.current = chart;
@@ -111,117 +95,144 @@ export function TradingChart({
     };
 
     window.addEventListener('resize', handleResize);
-    handleResize();
 
     return () => {
       window.removeEventListener('resize', handleResize);
       chart.remove();
+      chartRef.current = null;
     };
   }, [height, interval]);
 
-  // Update chart type
+  // Manage series AND update data (merged to prevent race conditions)
   useEffect(() => {
-    if (!chartRef.current) return;
+    const chart = chartRef.current;
+    if (!chart) return;
 
-    // Remove old series
+    // Remove existing series first
     if (priceSeriesRef.current) {
-      chartRef.current.removeSeries(priceSeriesRef.current);
-    }
-
-    // Create new series based on chart type
-    let newSeries;
-
-    if (chartType === 'candlestick') {
-      newSeries = chartRef.current.addCandlestickSeries({
-        upColor: CHART_COLORS.up,
-        downColor: CHART_COLORS.down,
-        borderUpColor: CHART_COLORS.up,
-        borderDownColor: CHART_COLORS.down,
-        wickUpColor: CHART_COLORS.up,
-        wickDownColor: CHART_COLORS.down,
-      });
-    } else if (chartType === 'line') {
-      newSeries = chartRef.current.addLineSeries({
-        color: '#8b5cf6',
-        lineWidth: 2,
-      });
-    } else {
-      newSeries = chartRef.current.addAreaSeries({
-        topColor: 'rgba(139, 92, 246, 0.4)',
-        bottomColor: 'rgba(139, 92, 246, 0.0)',
-        lineColor: '#8b5cf6',
-        lineWidth: 2,
-      });
-    }
-
-    priceSeriesRef.current = newSeries as any;
-  }, [chartType]);
-
-  // Add volume series
-  useEffect(() => {
-    if (!chartRef.current || !showVolume) return;
-
-    if (volumeSeriesRef.current) {
-      chartRef.current.removeSeries(volumeSeriesRef.current);
-    }
-
-    const volumeSeries = chartRef.current.addHistogramSeries({
-      color: CHART_COLORS.volume,
-      priceFormat: {
-        type: 'volume',
-      },
-      priceScaleId: 'volume',
-    });
-
-    chartRef.current.priceScale('volume').applyOptions({
-      scaleMargins: {
-        top: 0.8,
-        bottom: 0,
-      },
-    });
-
-    volumeSeriesRef.current = volumeSeries;
-
-    return () => {
-      if (volumeSeriesRef.current && chartRef.current) {
-        chartRef.current.removeSeries(volumeSeriesRef.current);
+      try {
+        chart.removeSeries(priceSeriesRef.current);
+      } catch (e) {
+        console.warn('[TradingChart] Series already removed:', e);
       }
-    };
-  }, [showVolume]);
+      priceSeriesRef.current = null;
+    }
+    if (volumeSeriesRef.current) {
+      try {
+        chart.removeSeries(volumeSeriesRef.current);
+      } catch (e) {
+        console.warn('[TradingChart] Volume series already removed:', e);
+      }
+      volumeSeriesRef.current = null;
+    }
 
-  // Update chart data
-  useEffect(() => {
-    if (!priceSeriesRef.current || data.length === 0) return;
+    // Add new series based on chart type
+    try {
+      if (chartType === 'candlestick') {
+        priceSeriesRef.current = chart.addCandlestickSeries({
+          upColor: CHART_COLORS.up,
+          downColor: CHART_COLORS.down,
+          borderVisible: true,
+          wickUpColor: CHART_COLORS.up,
+          wickDownColor: CHART_COLORS.down,
+        });
+      } else if (chartType === 'line') {
+        priceSeriesRef.current = chart.addLineSeries({
+          color: '#8b5cf6',
+          lineWidth: 2,
+        });
+      } else {
+        priceSeriesRef.current = chart.addAreaSeries({
+          topColor: 'rgba(139, 92, 246, 0.4)',
+          bottomColor: 'rgba(139, 92, 246, 0.0)',
+          lineColor: '#8b5cf6',
+          lineWidth: 2,
+        });
+      }
 
-    if (chartType === 'candlestick') {
-      const candleData: CandlestickData[] = data.map(d => ({
-        time: d.time,
-        open: d.open,
-        high: d.high,
-        low: d.low,
-        close: d.close,
-      }));
-      priceSeriesRef.current.setData(candleData);
-    } else {
-      const lineData = data.map(d => ({
-        time: d.time,
-        value: d.close,
-      }));
-      priceSeriesRef.current.setData(lineData);
+      // Add volume series if enabled
+      if (showVolume) {
+        volumeSeriesRef.current = chart.addHistogramSeries({
+          color: CHART_COLORS.volume,
+          priceFormat: {
+            type: 'volume',
+          },
+          priceScaleId: '',
+          scaleMargins: {
+            top: 0.8,
+            bottom: 0,
+          },
+        });
+      }
+    } catch (error) {
+      console.error('[TradingChart] Error adding chart series:', error);
+      return; // Don't try to set data if series creation failed
+    }
+
+    // Set data immediately after series creation (atomic operation)
+    if (priceSeriesRef.current && data.length > 0) {
+      try {
+        if (chartType === 'candlestick') {
+          const candleData = data.map(d => ({
+            time: d.time,
+            open: d.open,
+            high: d.high,
+            low: d.low,
+            close: d.close,
+          }));
+          priceSeriesRef.current.setData(candleData);
+        } else {
+          const lineData = data.map(d => ({
+            time: d.time,
+            value: d.close,
+          }));
+          priceSeriesRef.current.setData(lineData);
+        }
+      } catch (error) {
+        console.error('[TradingChart] Error setting price data:', error);
+      }
     }
 
     // Update volume data
-    if (volumeSeriesRef.current && showVolume) {
-      const volumeData: HistogramData[] = data.map(d => ({
-        time: d.time,
-        value: d.volume,
-        color: d.close >= d.open ? CHART_COLORS.up : CHART_COLORS.down,
-      }));
-      volumeSeriesRef.current.setData(volumeData);
+    if (volumeSeriesRef.current && showVolume && data.length > 0) {
+      try {
+        const volumeData = data.map(d => ({
+          time: d.time,
+          value: d.volume,
+          color: d.close >= d.open ? CHART_COLORS.up : CHART_COLORS.down,
+        }));
+        volumeSeriesRef.current.setData(volumeData);
+      } catch (error) {
+        console.error('[TradingChart] Error setting volume data:', error);
+      }
     }
 
     // Fit content
-    chartRef.current?.timeScale().fitContent();
+    try {
+      chart.timeScale().fitContent();
+    } catch (error) {
+      console.warn('[TradingChart] Error fitting content:', error);
+    }
+
+    // Cleanup only on unmount (not on every dependency change)
+    return () => {
+      if (priceSeriesRef.current) {
+        try {
+          chart.removeSeries(priceSeriesRef.current);
+        } catch (e) {
+          // Chart might already be disposed
+        }
+        priceSeriesRef.current = null;
+      }
+      if (volumeSeriesRef.current) {
+        try {
+          chart.removeSeries(volumeSeriesRef.current);
+        } catch (e) {
+          // Chart might already be disposed
+        }
+        volumeSeriesRef.current = null;
+      }
+    };
   }, [data, chartType, showVolume]);
 
   // Fullscreen toggle

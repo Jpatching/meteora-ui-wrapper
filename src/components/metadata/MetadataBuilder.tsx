@@ -135,11 +135,7 @@ export const MetadataBuilder: React.FC<MetadataBuilderProps> = ({
 
       {/* External URL */}
       <Input
-        label={
-          <span>
-            External URL <span className="text-xs text-text-muted">(Optional)</span>
-          </span>
-        }
+        label="External URL (Optional)"
         placeholder="https://yourproject.com"
         value={externalUrl}
         onChange={(e) => setExternalUrl(e.target.value)}

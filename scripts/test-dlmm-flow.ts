@@ -63,16 +63,16 @@ async function testDLMMFlow() {
 
       console.log('✅ DLMM instance created successfully!');
 
-      // Get pool state
-      const poolState = await dlmmInstance.refetchStates();
+      // Refresh pool state
+      await dlmmInstance.refetchStates();
       console.log('\nPool State:');
-      console.log('- Active Bin ID:', poolState.activeId);
-      console.log('- Bin Step:', poolState.binStep);
-      console.log('- Base Fee (bps):', poolState.baseFee);
-      console.log('- Protocol Fee (bps):', poolState.protocolFee);
+      console.log('- Active Bin ID:', dlmmInstance.lbPair.activeId);
+      console.log('- Bin Step:', dlmmInstance.lbPair.binStep);
+      console.log('- Base Fee (bps):', dlmmInstance.lbPair.parameters.baseFactor);
+      console.log('- Protocol Fee (bps):', dlmmInstance.lbPair.parameters.protocolShare);
 
       // Get pool info
-      const lbPair = await dlmmInstance.getLbPair();
+      const lbPair = dlmmInstance.lbPair;
       console.log('\nPool Info:');
       console.log('- Creator:', lbPair.creator.toString());
       console.log('- Creator Control:', lbPair.creatorPoolOnOffControl);

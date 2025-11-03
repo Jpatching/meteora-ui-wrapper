@@ -80,6 +80,7 @@ export function usePositions(autoRefresh = false, defaultInterval = 30000): UseP
       const cachedPositions = getWalletPositions(publicKey.toBase58());
 
       // Fetch fresh positions from all protocols in parallel
+      // IMPORTANT: Call hook methods directly to avoid dependency issues
       const [dlmmPositions, dammv2Positions, dbcPositions] = await Promise.allSettled([
         dlmm.fetchUserPositions?.() || Promise.resolve([]),
         dammv2.fetchUserPositions?.() || Promise.resolve([]),
@@ -214,7 +215,10 @@ export function usePositions(autoRefresh = false, defaultInterval = 30000): UseP
     } finally {
       setLoading(false);
     }
-  }, [publicKey, network, dlmm, dammv2, dbc]);
+    // FIXED: Removed dlmm, dammv2, dbc from dependencies to prevent infinite recursion
+    // These hooks return new object references on every render, causing the callback to change infinitely
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [publicKey, network]);
 
   // Initial fetch on wallet connect
   useEffect(() => {
@@ -223,18 +227,19 @@ export function usePositions(autoRefresh = false, defaultInterval = 30000): UseP
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [publicKey]); // Only fetch when wallet connects/changes
 
-  // Auto-refresh effect (only if enabled)
-  useEffect(() => {
-    if (!publicKey || !autoRefresh) return;
-
-    // Set up interval
-    const interval = setInterval(() => {
-      refreshPositions();
-    }, refreshInterval);
-
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [publicKey, autoRefresh, refreshInterval]); // refreshPositions intentionally omitted to prevent infinite loop
+  /**
+   * AUTO-REFRESH DISABLED TO PREVENT RPC SPAM
+   *
+   * Previous implementation would make 3+ getProgramAccounts calls every 30 seconds,
+   * resulting in excessive RPC usage and potential rate limiting.
+   *
+   * To re-enable auto-refresh:
+   * 1. Implement WebSocket account subscriptions instead of polling
+   * 2. Use on-chain account change notifications
+   * 3. Increase refresh interval to 5+ minutes minimum
+   *
+   * Current approach: Manual refresh only via refreshPositions() function
+   */
 
   // Calculate portfolio metrics
   const totalValue = positions.reduce((sum, p) => sum + p.currentValue, 0);

@@ -22,9 +22,10 @@ export function loadTestWallet(): Keypair {
     const secretKey = JSON.parse(TEST_WALLET_CONFIG.privateKey);
     return Keypair.fromSecretKey(Uint8Array.from(secretKey));
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     throw new Error(
       `Failed to parse TEST_WALLET_PRIVATE_KEY. ` +
-      `Expected format: [1,2,3,...]. Error: ${error.message}`
+      `Expected format: [1,2,3,...]. Error: ${message}`
     );
   }
 }

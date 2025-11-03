@@ -23,8 +23,16 @@ const navigation: NavSection[] = [
     title: 'Navigation',
     icon: '/navigation-icon.svg',
     items: [
-      { name: 'Dashboard', href: '/' },
-      { name: 'Analytics', href: '/analytics' },
+      { name: 'Getting Started', href: '/getting-started' },
+      { name: 'Recent Pools', href: '/' },
+    ],
+  },
+  {
+    title: 'Analytics',
+    icon: '/analytics-icon.svg',
+    items: [
+      { name: 'Public Pools', href: '/analytics/pools' },
+      { name: 'Positions', href: '/analytics/positions' },
     ],
   },
   {
@@ -82,6 +90,7 @@ const navigation: NavSection[] = [
     title: 'Settings',
     icon: '/settings-icon.svg',
     items: [
+      { name: 'Transaction History', href: '/settings/transactions' },
       { name: 'RPC Configuration', href: '/settings/rpc' },
       { name: 'Generate Keypair', href: '/settings/keypair' },
       { name: 'Airdrop SOL', href: '/settings/airdrop' },
@@ -102,7 +111,8 @@ export function Sidebar() {
 
   // Determine which section should be expanded based on current path
   const getActiveSectionFromPath = (path: string): string => {
-    if (path === '/' || path === '/analytics') return 'Navigation';
+    if (path === '/' || path === '/getting-started') return 'Navigation';
+    if (path.startsWith('/analytics')) return 'Analytics';
     if (path.startsWith('/dlmm')) return 'DLMM';
     if (path.startsWith('/damm-v2')) return 'DAMM v2';
     if (path.startsWith('/damm-v1')) return 'DAMM v1';
