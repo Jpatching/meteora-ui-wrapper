@@ -146,6 +146,8 @@ export function generateAnalytics(transactions: TransactionRecord[]): AnalyticsS
     successfulTransactions: 0,
     failedTransactions: 0,
     totalFeesPaid: 0,
+    totalMetadataFees: 0,
+    metadataServiceUsages: 0,
     totalPools: 0,
     totalTokens: 0,
     protocolBreakdown: {
@@ -166,6 +168,12 @@ export function generateAnalytics(transactions: TransactionRecord[]): AnalyticsS
 
     // Sum fees
     if (t.platformFee) summary.totalFeesPaid += t.platformFee;
+
+    // Sum metadata service fees
+    if (t.metadataServiceUsed && t.metadataFee) {
+      summary.totalMetadataFees += t.metadataFee;
+      summary.metadataServiceUsages++;
+    }
 
     // Count resources
     if (t.poolAddress) summary.totalPools++;

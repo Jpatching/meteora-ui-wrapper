@@ -7,6 +7,7 @@ export type ProtocolType = 'dlmm' | 'damm-v1' | 'damm-v2' | 'dbc' | 'alpha-vault
 export type ActionType =
   // DLMM
   | 'dlmm-create-pool'
+  | 'dlmm-create-token'
   | 'dlmm-seed-lfg'
   | 'dlmm-seed-single'
   | 'dlmm-set-status'
@@ -65,10 +66,13 @@ export interface TransactionRecord {
   // Financial data
   platformFee?: number; // Fee paid in SOL (lamports)
   feeToken?: string; // Fee token mint if different from SOL
+  metadataServiceUsed?: boolean; // Whether user used metadata service
+  metadataFee?: number; // Metadata service fee paid (lamports, if used)
 
   // Metadata
   label?: string; // User-defined label for this transaction
   tags?: string[]; // User tags for organization
+  metadataUri?: string; // IPFS URI if metadata was created
 }
 
 export interface TransactionFilter {
@@ -86,6 +90,8 @@ export interface AnalyticsSummary {
   successfulTransactions: number;
   failedTransactions: number;
   totalFeesPaid: number; // Total platform fees paid (lamports)
+  totalMetadataFees: number; // Total metadata service fees paid (lamports)
+  metadataServiceUsages: number; // Number of times metadata service was used
   totalPools: number;
   totalTokens: number;
   protocolBreakdown: Record<ProtocolType, number>;

@@ -16,6 +16,7 @@ export default function DAMMv2CreateOneSidedPage() {
   const { network } = useNetwork();
   const { createOneSidedPool } = useDAMMv2();
   const [loading, setLoading] = useState(false);
+  const [useMetadataService, setUseMetadataService] = useState(false);
 
   // Token creation state
   const [tokenData, setTokenData] = useState({
@@ -157,6 +158,8 @@ export default function DAMMv2CreateOneSidedPage() {
           <TokenCreationSection
             data={tokenData}
             onChange={(updates) => setTokenData({ ...tokenData, ...updates })}
+            metadataServiceEnabled={true}
+            onMetadataServiceToggle={setUseMetadataService}
           />
 
           {/* Pool Configuration */}
@@ -245,7 +248,10 @@ export default function DAMMv2CreateOneSidedPage() {
           <ReferralInput />
 
           {/* Platform Fee Disclosure */}
-          <FeeDisclosure variant="default" />
+          <FeeDisclosure
+            variant="default"
+            includeMetadataService={useMetadataService}
+          />
 
           <Button
             type="submit"

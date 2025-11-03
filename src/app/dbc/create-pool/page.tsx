@@ -17,6 +17,7 @@ export default function DBCCreatePoolPage() {
   const { network } = useNetwork();
   const { createPool } = useDBC();
   const [loading, setLoading] = useState(false);
+  const [useMetadataService, setUseMetadataService] = useState(false);
 
   // Token creation state
   const [tokenData, setTokenData] = useState({
@@ -153,6 +154,8 @@ export default function DBCCreatePoolPage() {
           <TokenCreationSection
             data={tokenData}
             onChange={(updates) => setTokenData({ ...tokenData, ...updates })}
+            metadataServiceEnabled={true}
+            onMetadataServiceToggle={setUseMetadataService}
           />
 
           {/* Pool Configuration */}
@@ -210,7 +213,10 @@ export default function DBCCreatePoolPage() {
           <ReferralInput />
 
           {/* Platform Fee Disclosure */}
-          <FeeDisclosure variant="default" />
+          <FeeDisclosure
+            variant="default"
+            includeMetadataService={useMetadataService}
+          />
 
           <div className="flex gap-3">
             <ConfigExportButton

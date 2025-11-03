@@ -542,6 +542,31 @@ export function useDBC() {
     }
   };
 
+  /**
+   * Fetch all DBC positions for the connected wallet
+   */
+  const fetchUserPositions = async () => {
+    if (!publicKey) {
+      throw new Error('Wallet not connected');
+    }
+
+    console.log('[DBC] Fetching user positions...');
+
+    try {
+      // DBC positions are simpler - user holds shares of pools
+      // This is a placeholder implementation
+      const positions: any[] = [];
+
+      console.log('[DBC] Position fetching not yet fully implemented');
+      console.log('[DBC] Returning empty positions array');
+
+      return positions;
+    } catch (error: any) {
+      console.error('[DBC] Error fetching positions:', error);
+      throw new Error(error.message || 'Failed to fetch DBC positions');
+    }
+  };
+
   return {
     createConfig,
     createPool,
@@ -550,6 +575,7 @@ export function useDBC() {
     migrateToDAMMv1,
     migrateToDAMMv2,
     transferCreator,
+    fetchUserPositions,
   };
 }
 

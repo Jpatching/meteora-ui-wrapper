@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent } from './Card';
-import { loadFeeConfig } from '@/lib/fees';
+import { loadFeeConfig, loadMetadataServiceConfig } from '@/lib/fees';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 
 export type FeeTier = 'free' | 'pro';
@@ -12,9 +12,16 @@ interface FeeDisclosureProps {
   className?: string;
   selectedTier?: FeeTier;
   onTierChange?: (tier: FeeTier) => void;
+  includeMetadataService?: boolean; // NEW: Show metadata service fee
 }
 
-const FEE_TIERS = {
+const FEE_TIERS: Record<FeeTier, {
+  label: string;
+  price: number;
+  lamports: number;
+  features: string[];
+  recommended?: boolean;
+}> = {
   free: {
     label: 'Free Tier',
     price: 0.0075,
@@ -54,15 +61,18 @@ export function FeeDisclosure({
   variant = 'default',
   className = '',
   selectedTier = 'pro',
-  onTierChange
+  onTierChange,
+  includeMetadataService = false
 }: FeeDisclosureProps) {
   const [feeConfig, setFeeConfig] = useState<ReturnType<typeof loadFeeConfig> | null>(null);
+  const [metadataConfig, setMetadataConfig] = useState<ReturnType<typeof loadMetadataServiceConfig> | null>(null);
   const [mounted, setMounted] = useState(false);
   const [activeTier, setActiveTier] = useState<FeeTier>(selectedTier);
 
   useEffect(() => {
     setMounted(true);
     setFeeConfig(loadFeeConfig());
+    setMetadataConfig(loadMetadataServiceConfig());
   }, []);
 
   useEffect(() => {
@@ -145,15 +155,36 @@ export function FeeDisclosure({
 
   const feeInSOL = FEE_TIERS[activeTier].price;
   const hasTokenFee = feeConfig.feeTokenMint && feeConfig.feeTokenAmount > 0;
+  const metadataFeeInSOL = metadataConfig ? metadataConfig.feeLamports / LAMPORTS_PER_SOL : 0;
+  const showMetadataFee = includeMetadataService && metadataConfig?.enabled;
+  const totalFeeInSOL = feeInSOL + (showMetadataFee ? metadataFeeInSOL : 0);
 
   // Compact variant - minimal inline display
   if (variant === 'compact') {
     return (
-      <div className={`flex items-center gap-2 text-sm ${className}`}>
-        <span className="text-foreground-secondary">Platform fee:</span>
-        <span className="font-medium text-warning">
-          {feeInSOL.toFixed(4)} SOL
-        </span>
+      <div className={`flex flex-col gap-1 text-sm ${className}`}>
+        <div className="flex items-center gap-2">
+          <span className="text-foreground-secondary">Platform fee:</span>
+          <span className="font-medium text-warning">
+            {feeInSOL.toFixed(4)} SOL
+          </span>
+        </div>
+        {showMetadataFee && (
+          <>
+            <div className="flex items-center gap-2">
+              <span className="text-foreground-secondary">Metadata service:</span>
+              <span className="font-medium text-primary">
+                {metadataFeeInSOL.toFixed(4)} SOL
+              </span>
+            </div>
+            <div className="flex items-center gap-2 pt-1 border-t border-border-primary">
+              <span className="text-foreground font-medium">Total:</span>
+              <span className="font-bold text-warning">
+                {totalFeeInSOL.toFixed(4)} SOL
+              </span>
+            </div>
+          </>
+        )}
       </div>
     );
   }
@@ -174,11 +205,20 @@ export function FeeDisclosure({
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between p-3 rounded-lg bg-background-tertiary">
-                  <span className="text-sm text-foreground-secondary">Transaction Fee</span>
+                  <span className="text-sm text-foreground-secondary">Platform Fee</span>
                   <span className="font-mono font-medium text-warning">
                     {feeInSOL.toFixed(4)} SOL
                   </span>
                 </div>
+
+                {showMetadataFee && (
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-background-tertiary">
+                    <span className="text-sm text-foreground-secondary">Metadata Service</span>
+                    <span className="font-mono font-medium text-primary">
+                      {metadataFeeInSOL.toFixed(4)} SOL
+                    </span>
+                  </div>
+                )}
 
                 {hasTokenFee && (
                   <div className="flex items-center justify-between p-3 rounded-lg bg-background-tertiary">
@@ -191,9 +231,9 @@ export function FeeDisclosure({
 
                 <div className="pt-3 border-t border-border-primary">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Total Platform Fee</span>
+                    <span className="text-sm font-medium">Total Fee</span>
                     <span className="font-mono font-bold text-warning">
-                      {feeInSOL.toFixed(4)} SOL
+                      {totalFeeInSOL.toFixed(4)} SOL
                       {hasTokenFee && ` + ${feeConfig.feeTokenAmount} tokens`}
                     </span>
                   </div>
@@ -221,8 +261,15 @@ export function FeeDisclosure({
         <div className="flex flex-col items-center text-center gap-2">
           <span className="text-2xl">💰</span>
           <div>
-            <p className="text-sm font-medium text-warning mb-1">Platform Fee</p>
-            <p className="font-mono text-2xl font-bold text-warning">{feeInSOL.toFixed(4)} SOL</p>
+            <p className="text-sm font-medium text-warning mb-1">
+              {showMetadataFee ? 'Transaction Fees' : 'Platform Fee'}
+            </p>
+            <p className="font-mono text-2xl font-bold text-warning">{totalFeeInSOL.toFixed(4)} SOL</p>
+            {showMetadataFee && (
+              <p className="text-xs text-foreground-secondary mt-1">
+                Platform: {feeInSOL.toFixed(4)} SOL + Metadata: {metadataFeeInSOL.toFixed(4)} SOL
+              </p>
+            )}
             {hasTokenFee && (
               <p className="text-xs text-foreground-secondary mt-1">
                 + {feeConfig.feeTokenAmount} tokens
@@ -230,7 +277,10 @@ export function FeeDisclosure({
             )}
           </div>
           <p className="text-xs text-foreground-secondary max-w-md">
-            This transaction includes a platform fee to support ongoing development
+            {showMetadataFee
+              ? 'Includes platform fee and metadata service (IPFS upload + builder)'
+              : 'This transaction includes a platform fee to support ongoing development'
+            }
           </p>
         </div>
       </CardContent>

@@ -15,6 +15,7 @@ import {
   createAssociatedTokenAccountIdempotentInstruction,
   createMintToInstruction,
   getAssociatedTokenAddressSync,
+  getAssociatedTokenAddress,
   TOKEN_PROGRAM_ID,
   MINT_SIZE,
   getMinimumBalanceForRentExemptMint,
@@ -50,16 +51,38 @@ function validatePublicKey(address: string, fieldName: string): PublicKey {
 
 /**
  * Validation helper: Validate and parse BN amount
+ * Handles both UI amounts (like "50" tokens) and raw lamports (like "50000000000")
  */
 function validateBN(value: string | number, fieldName: string): BN {
   try {
-    const numValue = typeof value === 'string' ? parseFloat(value) : value;
-    if (isNaN(numValue) || numValue < 0) {
+    if (typeof value === 'string') {
+      // Try to parse as BigNumber string first (for large numbers like "50000000000")
+      // If the string is purely numeric with no decimals and very large, treat as lamports
+      if (/^\d+$/.test(value)) {
+        const bn = new BN(value);
+        if (bn.gt(new BN(1000000))) {
+          // Large number, likely already in lamports
+          return bn;
+        }
+        // Small whole number, convert to lamports
+        return new BN(Math.floor(parseFloat(value) * 1e9));
+      }
+
+      // Has decimal point, treat as UI amount
+      const numValue = parseFloat(value);
+      if (isNaN(numValue) || numValue < 0) {
+        throw new Error(`${fieldName} must be a positive number`);
+      }
+      return new BN(Math.floor(numValue * 1e9));
+    }
+
+    // Number type
+    if (isNaN(value) || value < 0) {
       throw new Error(`${fieldName} must be a positive number`);
     }
-    // Convert to lamports (assuming 9 decimals for most tokens)
-    const lamports = Math.floor(numValue * 1e9);
-    return new BN(lamports);
+
+    // Convert to lamports
+    return new BN(Math.floor(value * 1e9));
   } catch (error: any) {
     throw new Error(`Invalid ${fieldName}: ${error.message}`);
   }
@@ -557,6 +580,65 @@ export function useDLMM() {
         throw new Error('Max price must be greater than min price');
       }
 
+      // PRE-FLIGHT CHECK: Verify wallet has sufficient SOL balance
+      console.log('Checking wallet balance...');
+      const solBalance = await connection.getBalance(publicKey);
+      const solBalanceInSol = solBalance / 1e9;
+      console.log(`Wallet SOL balance: ${solBalanceInSol.toFixed(4)} SOL`);
+
+      // Estimate minimum required SOL:
+      // - Bin arrays rent: ~0.2-0.3 SOL (depends on price range)
+      // - Position rent: ~0.02 SOL
+      // - Transaction fees: ~0.01 SOL
+      // - Platform fees: 0.0007 SOL
+      // - Buffer: 0.1 SOL
+      const MINIMUM_REQUIRED_SOL = 0.5;
+
+      if (solBalanceInSol < MINIMUM_REQUIRED_SOL) {
+        throw new Error(
+          `Insufficient SOL balance. You have ${solBalanceInSol.toFixed(4)} SOL but need at least ${MINIMUM_REQUIRED_SOL} SOL for:\n` +
+          `  • Bin array rent (~0.2-0.3 SOL)\n` +
+          `  • Position rent (~0.02 SOL)\n` +
+          `  • Transaction fees (~0.01 SOL)\n` +
+          `  • Platform fees (0.0007 SOL)\n` +
+          `  • Buffer (0.1 SOL)\n` +
+          `Please fund your wallet with more SOL and try again.`
+        );
+      }
+
+      // PRE-FLIGHT CHECK: Verify wallet has sufficient base token balance
+      console.log('Checking base token balance...');
+      try {
+        const baseTokenAccount = await getAssociatedTokenAddress(baseMint, publicKey);
+        const baseTokenAccountInfo = await connection.getAccountInfo(baseTokenAccount);
+
+        if (!baseTokenAccountInfo) {
+          throw new Error(
+            `No token account found for base token ${baseMint.toString()}.\n` +
+            `You need to hold the base token before seeding liquidity.`
+          );
+        }
+
+        const baseTokenBalance = await connection.getTokenAccountBalance(baseTokenAccount);
+        const baseTokenAmount = new BN(baseTokenBalance.value.amount);
+
+        console.log(`Base token balance: ${baseTokenBalance.value.uiAmountString} tokens`);
+
+        if (baseTokenAmount.lt(seedAmount)) {
+          throw new Error(
+            `Insufficient base token balance. You have ${baseTokenBalance.value.uiAmountString} tokens ` +
+            `but need ${(seedAmount.toNumber() / 1e9).toFixed(4)} tokens to seed liquidity.\n` +
+            `Please acquire more base tokens and try again.`
+          );
+        }
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('Insufficient')) {
+          throw error; // Re-throw our custom errors
+        }
+        console.warn('Could not verify base token balance:', error);
+        // Continue anyway - the transaction will fail if balance is insufficient
+      }
+
       // Generate required keypairs for transaction signing
       const baseKeypair = Keypair.generate();
       const operatorKeypair = Keypair.generate();
@@ -572,6 +654,28 @@ export function useDLMM() {
       );
 
       console.log('Pool address:', poolAddress.toString());
+
+      // PRE-FLIGHT CHECK: Verify pool exists on-chain
+      console.log('Checking if pool exists...');
+      const poolAccountInfo = await connection.getAccountInfo(poolAddress);
+
+      if (!poolAccountInfo) {
+        throw new Error(
+          `Pool does not exist at address ${poolAddress.toString()}\n\n` +
+          `This usually means:\n` +
+          `  • The pool was not created yet\n` +
+          `  • You're using the wrong base/quote token pair\n` +
+          `  • The pool address is incorrect\n\n` +
+          `Solutions:\n` +
+          `  1. Create the pool first using "Create Pool" page\n` +
+          `  2. Verify the base and quote token addresses are correct\n` +
+          `  3. Check that the pool exists on Solana Explorer:\n` +
+          `     https://explorer.solana.com/address/${poolAddress.toString()}?cluster=${network}\n\n` +
+          `Base Token: ${baseMint.toString()}\n` +
+          `Quote Token: ${quoteMint.toString()}`
+        );
+      }
+      console.log('Pool exists ✓');
 
       // Create DLMM instance
       const dlmmInstance = await DLMM.create(connection, poolAddress, {
@@ -739,7 +843,63 @@ export function useDLMM() {
       };
     } catch (error: any) {
       console.error('Error seeding LFG liquidity:', error);
-      throw new Error(error.message || 'Failed to seed LFG liquidity');
+
+      // Parse transaction error to provide helpful messages
+      const errorString = JSON.stringify(error);
+      const errorMessage = error.message || errorString;
+
+      // Check for specific DLMM program errors
+      if (errorString.includes('Custom":3012') || errorMessage.includes('3012')) {
+        // Error 3012: Insufficient funds
+        const solBalance = await connection.getBalance(publicKey);
+        const solBalanceInSol = (solBalance / 1e9).toFixed(4);
+
+        throw new Error(
+          `Insufficient funds to complete transaction (Error 3012).\n\n` +
+          `Current SOL balance: ${solBalanceInSol} SOL\n\n` +
+          `Required SOL for seeding liquidity:\n` +
+          `  • Bin array rent: ~0.2-0.3 SOL (refundable when closed)\n` +
+          `  • Position account rent: ~0.02 SOL (refundable when closed)\n` +
+          `  • Transaction fees: ~0.01 SOL (non-refundable)\n` +
+          `  • Platform fees: 0.0007 SOL (non-refundable)\n` +
+          `  • Recommended minimum: 0.5 SOL\n\n` +
+          `Solutions:\n` +
+          `  1. Fund your wallet with at least 0.5 SOL\n` +
+          `  2. On devnet: Use 'solana airdrop 1 ${publicKey.toString()} --url devnet'\n` +
+          `  3. Reduce the price range to require fewer bin arrays\n` +
+          `  4. Check you have sufficient base token balance as well`
+        );
+      } else if (errorString.includes('Custom":3001') || errorMessage.includes('3001')) {
+        throw new Error(
+          `Invalid bin array access (Error 3001).\n\n` +
+          `This usually means:\n` +
+          `  • The pool was not created properly\n` +
+          `  • The bin step doesn't align with your price range\n` +
+          `  • The price range is too wide\n\n` +
+          `Solutions:\n` +
+          `  1. Verify the pool exists: ${errorMessage.includes('poolAddress') ? 'Check pool address' : 'Pool may not be created'}\n` +
+          `  2. Try a narrower price range (e.g., 0.001-0.01 instead of 1-2)\n` +
+          `  3. Check the pool's bin step configuration`
+        );
+      } else if (errorMessage.includes('Simulation failed') || errorMessage.includes('Transaction failed')) {
+        throw new Error(
+          `Transaction simulation/execution failed.\n\n` +
+          `Error details: ${errorMessage}\n\n` +
+          `Common causes:\n` +
+          `  • Insufficient SOL or token balance\n` +
+          `  • Invalid price range for the pool's bin step\n` +
+          `  • Network congestion or RPC issues\n` +
+          `  • Pool configuration mismatch\n\n` +
+          `Solutions:\n` +
+          `  1. Check your SOL balance (need ~0.5 SOL minimum)\n` +
+          `  2. Verify you have enough base tokens to seed\n` +
+          `  3. Try reducing the price range\n` +
+          `  4. Wait a moment and retry`
+        );
+      }
+
+      // Default error message
+      throw new Error(errorMessage || 'Failed to seed LFG liquidity');
     }
   };
 
@@ -769,6 +929,57 @@ export function useDLMM() {
 
       const lockReleasePoint = new BN(params.lockReleasePoint || 0);
 
+      // PRE-FLIGHT CHECK: Verify wallet has sufficient SOL balance
+      console.log('Checking wallet balance...');
+      const solBalance = await connection.getBalance(publicKey);
+      const solBalanceInSol = solBalance / 1e9;
+      console.log(`Wallet SOL balance: ${solBalanceInSol.toFixed(4)} SOL`);
+
+      const MINIMUM_REQUIRED_SOL = 0.3; // Single bin requires less than LFG
+
+      if (solBalanceInSol < MINIMUM_REQUIRED_SOL) {
+        throw new Error(
+          `Insufficient SOL balance. You have ${solBalanceInSol.toFixed(4)} SOL but need at least ${MINIMUM_REQUIRED_SOL} SOL for:\n` +
+          `  • Position rent (~0.02 SOL)\n` +
+          `  • Transaction fees (~0.01 SOL)\n` +
+          `  • Platform fees (0.0007 SOL)\n` +
+          `  • Buffer (0.1 SOL)\n` +
+          `Please fund your wallet with more SOL and try again.`
+        );
+      }
+
+      // PRE-FLIGHT CHECK: Verify wallet has sufficient base token balance
+      console.log('Checking base token balance...');
+      try {
+        const baseTokenAccount = await getAssociatedTokenAddress(baseMint, publicKey);
+        const baseTokenAccountInfo = await connection.getAccountInfo(baseTokenAccount);
+
+        if (!baseTokenAccountInfo) {
+          throw new Error(
+            `No token account found for base token ${baseMint.toString()}.\n` +
+            `You need to hold the base token before seeding liquidity.`
+          );
+        }
+
+        const baseTokenBalance = await connection.getTokenAccountBalance(baseTokenAccount);
+        const baseTokenAmount = new BN(baseTokenBalance.value.amount);
+
+        console.log(`Base token balance: ${baseTokenBalance.value.uiAmountString} tokens`);
+
+        if (baseTokenAmount.lt(seedAmount)) {
+          throw new Error(
+            `Insufficient base token balance. You have ${baseTokenBalance.value.uiAmountString} tokens ` +
+            `but need ${(seedAmount.toNumber() / 1e9).toFixed(4)} tokens to seed liquidity.\n` +
+            `Please acquire more base tokens and try again.`
+          );
+        }
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('Insufficient')) {
+          throw error;
+        }
+        console.warn('Could not verify base token balance:', error);
+      }
+
       // Generate required keypairs for transaction signing
       const baseKeypair = Keypair.generate();
       const operatorKeypair = Keypair.generate();
@@ -784,6 +995,28 @@ export function useDLMM() {
       );
 
       console.log('Pool address:', poolAddress.toString());
+
+      // PRE-FLIGHT CHECK: Verify pool exists on-chain
+      console.log('Checking if pool exists...');
+      const poolAccountInfo = await connection.getAccountInfo(poolAddress);
+
+      if (!poolAccountInfo) {
+        throw new Error(
+          `Pool does not exist at address ${poolAddress.toString()}\n\n` +
+          `This usually means:\n` +
+          `  • The pool was not created yet\n` +
+          `  • You're using the wrong base/quote token pair\n` +
+          `  • The pool address is incorrect\n\n` +
+          `Solutions:\n` +
+          `  1. Create the pool first using "Create Pool" page\n` +
+          `  2. Verify the base and quote token addresses are correct\n` +
+          `  3. Check that the pool exists on Solana Explorer:\n` +
+          `     https://explorer.solana.com/address/${poolAddress.toString()}?cluster=${network}\n\n` +
+          `Base Token: ${baseMint.toString()}\n` +
+          `Quote Token: ${quoteMint.toString()}`
+        );
+      }
+      console.log('Pool exists ✓');
 
       // Create DLMM instance
       const dlmmInstance = await DLMM.create(connection, poolAddress, {
@@ -873,7 +1106,57 @@ export function useDLMM() {
       };
     } catch (error: any) {
       console.error('Error seeding single bin liquidity:', error);
-      throw new Error(error.message || 'Failed to seed single bin liquidity');
+
+      // Parse transaction error to provide helpful messages
+      const errorString = JSON.stringify(error);
+      const errorMessage = error.message || errorString;
+
+      // Check for specific DLMM program errors
+      if (errorString.includes('Custom":3012') || errorMessage.includes('3012')) {
+        const solBalance = await connection.getBalance(publicKey);
+        const solBalanceInSol = (solBalance / 1e9).toFixed(4);
+
+        throw new Error(
+          `Insufficient funds to complete transaction (Error 3012).\n\n` +
+          `Current SOL balance: ${solBalanceInSol} SOL\n\n` +
+          `Required SOL for single bin seeding:\n` +
+          `  • Position account rent: ~0.02 SOL (refundable when closed)\n` +
+          `  • Transaction fees: ~0.01 SOL (non-refundable)\n` +
+          `  • Platform fees: 0.0007 SOL (non-refundable)\n` +
+          `  • Recommended minimum: 0.3 SOL\n\n` +
+          `Solutions:\n` +
+          `  1. Fund your wallet with at least 0.3 SOL\n` +
+          `  2. On devnet: Use 'solana airdrop 1 ${publicKey.toString()} --url devnet'\n` +
+          `  3. Check you have sufficient base token balance as well`
+        );
+      } else if (errorString.includes('Custom":3001') || errorMessage.includes('3001')) {
+        throw new Error(
+          `Invalid bin array access (Error 3001).\n\n` +
+          `This usually means:\n` +
+          `  • The pool was not created properly\n` +
+          `  • The bin doesn't exist for the specified price\n` +
+          `  • The bin step doesn't align with your price\n\n` +
+          `Solutions:\n` +
+          `  1. Verify the pool exists and is properly configured\n` +
+          `  2. Try a different price that aligns with the bin step\n` +
+          `  3. Check the pool's bin step configuration`
+        );
+      } else if (errorMessage.includes('Simulation failed') || errorMessage.includes('Transaction failed')) {
+        throw new Error(
+          `Transaction simulation/execution failed.\n\n` +
+          `Error details: ${errorMessage}\n\n` +
+          `Common causes:\n` +
+          `  • Insufficient SOL or token balance\n` +
+          `  • Invalid price for the pool's bin step\n` +
+          `  • Network congestion or RPC issues\n\n` +
+          `Solutions:\n` +
+          `  1. Check your SOL balance (need ~0.3 SOL minimum)\n` +
+          `  2. Verify you have enough base tokens to seed\n` +
+          `  3. Wait a moment and retry`
+        );
+      }
+
+      throw new Error(errorMessage || 'Failed to seed single bin liquidity');
     }
   };
 
@@ -893,10 +1176,63 @@ export function useDLMM() {
 
       console.log(`Setting pool status to: ${enabled ? 'enabled' : 'disabled'}`);
 
+      // PRE-FLIGHT CHECK: Verify wallet has sufficient SOL for transaction
+      const solBalance = await connection.getBalance(publicKey);
+      const solBalanceInSol = solBalance / 1e9;
+      console.log(`Wallet SOL balance: ${solBalanceInSol.toFixed(4)} SOL`);
+
+      if (solBalanceInSol < 0.01) {
+        throw new Error(
+          `Insufficient SOL balance. You have ${solBalanceInSol.toFixed(4)} SOL but need at least 0.01 SOL for transaction fees.`
+        );
+      }
+
       // Create DLMM instance
       const dlmmInstance = await DLMM.create(connection, poolAddress, {
         cluster: network as 'mainnet-beta' | 'devnet' | 'localhost',
       });
+
+      // PRE-FLIGHT CHECK: Verify pool activation point has passed
+      console.log('Checking pool activation status...');
+      const poolState = await dlmmInstance.refetchStates();
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+
+      // Check if pool has an activation point and if it has passed
+      if (poolState.activationPoint && poolState.activationPoint.toNumber() > 0) {
+        const activationTime = poolState.activationPoint.toNumber();
+        if (currentTimestamp < activationTime) {
+          const timeUntilActivation = activationTime - currentTimestamp;
+          const hoursUntil = Math.floor(timeUntilActivation / 3600);
+          const minutesUntil = Math.floor((timeUntilActivation % 3600) / 60);
+
+          throw new Error(
+            `Pool not yet activated. Cannot change status until activation point has passed.\n\n` +
+            `Current time: ${new Date(currentTimestamp * 1000).toISOString()}\n` +
+            `Activation time: ${new Date(activationTime * 1000).toISOString()}\n` +
+            `Time remaining: ${hoursUntil}h ${minutesUntil}m\n\n` +
+            `Please wait until the activation point before changing pool status.`
+          );
+        }
+        console.log('Pool activation point has passed ✓');
+      } else {
+        console.log('Pool has no activation point (can be toggled immediately) ✓');
+      }
+
+      // PRE-FLIGHT CHECK: Verify wallet is the pool creator (if creator control enabled)
+      const lbPair = await dlmmInstance.getLbPair();
+      console.log('Pool creator:', lbPair.creator.toString());
+      console.log('Connected wallet:', publicKey.toString());
+      console.log('Creator control enabled:', lbPair.creatorPoolOnOffControl);
+
+      if (lbPair.creatorPoolOnOffControl && !lbPair.creator.equals(publicKey)) {
+        throw new Error(
+          `Only the pool creator can change pool status.\n\n` +
+          `Pool creator: ${lbPair.creator.toString()}\n` +
+          `Your wallet: ${publicKey.toString()}\n\n` +
+          `You must connect with the wallet that created this pool.`
+        );
+      }
+      console.log('Creator authorization verified ✓');
 
       // Call setPairStatusPermissionless SDK method
       const transaction = await dlmmInstance.setPairStatusPermissionless(
@@ -968,12 +1304,157 @@ export function useDLMM() {
     } catch (error: any) {
       console.error('Error setting pool status:', error);
 
-      // Check if error is about creator permissions
-      if (error.message?.includes('creator') || error.message?.includes('authority')) {
-        throw new Error('Only the pool creator can change pool status');
+      const errorString = JSON.stringify(error);
+      const errorMessage = error.message || errorString;
+      const errorName = error.name || '';
+
+      // WalletSendTransactionError - wallet failed to send transaction
+      if (errorName.includes('WalletSendTransactionError') || errorMessage.includes('WalletSendTransactionError')) {
+        throw new Error(
+          `Failed to send transaction to the network.\n\n` +
+          `Common causes:\n` +
+          `  • Pool not yet activated (activation point hasn't passed)\n` +
+          `  • Wrong wallet connected (must be pool creator)\n` +
+          `  • Insufficient SOL for transaction fees\n` +
+          `  • Network or RPC issues\n\n` +
+          `Solutions:\n` +
+          `  1. Check if the pool's activation point has passed\n` +
+          `  2. Verify you're using the wallet that created the pool\n` +
+          `  3. Ensure you have at least 0.01 SOL for fees\n` +
+          `  4. Try again in a moment (network congestion)\n\n` +
+          `Error details: ${errorMessage}`
+        );
       }
 
-      throw new Error(error.message || 'Failed to set pool status');
+      // Creator/authority permission errors
+      if (errorMessage.includes('creator') || errorMessage.includes('authority') || errorMessage.includes('permission')) {
+        throw new Error(
+          `Permission denied: Only the pool creator can change pool status.\n\n` +
+          `Solutions:\n` +
+          `  1. Connect with the wallet that created this pool\n` +
+          `  2. Verify the pool was created with creatorPoolOnOffControl enabled\n` +
+          `  3. Check the pool creator address matches your connected wallet\n\n` +
+          `Error details: ${errorMessage}`
+        );
+      }
+
+      // Activation point errors
+      if (errorMessage.includes('activation') || errorMessage.includes('ActivationPointNotReached')) {
+        throw new Error(
+          `Pool activation point has not been reached yet.\n\n` +
+          `You can only enable/disable trading after the pool's activation point.\n` +
+          `Check the pool details to see when it will be activated.\n\n` +
+          `Error details: ${errorMessage}`
+        );
+      }
+
+      // Transaction size errors
+      if (errorMessage.includes('Transaction too large') || errorMessage.includes('oversized')) {
+        throw new Error(
+          `Transaction is too large to send.\n\n` +
+          `This is unusual for a status change. Please contact support.\n\n` +
+          `Error details: ${errorMessage}`
+        );
+      }
+
+      // Simulation failed
+      if (errorMessage.includes('Simulation failed') || errorMessage.includes('Transaction failed')) {
+        throw new Error(
+          `Transaction simulation failed.\n\n` +
+          `Possible causes:\n` +
+          `  • Pool state has changed since you loaded the page\n` +
+          `  • Invalid pool address\n` +
+          `  • Pool was closed or deleted\n\n` +
+          `Solutions:\n` +
+          `  1. Refresh the page and try again\n` +
+          `  2. Verify the pool address is correct\n` +
+          `  3. Check the pool still exists on-chain\n\n` +
+          `Error details: ${errorMessage}`
+        );
+      }
+
+      // Default error
+      throw new Error(errorMessage || 'Failed to set pool status');
+    }
+  };
+
+  /**
+   * Fetch all DLMM positions for the connected wallet
+   */
+  const fetchUserPositions = async () => {
+    if (!publicKey) {
+      throw new Error('Wallet not connected');
+    }
+
+    console.log('[DLMM] Fetching user positions...');
+
+    try {
+      // Use DLMM SDK method to get all positions for user
+      const positions = await DLMM.getAllLbPairPositionsByUser(
+        connection,
+        publicKey,
+        { cluster: network as 'mainnet-beta' | 'devnet' | 'localhost' }
+      );
+
+      console.log(`[DLMM] Found ${positions.size} positions`);
+
+      // Convert Map to array of positions
+      const userPositions = [];
+      for (const [positionKey, positionInfo] of positions.entries()) {
+        try {
+          const { lbPair, tokenX, tokenY, lbPairPositionsData } = positionInfo;
+
+          // Calculate total amounts from all bins
+          let totalBaseAmount = 0;
+          let totalQuoteAmount = 0;
+          let totalUnclaimedFeesBase = 0;
+          let totalUnclaimedFeesQuote = 0;
+
+          for (const position of lbPairPositionsData) {
+            // Sum up amounts across all bins
+            totalBaseAmount += Number(position.positionData.totalXAmount) / Math.pow(10, tokenX.decimal);
+            totalQuoteAmount += Number(position.positionData.totalYAmount) / Math.pow(10, tokenY.decimal);
+
+            // Sum up unclaimed fees
+            totalUnclaimedFeesBase += Number(position.positionData.feeX) / Math.pow(10, tokenX.decimal);
+            totalUnclaimedFeesQuote += Number(position.positionData.feeY) / Math.pow(10, tokenY.decimal);
+          }
+
+          userPositions.push({
+            positionKey,
+            poolAddress: lbPair.publicKey.toString(),
+            baseMint: tokenX.publicKey.toString(),
+            quoteMint: tokenY.publicKey.toString(),
+            baseSymbol: tokenX.symbol,
+            quoteSymbol: tokenY.symbol,
+            baseAmount: totalBaseAmount,
+            quoteAmount: totalQuoteAmount,
+            unclaimedFeesBase: totalUnclaimedFeesBase,
+            unclaimedFeesQuote: totalUnclaimedFeesQuote,
+            binPositions: lbPairPositionsData.map((p) => ({
+              binId: p.binId,
+              baseAmount: Number(p.positionData.totalXAmount) / Math.pow(10, tokenX.decimal),
+              quoteAmount: Number(p.positionData.totalYAmount) / Math.pow(10, tokenY.decimal),
+            })),
+          });
+        } catch (error) {
+          console.warn('[DLMM] Failed to parse position:', error);
+          // Continue with other positions
+        }
+      }
+
+      console.log(`[DLMM] Successfully parsed ${userPositions.length} positions`);
+      return userPositions;
+    } catch (error: any) {
+      console.error('[DLMM] Error fetching positions:', error);
+
+      // Handle known SDK issue with undefined feeAmountXPerTokenStored
+      if (error.message?.includes('feeAmountXPerTokenStored')) {
+        console.warn('[DLMM] Known SDK issue detected - returning empty positions');
+        return [];
+      }
+
+      throw new Error(error.message || 'Failed to fetch DLMM positions');
     }
   };
 
@@ -982,5 +1463,6 @@ export function useDLMM() {
     seedLiquidityLFG,
     seedLiquiditySingleBin,
     setPoolStatus,
+    fetchUserPositions,
   };
 }

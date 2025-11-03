@@ -17,6 +17,7 @@ export default function DAMMv1CreatePoolPage() {
   const { network } = useNetwork();
   const { createPool } = useDAMMv1();
   const [loading, setLoading] = useState(false);
+  const [useMetadataService, setUseMetadataService] = useState(false);
 
   // Token creation state
   const [tokenData, setTokenData] = useState({
@@ -156,6 +157,8 @@ export default function DAMMv1CreatePoolPage() {
           <TokenCreationSection
             data={tokenData}
             onChange={(updates) => setTokenData({ ...tokenData, ...updates })}
+            metadataServiceEnabled={true}
+            onMetadataServiceToggle={setUseMetadataService}
           />
 
           {/* Pool Configuration */}
@@ -224,7 +227,10 @@ export default function DAMMv1CreatePoolPage() {
           <ReferralInput />
 
           {/* Platform Fee Disclosure */}
-          <FeeDisclosure variant="default" />
+          <FeeDisclosure
+            variant="default"
+            includeMetadataService={useMetadataService}
+          />
 
           <div className="flex gap-3">
             <ConfigExportButton

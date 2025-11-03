@@ -544,6 +544,37 @@ export function useDAMMv2() {
     }
   };
 
+  /**
+   * Fetch all DAMM v2 positions for the connected wallet
+   */
+  const fetchUserPositions = async () => {
+    if (!publicKey) {
+      throw new Error('Wallet not connected');
+    }
+
+    console.log('[DAMM v2] Fetching user positions...');
+
+    try {
+      // DAMM v2 uses position NFTs - we need to find all positions owned by user
+      // This is a simplified implementation - in production, you'd query all position accounts
+      const positions: any[] = [];
+
+      // Note: This is a placeholder implementation
+      // The actual implementation would need to:
+      // 1. Query all token accounts owned by the user
+      // 2. Filter for DAMM v2 position NFTs
+      // 3. For each position NFT, fetch the position data
+
+      console.log('[DAMM v2] Position fetching not yet fully implemented');
+      console.log('[DAMM v2] Returning empty positions array');
+
+      return positions;
+    } catch (error: any) {
+      console.error('[DAMM v2] Error fetching positions:', error);
+      throw new Error(error.message || 'Failed to fetch DAMM v2 positions');
+    }
+  };
+
   return {
     createBalancedPool,
     createOneSidedPool,
@@ -552,5 +583,6 @@ export function useDAMMv2() {
     claimFees,
     splitPosition,
     closePosition,
+    fetchUserPositions,
   };
 }

@@ -30,6 +30,19 @@ export interface FeeConfig {
 }
 
 /**
+ * Metadata service configuration
+ */
+export interface MetadataServiceConfig {
+  enabled: boolean;
+  feeLamports: number; // Optional metadata service fee (e.g., 0.005 SOL = 5000000)
+}
+
+/**
+ * Metadata service fee constant (0.005 SOL)
+ */
+export const METADATA_SERVICE_FEE = 5_000_000; // 0.005 SOL in lamports
+
+/**
  * Load fee configuration from environment variables
  */
 export function loadFeeConfig(): FeeConfig {
@@ -59,6 +72,21 @@ export function loadFeeConfig(): FeeConfig {
     feeLamports,
     feeTokenMint,
     feeTokenAmount,
+  };
+}
+
+/**
+ * Load metadata service configuration from environment variables
+ */
+export function loadMetadataServiceConfig(): MetadataServiceConfig {
+  const enabled = process.env.NEXT_PUBLIC_ENABLE_METADATA_SERVICE === 'true';
+  const feeLamports = process.env.NEXT_PUBLIC_METADATA_SERVICE_FEE_LAMPORTS
+    ? parseInt(process.env.NEXT_PUBLIC_METADATA_SERVICE_FEE_LAMPORTS)
+    : METADATA_SERVICE_FEE;
+
+  return {
+    enabled,
+    feeLamports,
   };
 }
 
@@ -129,6 +157,58 @@ export async function getPlatformFeeInstruction(
 }
 
 /**
+ * Get metadata service fee instruction (optional, separate from platform fee)
+ * Returns null if metadata service is disabled or not opted-in
+ */
+export function getMetadataServiceFeeInstruction(
+  payer: PublicKey,
+  optedIn: boolean
+): TransactionInstruction | null {
+  if (!optedIn) {
+    return null;
+  }
+
+  const platformConfig = loadFeeConfig();
+  const metadataConfig = loadMetadataServiceConfig();
+
+  if (!metadataConfig.enabled || !platformConfig.feeWallet) {
+    return null;
+  }
+
+  // Create SOL transfer instruction for metadata service fee
+  return createSOLFeeInstruction(
+    payer,
+    platformConfig.feeWallet,
+    metadataConfig.feeLamports
+  );
+}
+
+/**
+ * Get all fee instructions (platform + optional metadata service)
+ * Returns array of instructions to add to transaction
+ */
+export async function getAllFeeInstructions(
+  payer: PublicKey,
+  useMetadataService: boolean = false
+): Promise<TransactionInstruction[]> {
+  const instructions: TransactionInstruction[] = [];
+
+  // Add platform fee instruction
+  const platformFee = await getPlatformFeeInstruction(payer);
+  if (platformFee) {
+    instructions.push(platformFee);
+  }
+
+  // Add metadata service fee instruction if opted-in
+  const metadataFee = getMetadataServiceFeeInstruction(payer, useMetadataService);
+  if (metadataFee) {
+    instructions.push(metadataFee);
+  }
+
+  return instructions;
+}
+
+/**
  * Format fee amount for display
  */
 export function formatFeeAmount(config: FeeConfig): string {
@@ -145,23 +225,40 @@ export function formatFeeAmount(config: FeeConfig): string {
 /**
  * Get fee breakdown for display
  */
-export function getFeeBreakdown(config: FeeConfig): {
+export function getFeeBreakdown(
+  config: FeeConfig,
+  includeMetadataService: boolean = false
+): {
   platformFee: string;
+  metadataFee?: string;
   networkFee: string;
   total: string;
 } {
   const platformFee = formatFeeAmount(config);
   const networkFee = '~0.005 SOL'; // Estimated transaction fee
 
-  let total = networkFee;
+  let metadataFee: string | undefined;
+  let totalLamports = 5000; // Network fee estimate
+
+  // Add platform fee
   if (config.enabled && !config.feeTokenMint) {
-    const platformSol = config.feeLamports / LAMPORTS_PER_SOL;
-    const totalSol = platformSol + 0.005;
-    total = `~${totalSol} SOL`;
+    totalLamports += config.feeLamports;
   }
+
+  // Add metadata service fee if opted-in
+  if (includeMetadataService) {
+    const metadataConfig = loadMetadataServiceConfig();
+    if (metadataConfig.enabled) {
+      metadataFee = `${metadataConfig.feeLamports / LAMPORTS_PER_SOL} SOL`;
+      totalLamports += metadataConfig.feeLamports;
+    }
+  }
+
+  const total = `~${totalLamports / LAMPORTS_PER_SOL} SOL`;
 
   return {
     platformFee,
+    metadataFee,
     networkFee,
     total,
   };
