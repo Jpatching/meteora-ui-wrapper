@@ -29,7 +29,7 @@ const nextConfig: NextConfig = {
   productionBrowserSourceMaps: false,
 
   // Webpack optimizations
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, dev }) => {
     if (!isServer) {
       // Optimize for browser bundle size
       config.resolve.fallback = {
@@ -39,12 +39,10 @@ const nextConfig: NextConfig = {
         tls: false,
       };
 
-      // Tree-shake better
-      config.optimization = {
-        ...config.optimization,
-        usedExports: true,
-        sideEffects: false,
-      };
+      // Tree-shake better (only in production to avoid conflicts with dev mode)
+      if (!dev) {
+        config.optimization.usedExports = true;
+      }
     }
 
     return config;
