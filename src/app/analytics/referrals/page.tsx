@@ -3,13 +3,53 @@
 import { useState, useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { MainLayout } from '@/components/layout';
-import { Card, CardHeader, CardTitle, CardContent, Button } from '@/components/ui';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui';
 import { ReferralDisplay } from '@/components/ui/ReferralDisplay';
-import { useReferral } from '@/contexts/ReferralContext';
+import { referralAPI, userAPI, UserStats } from '@/lib/api/backend';
+import toast from 'react-hot-toast';
 
 export default function ReferralDashboardPage() {
   const { publicKey } = useWallet();
-  const { referralCode, referralEarnings } = useReferral();
+  const [stats, setStats] = useState<UserStats | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch referral stats from backend
+  useEffect(() => {
+    if (!publicKey) {
+      setStats(null);
+      return;
+    }
+
+    const fetchStats = async () => {
+      setLoading(true);
+      try {
+        // First, ensure user exists in backend
+        const userResponse = await userAPI.createUser({
+          wallet_address: publicKey.toBase58(),
+        });
+
+        if (!userResponse.success) {
+          console.error('Failed to create/get user:', userResponse.error);
+        }
+
+        // Then fetch referral stats
+        const response = await referralAPI.getUserStats(publicKey.toBase58());
+
+        if (response.success && response.data) {
+          setStats(response.data);
+        } else {
+          console.error('Failed to fetch stats:', response.error);
+          toast.error('Failed to load referral stats');
+        }
+      } catch (error) {
+        console.error('Error fetching referral stats:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, [publicKey]);
 
   if (!publicKey) {
     return (
@@ -21,6 +61,19 @@ export default function ReferralDashboardPage() {
             <p className="text-foreground-muted">
               Connect your wallet to view your referral dashboard
             </p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (loading && !stats) {
+    return (
+      <MainLayout>
+        <div className="max-w-7xl mx-auto p-6">
+          <div className="text-center py-12">
+            <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-foreground-muted">Loading referral dashboard...</p>
           </div>
         </div>
       </MainLayout>
@@ -46,10 +99,10 @@ export default function ReferralDashboardPage() {
             <CardContent className="pt-6">
               <div className="text-sm text-foreground-muted mb-1">Total Earnings</div>
               <div className="text-3xl font-bold text-success font-mono">
-                {referralEarnings?.toFixed(4) || '0.0000'} SOL
+                {stats?.total_referral_earnings.toFixed(4) || '0.0000'} SOL
               </div>
               <div className="text-xs text-foreground-muted mt-2">
-                ≈ ${((referralEarnings || 0) * 100).toFixed(2)} USD
+                ≈ ${((stats?.total_referral_earnings || 0) * 100).toFixed(2)} USD
               </div>
             </CardContent>
           </Card>
@@ -58,10 +111,10 @@ export default function ReferralDashboardPage() {
             <CardContent className="pt-6">
               <div className="text-sm text-foreground-muted mb-1">Active Referrals</div>
               <div className="text-3xl font-bold text-primary">
-                0
+                {stats?.active_referrals || 0}
               </div>
               <div className="text-xs text-foreground-muted mt-2">
-                Users who used your code
+                Users who made transactions
               </div>
             </CardContent>
           </Card>
@@ -70,22 +123,48 @@ export default function ReferralDashboardPage() {
             <CardContent className="pt-6">
               <div className="text-sm text-foreground-muted mb-1">Conversion Rate</div>
               <div className="text-3xl font-bold text-foreground">
-                0%
+                {stats?.conversion_rate.toFixed(1) || '0'}%
               </div>
               <div className="text-xs text-foreground-muted mt-2">
-                Clicks to transactions
+                Active / Total referrals
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Referral Code Card */}
+        {/* Your Referral Code */}
         <Card>
           <CardHeader>
             <CardTitle>Your Referral Link</CardTitle>
           </CardHeader>
           <CardContent>
-            <ReferralDisplay />
+            {stats?.referral_code ? (
+              <div className="mb-6">
+                <div className="flex items-center gap-4 p-4 bg-background-secondary rounded-lg border border-border">
+                  <div>
+                    <div className="text-sm text-foreground-muted mb-1">Your Code</div>
+                    <div className="text-2xl font-bold font-mono gradient-text">
+                      {stats.referral_code}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const url = `${window.location.origin}?ref=${stats.referral_code}`;
+                      navigator.clipboard.writeText(url);
+                      toast.success('Referral link copied!');
+                    }}
+                    className="ml-auto px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors"
+                  >
+                    Copy Link
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mb-6 p-4 bg-background-secondary rounded-lg border border-border">
+                <p className="text-foreground-muted">Generating referral code...</p>
+              </div>
+            )}
+
             <div className="mt-6 p-4 bg-background-secondary rounded-lg border border-border">
               <h3 className="font-semibold text-foreground mb-2">How It Works</h3>
               <ul className="space-y-2 text-sm text-foreground-muted">
@@ -105,6 +184,42 @@ export default function ReferralDashboardPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Your Referrals */}
+        {stats && stats.referrals.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Referrals ({stats.total_referrals})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {stats.referrals.map((referral, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-4 bg-background-secondary rounded-lg border border-border hover:border-primary/50 transition-colors"
+                  >
+                    <div>
+                      <div className="font-mono text-sm text-foreground">
+                        {referral.referee_wallet.slice(0, 4)}...{referral.referee_wallet.slice(-4)}
+                      </div>
+                      <div className="text-xs text-foreground-muted mt-1">
+                        Joined {new Date(referral.joined_at).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold text-success">
+                        {referral.total_earnings.toFixed(4)} SOL
+                      </div>
+                      <div className="text-xs text-foreground-muted">
+                        {referral.total_transactions} transactions
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Benefits Card */}
         <Card>
@@ -156,41 +271,31 @@ export default function ReferralDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Coming Soon */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Advanced Analytics (Coming Soon)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center py-8">
-              <span className="text-4xl mb-3 block">📊</span>
-              <p className="text-foreground-muted mb-4">
-                Detailed analytics, leaderboards, and tier progression will be available
-                once the backend is fully deployed.
-              </p>
-              <div className="mt-6 flex flex-wrap gap-3 justify-center">
-                <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
-                  Earnings Chart
-                </span>
-                <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
-                  Leaderboard Ranking
-                </span>
-                <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
-                  Tier System
-                </span>
-                <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
-                  Transaction History
-                </span>
-                <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
-                  Growth Insights
-                </span>
+        {/* Recent Earnings */}
+        {stats && stats.recent_earnings.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Earnings</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {stats.recent_earnings.map((earning: any, index: number) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-background-secondary rounded-lg border border-border"
+                  >
+                    <div className="text-sm text-foreground-muted">
+                      {new Date(earning.created_at).toLocaleString()}
+                    </div>
+                    <div className="font-bold text-success">
+                      +{earning.referral_amount.toFixed(4)} SOL
+                    </div>
+                  </div>
+                ))}
               </div>
-              <p className="text-sm text-foreground-muted mt-6">
-                See <code className="bg-background-secondary px-2 py-1 rounded">BACKEND_IMPLEMENTATION_GUIDE.md</code> for deployment instructions
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </MainLayout>
   );

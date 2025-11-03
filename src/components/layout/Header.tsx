@@ -47,23 +47,14 @@ export function Header() {
                 "
               >
                 <option value="devnet">Devnet</option>
-                <option value="localnet">Localnet</option>
                 <option value="mainnet-beta">Mainnet Beta</option>
               </select>
             </div>
 
-            {/* Network Status Indicator */}
+            {/* Network Status Indicator - Green when connected */}
             <div className="flex items-center gap-2 px-3 py-1.5 bg-background-tertiary rounded-lg border border-border">
               <div className="relative">
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    network === 'mainnet-beta'
-                      ? 'bg-error'
-                      : network === 'devnet'
-                      ? 'bg-warning'
-                      : 'bg-info'
-                  } animate-pulse`}
-                ></div>
+                <div className="w-2 h-2 rounded-full bg-success animate-pulse"></div>
               </div>
               <span className="text-sm text-foreground-secondary capitalize">
                 {network === 'mainnet-beta' ? 'Mainnet' : network}
