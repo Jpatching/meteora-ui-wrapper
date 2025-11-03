@@ -59,12 +59,39 @@ function DLMMSeedLFGContent() {
     toast.success('Config loaded and form pre-filled!');
   };
 
+  // Calculate price range statistics
+  const minPrice = parseFloat(formData.minPrice) || 0;
+  const maxPrice = parseFloat(formData.maxPrice) || 0;
+  const priceSpread = maxPrice > minPrice ? ((maxPrice - minPrice) / minPrice) * 100 : 0;
+  const isWideRange = priceSpread > 1000; // >1000% spread
+  const isVeryWideRange = priceSpread > 5000; // >5000% spread
+
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!publicKey) {
       toast.error('Please connect your wallet first');
+      return;
+    }
+
+    // Validate price range
+    if (minPrice <= 0 || maxPrice <= 0) {
+      toast.error('Both min and max price must be greater than 0');
+      return;
+    }
+
+    if (maxPrice <= minPrice) {
+      toast.error('Max price must be greater than min price');
+      return;
+    }
+
+    // Warn about very wide ranges
+    if (isVeryWideRange) {
+      toast.error(
+        `Price range is extremely wide (${priceSpread.toFixed(0)}% spread). This may fail due to high bin array costs. Please reduce the range.`,
+        { duration: 6000 }
+      );
       return;
     }
 
@@ -161,6 +188,7 @@ function DLMMSeedLFGContent() {
                   label="Min Price"
                   type="number"
                   step="any"
+                  min="0"
                   required
                   value={formData.minPrice}
                   onChange={(e) => setFormData({ ...formData, minPrice: e.target.value })}
@@ -170,6 +198,7 @@ function DLMMSeedLFGContent() {
                   label="Max Price"
                   type="number"
                   step="any"
+                  min="0"
                   required
                   value={formData.maxPrice}
                   onChange={(e) => setFormData({ ...formData, maxPrice: e.target.value })}
@@ -187,6 +216,46 @@ function DLMMSeedLFGContent() {
                 onChange={(e) => setFormData({ ...formData, curvature: e.target.value })}
                 helperText="Distribution curve (0 = uniform, 1 = concentrated at current price)"
               />
+
+              {/* Price Range Warning */}
+              {minPrice > 0 && maxPrice > 0 && (
+                <div className={`p-3 rounded-lg border ${
+                  isVeryWideRange
+                    ? 'border-error/30 bg-error/10'
+                    : isWideRange
+                    ? 'border-warning/30 bg-warning/10'
+                    : 'border-success/30 bg-success/10'
+                }`}>
+                  <div className="flex items-start gap-2">
+                    <span className="text-xl">
+                      {isVeryWideRange ? '🚨' : isWideRange ? '⚠️' : '✅'}
+                    </span>
+                    <div className="flex-1 space-y-1">
+                      <p className={`text-sm font-medium ${
+                        isVeryWideRange
+                          ? 'text-error'
+                          : isWideRange
+                          ? 'text-warning'
+                          : 'text-success'
+                      }`}>
+                        Price Spread: {priceSpread.toFixed(1)}%
+                      </p>
+                      <p className="text-xs text-foreground-secondary">
+                        {isVeryWideRange
+                          ? 'Extremely wide range! This will likely fail due to high bin array initialization costs (~0.075 SOL per array). Please reduce the range significantly.'
+                          : isWideRange
+                          ? 'Wide price range requires many bin arrays (~0.075 SOL each). Consider narrowing the range to reduce costs and avoid transaction failures.'
+                          : 'Good price range - should execute without excessive bin array costs.'}
+                      </p>
+                      {(isWideRange || isVeryWideRange) && (
+                        <p className="text-xs text-foreground-muted mt-1">
+                          Recommended: Keep spread below 1000% for optimal results
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -203,6 +272,7 @@ function DLMMSeedLFGContent() {
                 label="Seed Amount"
                 type="number"
                 step="any"
+                min="0"
                 required
                 value={formData.seedAmount}
                 onChange={(e) => setFormData({ ...formData, seedAmount: e.target.value })}
@@ -227,6 +297,7 @@ function DLMMSeedLFGContent() {
               <Input
                 label="Lock Release Point (Optional)"
                 type="number"
+                min="0"
                 value={formData.lockReleasePoint}
                 onChange={(e) => setFormData({ ...formData, lockReleasePoint: e.target.value })}
                 helperText="Unix timestamp when position can be withdrawn (0 = no lock)"

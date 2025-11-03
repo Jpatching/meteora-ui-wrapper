@@ -682,6 +682,26 @@ export function useDLMM() {
         cluster: network as 'mainnet-beta' | 'devnet' | 'localhost',
       });
 
+      // PRE-FLIGHT CHECK: Verify pool is not activated
+      console.log('Checking pool activation status...');
+      const activationStatus = await dlmmInstance.getActivationSlot();
+      const isActivated = activationStatus.toNumber() > 0;
+
+      if (isActivated) {
+        throw new Error(
+          `Cannot seed LFG liquidity: Pool is already activated\n\n` +
+          `The seedLiquidityLFG command only works on pools that are NOT yet activated.\n\n` +
+          `Pool Address: ${poolAddress.toString()}\n` +
+          `Activation Slot: ${activationStatus.toString()}\n\n` +
+          `Solutions:\n` +
+          `  1. Use "Seed Liquidity (Single Bin)" instead for activated pools\n` +
+          `  2. Use "Add Liquidity" to add to existing positions\n` +
+          `  3. Create a new pool if you need LFG seeding\n\n` +
+          `Learn more: https://docs.meteora.ag/developer-guide/guides/dlmm/typescript-sdk/sdk-functions`
+        );
+      }
+      console.log('Pool is not activated ✓');
+
       // Call seedLiquidity SDK method with generated keypairs
       const {
         sendPositionOwnerTokenProveIxs,
@@ -850,24 +870,26 @@ export function useDLMM() {
 
       // Check for specific DLMM program errors
       if (errorString.includes('Custom":3012') || errorMessage.includes('3012')) {
-        // Error 3012: Insufficient funds
+        // Error 3012: Insufficient funds for bin array initialization
         const solBalance = await connection.getBalance(publicKey);
         const solBalanceInSol = (solBalance / 1e9).toFixed(4);
 
         throw new Error(
-          `Insufficient funds to complete transaction (Error 3012).\n\n` +
+          `Insufficient funds for transaction (Error 3012).\n\n` +
           `Current SOL balance: ${solBalanceInSol} SOL\n\n` +
-          `Required SOL for seeding liquidity:\n` +
-          `  • Bin array rent: ~0.2-0.3 SOL (refundable when closed)\n` +
-          `  • Position account rent: ~0.02 SOL (refundable when closed)\n` +
-          `  • Transaction fees: ~0.01 SOL (non-refundable)\n` +
-          `  • Platform fees: 0.0007 SOL (non-refundable)\n` +
-          `  • Recommended minimum: 0.5 SOL\n\n` +
-          `Solutions:\n` +
-          `  1. Fund your wallet with at least 0.5 SOL\n` +
-          `  2. On devnet: Use 'solana airdrop 1 ${publicKey.toString()} --url devnet'\n` +
-          `  3. Reduce the price range to require fewer bin arrays\n` +
-          `  4. Check you have sufficient base token balance as well`
+          `Common causes:\n` +
+          `  • Bin array initialization: Each bin array costs ~0.075 SOL rent (non-refundable if you're first to seed those bins)\n` +
+          `  • Wide price range: Wider ranges require more bin arrays, multiplying costs\n` +
+          `  • Pool activation timing: Verify pool is not already activated\n` +
+          `  • Insufficient base token: Check you have enough base tokens to seed\n` +
+          `  • Transaction fees: ~0.01-0.02 SOL for transaction execution\n\n` +
+          `Recommended fixes:\n` +
+          `  1. Reduce price range: Try a narrower range (e.g., 50% instead of 500% spread)\n` +
+          `  2. Check pool status: Ensure pool is not activated yet (use "Set Pool Status" page)\n` +
+          `  3. Verify base tokens: Confirm you have sufficient base token balance\n` +
+          `  4. Increase SOL: Add more SOL if balance < 0.5 SOL\n` +
+          `  5. On devnet: 'solana airdrop 1 ${publicKey.toString()} --url devnet'\n\n` +
+          `Learn more: https://docs.meteora.ag/developer-guide/quick-launch/dlmm-launch-pool`
         );
       } else if (errorString.includes('Custom":3001') || errorMessage.includes('3001')) {
         throw new Error(
