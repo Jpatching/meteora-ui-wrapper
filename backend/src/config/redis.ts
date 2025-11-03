@@ -13,15 +13,15 @@ redis.on('error', (err) => console.error('❌ Redis error:', err));
 redis.on('connect', () => console.log('✅ Redis connected'));
 redis.on('ready', () => console.log('✅ Redis ready'));
 
-// Cache TTL constants (in seconds)
+// Cache TTL constants (in seconds) - optimized for reduced database load
 export const CACHE_TTL = {
-  POOL_DATA: 60,          // 60 seconds
-  TOKEN_PRICE: 15,        // 15 seconds
-  USER_SESSION: 3600,     // 1 hour
-  LEADERBOARD: 300,       // 5 minutes
-  USER_STATS: 120,        // 2 minutes
-  REFERRAL_CODE: 86400,   // 24 hours
-  PLATFORM_STATS: 600,    // 10 minutes
+  POOL_DATA: 300,         // 5 minutes (was 60s) - pools don't change often
+  TOKEN_PRICE: 30,        // 30 seconds (was 15s) - reduce API calls
+  USER_SESSION: 7200,     // 2 hours (was 1h) - longer sessions
+  LEADERBOARD: 600,       // 10 minutes (was 5m) - leaderboard updates slowly
+  USER_STATS: 600,        // 10 minutes (was 2m) - stats don't change rapidly
+  REFERRAL_CODE: 86400,   // 24 hours - optimal
+  PLATFORM_STATS: 1800,   // 30 minutes (was 10m) - platform stats are slow-changing
 };
 
 // Cache key generators

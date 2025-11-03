@@ -9,13 +9,16 @@ import { TransactionHistoryProvider } from '@/contexts/TransactionHistoryContext
 import { ReferralProvider } from '@/contexts/ReferralContext';
 import { WalletProvider } from './WalletProvider';
 
-// Create React Query client
+// Create React Query client with optimized settings
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30000, // Data is fresh for 30 seconds
-      refetchOnWindowFocus: true,
-      retry: 2,
+      staleTime: 5 * 60 * 1000, // 5 minutes (reduced API hammering)
+      gcTime: 10 * 60 * 1000,    // Garbage collect after 10 min
+      refetchOnWindowFocus: false, // Don't refetch on tab switch
+      refetchOnMount: false,       // Don't refetch if data exists
+      retry: 1,                    // Retry once (not twice)
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     },
   },
 });

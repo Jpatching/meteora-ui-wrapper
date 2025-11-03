@@ -1,40 +1,21 @@
 import type { Metadata } from "next";
-import { Syne, Audiowide, Chakra_Petch, Share_Tech_Mono, Exo_2 } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AppProviders } from "@/providers/AppProviders";
 
-// Body text - distinctive geometric sans-serif
-const syne = Syne({
-  variable: "--font-syne",
+// Body text - modern, readable, fast loading
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  display: 'swap',
+  weight: ["400", "500", "600", "700"],
 });
 
-// Display/Brand - modern tech display font for hero headings
-const audiowide = Audiowide({
-  variable: "--font-audiowide",
+// Monospace - for addresses, code, and data display
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
-  weight: "400",
-});
-
-// UI elements - sharp, angular font for buttons and UI
-const chakraPetch = Chakra_Petch({
-  variable: "--font-chakra-petch",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-});
-
-// Numbers/Data - futuristic monospace for addresses and stats
-const shareTechMono = Share_Tech_Mono({
-  variable: "--font-share-tech-mono",
-  subsets: ["latin"],
-  weight: "400",
-});
-
-// Accents - geometric font for tables and cards
-const exo2 = Exo_2({
-  variable: "--font-exo-2",
-  subsets: ["latin"],
+  display: 'swap',
   weight: ["400", "500", "600", "700"],
 });
 
@@ -51,7 +32,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${syne.variable} ${audiowide.variable} ${chakraPetch.variable} ${shareTechMono.variable} ${exo2.variable} antialiased`}
+        className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
       >
         <AppProviders>{children}</AppProviders>
       </body>
