@@ -20,8 +20,13 @@ const PORT = process.env.BACKEND_PORT || 4000;
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
+// Parse FRONTEND_URL as comma-separated list or use default array
+const allowedOrigins = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
+  : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'];
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || ['http://localhost:3000', 'http://localhost:3001'],
+  origin: allowedOrigins,
   credentials: true,
 }));
 app.use(compression());
