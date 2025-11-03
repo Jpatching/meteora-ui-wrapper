@@ -33,6 +33,7 @@ const navigation: NavSection[] = [
     items: [
       { name: 'Public Pools', href: '/analytics/pools' },
       { name: 'Positions', href: '/analytics/positions' },
+      { name: 'Referrals', href: '/analytics/referrals' },
     ],
   },
   {
