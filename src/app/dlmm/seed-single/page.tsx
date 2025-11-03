@@ -146,6 +146,7 @@ export default function DLMMSeedSinglePage() {
                 label="Price"
                 type="number"
                 step="any"
+                min="0"
                 required
                 value={formData.price}
                 onChange={(e) => setFormData({ ...formData, price: e.target.value })}
@@ -176,6 +177,7 @@ export default function DLMMSeedSinglePage() {
                 label="Seed Amount"
                 type="number"
                 step="any"
+                min="0"
                 required
                 value={formData.seedAmount}
                 onChange={(e) => setFormData({ ...formData, seedAmount: e.target.value })}
@@ -200,6 +202,7 @@ export default function DLMMSeedSinglePage() {
               <Input
                 label="Lock Release Point (Optional)"
                 type="number"
+                min="0"
                 value={formData.lockReleasePoint}
                 onChange={(e) => setFormData({ ...formData, lockReleasePoint: e.target.value })}
                 helperText="Unix timestamp when position can be withdrawn (0 = no lock)"

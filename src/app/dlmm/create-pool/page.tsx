@@ -403,6 +403,7 @@ export default function DLMMCreatePoolPage() {
                   <Input
                     label="Total Supply"
                     type="number"
+                    min="0"
                     required
                     value={formData.tokenSupply}
                     onChange={(e) => setFormData({ ...formData, tokenSupply: e.target.value })}
@@ -462,6 +463,7 @@ export default function DLMMCreatePoolPage() {
                   label="Base Token Amount"
                   type="number"
                   step="any"
+                  min="0"
                   required
                   placeholder="1000"
                   value={formData.baseAmount}
@@ -473,6 +475,7 @@ export default function DLMMCreatePoolPage() {
                   label="Quote Token Amount"
                   type="number"
                   step="any"
+                  min="0"
                   required
                   placeholder="100"
                   value={formData.quoteAmount}

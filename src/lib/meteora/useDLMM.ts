@@ -868,6 +868,21 @@ export function useDLMM() {
       const errorString = JSON.stringify(error);
       const errorMessage = error.message || errorString;
 
+      // Extract transaction signature if available for debugging
+      const signature = error.signature || error.txid || null;
+      const solscanUrl = signature
+        ? `https://solscan.io/tx/${signature}?cluster=${network}`
+        : null;
+
+      // Build debugging footer
+      const debugInfo = signature
+        ? `\n\n🔍 Debug Transaction:\n` +
+          `  • Solscan: ${solscanUrl}\n` +
+          `  • CLI: solana confirm -v ${signature} --url ${network}\n` +
+          `  • Signature: ${signature}`
+        : '';
+
+
       // Check for specific DLMM program errors
       if (errorString.includes('Custom":3012') || errorMessage.includes('3012')) {
         // Error 3012: Insufficient funds for bin array initialization
@@ -889,7 +904,7 @@ export function useDLMM() {
           `  3. Verify base tokens: Confirm you have sufficient base token balance\n` +
           `  4. Increase SOL: Add more SOL if balance < 0.5 SOL\n` +
           `  5. On devnet: 'solana airdrop 1 ${publicKey.toString()} --url devnet'\n\n` +
-          `Learn more: https://docs.meteora.ag/developer-guide/quick-launch/dlmm-launch-pool`
+          `Learn more: https://docs.meteora.ag/developer-guide/quick-launch/dlmm-launch-pool${debugInfo}`
         );
       } else if (errorString.includes('Custom":3001') || errorMessage.includes('3001')) {
         throw new Error(
@@ -901,7 +916,7 @@ export function useDLMM() {
           `Solutions:\n` +
           `  1. Verify the pool exists: ${errorMessage.includes('poolAddress') ? 'Check pool address' : 'Pool may not be created'}\n` +
           `  2. Try a narrower price range (e.g., 0.001-0.01 instead of 1-2)\n` +
-          `  3. Check the pool's bin step configuration`
+          `  3. Check the pool's bin step configuration${debugInfo}`
         );
       } else if (errorMessage.includes('Simulation failed') || errorMessage.includes('Transaction failed')) {
         throw new Error(
@@ -916,12 +931,12 @@ export function useDLMM() {
           `  1. Check your SOL balance (need ~0.5 SOL minimum)\n` +
           `  2. Verify you have enough base tokens to seed\n` +
           `  3. Try reducing the price range\n` +
-          `  4. Wait a moment and retry`
+          `  4. Wait a moment and retry${debugInfo}`
         );
       }
 
-      // Default error message
-      throw new Error(errorMessage || 'Failed to seed LFG liquidity');
+      // Default error message with debug info
+      throw new Error((errorMessage || 'Failed to seed LFG liquidity') + debugInfo);
     }
   };
 
