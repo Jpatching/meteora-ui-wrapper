@@ -684,15 +684,21 @@ export function useDLMM() {
 
       // PRE-FLIGHT CHECK: Verify pool is not activated
       console.log('Checking pool activation status...');
-      const activationStatus = await dlmmInstance.getActivationSlot();
-      const isActivated = activationStatus.toNumber() > 0;
+
+      // Access pool state directly from lbPair account data
+      const poolState = dlmmInstance.lbPair;
+      const activationPoint = poolState.activationPoint;
+      const currentSlot = await connection.getSlot();
+
+      // Pool is activated if activationPoint is set and we're past that slot
+      const isActivated = activationPoint && activationPoint.toNumber() > 0 && currentSlot >= activationPoint.toNumber();
 
       if (isActivated) {
         throw new Error(
           `Cannot seed LFG liquidity: Pool is already activated\n\n` +
           `The seedLiquidityLFG command only works on pools that are NOT yet activated.\n\n` +
           `Pool Address: ${poolAddress.toString()}\n` +
-          `Activation Slot: ${activationStatus.toString()}\n\n` +
+          `Activation Point: ${activationPoint.toString()} (current slot: ${currentSlot})\n\n` +
           `Solutions:\n` +
           `  1. Use "Seed Liquidity (Single Bin)" instead for activated pools\n` +
           `  2. Use "Add Liquidity" to add to existing positions\n` +
@@ -700,7 +706,7 @@ export function useDLMM() {
           `Learn more: https://docs.meteora.ag/developer-guide/guides/dlmm/typescript-sdk/sdk-functions`
         );
       }
-      console.log('Pool is not activated ✓');
+      console.log('Pool is not activated ✓ (activation point:', activationPoint ? activationPoint.toString() : 'not set', ')');
 
       // Call seedLiquidity SDK method with generated keypairs
       const {
