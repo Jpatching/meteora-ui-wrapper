@@ -193,6 +193,18 @@ export function DetailsPanel({ pool, isUserPool = false }: DetailsPanelProps) {
           </a>
         )}
       </div>
+
+      {/* Advanced Position Analytics */}
+      <div className="pt-4 border-t border-border-primary">
+        <Link href={`/position/${pool.id}`}>
+          <Button variant="secondary" size="md" className="w-full">
+            Advanced Position Analytics →
+          </Button>
+        </Link>
+        <p className="text-xs text-foreground-muted mt-2 text-center">
+          View detailed metrics, fees, and performance analytics
+        </p>
+      </div>
     </div>
   );
 }
