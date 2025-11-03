@@ -29,21 +29,14 @@ export default function DashboardPage() {
     ...(data?.graduated?.pools || []),
   ];
 
-  // Filter for Meteora ecosystem (met-dbc, jup-studio) + volume threshold
+  // Filter for Meteora DBC pools only
+  // NOTE: Jupiter Gems API currently only provides DBC pool data
+  // DLMM and DAMM pools require fetching from Meteora's dedicated APIs
   const ecosystemPools = allPools.filter((pool) => {
     const launchpad = pool.baseAsset.launchpad;
-    const volume = pool.volume24h || 0;
 
-    // Always include Meteora DBC
-    if (launchpad === 'met-dbc') return true;
-
-    // Include Jupiter Studio
-    if (launchpad === 'jup-studio') return true;
-
-    // Include others only if high volume
-    if (volume >= 10000) return true; // $10K minimum
-
-    return false;
+    // Only include Meteora DBC pools
+    return launchpad === 'met-dbc';
   });
 
   // Remove duplicates by pool ID

@@ -104,12 +104,7 @@ export const SocialLinksInput: React.FC<SocialLinksInputProps> = ({
           {/* Twitter */}
           <div className="space-y-2">
             <Input
-              label={
-                <div className="flex items-center gap-2">
-                  <Twitter className="h-4 w-4 text-[#1DA1F2]" />
-                  <span>Twitter / X</span>
-                </div>
-              }
+              label="Twitter / X"
               placeholder={getPlaceholder('twitter')}
               value={value?.twitter || ''}
               onChange={(e) => handleChange('twitter', e.target.value)}
@@ -124,12 +119,7 @@ export const SocialLinksInput: React.FC<SocialLinksInputProps> = ({
           {/* Discord */}
           <div className="space-y-2">
             <Input
-              label={
-                <div className="flex items-center gap-2">
-                  <MessageCircle className="h-4 w-4 text-[#5865F2]" />
-                  <span>Discord</span>
-                </div>
-              }
+              label="Discord"
               placeholder={getPlaceholder('discord')}
               value={value?.discord || ''}
               onChange={(e) => handleChange('discord', e.target.value)}
@@ -144,12 +134,7 @@ export const SocialLinksInput: React.FC<SocialLinksInputProps> = ({
           {/* Telegram */}
           <div className="space-y-2">
             <Input
-              label={
-                <div className="flex items-center gap-2">
-                  <Send className="h-4 w-4 text-[#0088cc]" />
-                  <span>Telegram</span>
-                </div>
-              }
+              label="Telegram"
               placeholder={getPlaceholder('telegram')}
               value={value?.telegram || ''}
               onChange={(e) => handleChange('telegram', e.target.value)}
@@ -164,12 +149,7 @@ export const SocialLinksInput: React.FC<SocialLinksInputProps> = ({
           {/* GitHub */}
           <div className="space-y-2">
             <Input
-              label={
-                <div className="flex items-center gap-2">
-                  <Github className="h-4 w-4 text-text-primary" />
-                  <span>GitHub</span>
-                </div>
-              }
+              label="GitHub"
               placeholder={getPlaceholder('github')}
               value={value?.github || ''}
               onChange={(e) => handleChange('github', e.target.value)}
@@ -184,12 +164,7 @@ export const SocialLinksInput: React.FC<SocialLinksInputProps> = ({
           {/* Website */}
           <div className="space-y-2">
             <Input
-              label={
-                <div className="flex items-center gap-2">
-                  <Globe className="h-4 w-4 text-primary" />
-                  <span>Website</span>
-                </div>
-              }
+              label="Website"
               placeholder={getPlaceholder('website')}
               value={value?.website || ''}
               onChange={(e) => handleChange('website', e.target.value)}

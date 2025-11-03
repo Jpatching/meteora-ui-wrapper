@@ -3,15 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3002",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "docs:validate": "find docs -name '*.md' -exec markdown-link-check {} \\;",
-    "type-check": "tsc --noEmit",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui",
-    "test:e2e:report": "playwright show-report"
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@apollo/client": "^4.0.9",
@@ -64,7 +60,6 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
-    "@playwright/test": "^1.56.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -73,7 +68,6 @@
     "dotenv": "^17.2.3",
     "eslint": "^9",
     "eslint-config-next": "15.1.6",
-    "markdown-link-check": "^3.14.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   },

@@ -2,6 +2,7 @@
 
 import { use } from 'react';
 import { useRouter } from 'next/navigation';
+import { MainLayout } from '@/components/layout';
 import { Card, CardHeader, CardTitle, CardContent, Button } from '@/components/ui';
 import { TradingChart } from '@/components/charts/TradingChart';
 import { useMeteoraPools } from '@/lib/hooks/usePublicPools';
@@ -32,6 +33,11 @@ export default function PositionPage({ params }: PositionPageProps) {
                poolsData?.aboutToGraduate?.pools?.find((p) => p.id === poolId) ||
                poolsData?.graduated?.pools?.find((p) => p.id === poolId);
 
+  // Debug logging
+  console.log('[Position Page] Pool ID:', poolId);
+  console.log('[Position Page] Pools loading:', poolsLoading);
+  console.log('[Position Page] Pool found:', !!pool);
+
   // Fetch chart data from GeckoTerminal (free Solana DEX aggregator)
   const { data: chartDataPoints, loading: chartLoading, currentPrice, priceChange24h } = useGeckoTerminalChartData({
     pool: pool || null,
@@ -52,14 +58,42 @@ export default function PositionPage({ params }: PositionPageProps) {
     createdAt: Date.now() - (5 * 24 * 60 * 60 * 1000), // 5 days ago
   };
 
+  // FIXED: Distinguish between loading and not found states
+  if (poolsLoading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-foreground-muted">Loading position...</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
   if (!pool) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-foreground-muted">Loading position...</p>
+      <MainLayout>
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <span className="text-6xl mb-4 block">❌</span>
+            <h1 className="text-2xl font-bold text-foreground mb-2">Pool Not Found</h1>
+            <p className="text-foreground-muted mb-2">
+              Could not find pool with ID:
+            </p>
+            <code className="block bg-background-secondary px-4 py-2 rounded-lg text-sm text-foreground-muted mb-6 max-w-md mx-auto break-all">
+              {poolId}
+            </code>
+            <p className="text-sm text-foreground-muted mb-6">
+              This pool may not exist, or it may have been removed from recent listings.
+            </p>
+            <Button variant="primary" onClick={() => router.push('/')}>
+              Back to Dashboard
+            </Button>
+          </div>
         </div>
-      </div>
+      </MainLayout>
     );
   }
 
@@ -68,17 +102,18 @@ export default function PositionPage({ params }: PositionPageProps) {
   const priceChangePercent = priceChange24h;
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Back Button */}
-      <button
-        onClick={() => router.push('/')}
-        className="flex items-center gap-2 text-foreground-muted hover:text-foreground transition-colors"
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-        </svg>
-        Back to Pools
-      </button>
+    <MainLayout>
+      <div className="container mx-auto p-6 space-y-6">
+        {/* Back Button */}
+        <button
+          onClick={() => router.push('/')}
+          className="flex items-center gap-2 text-foreground-muted hover:text-foreground transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to Pools
+        </button>
 
       {/* Position Header */}
       <div className="flex items-center justify-between">
@@ -330,6 +365,7 @@ export default function PositionPage({ params }: PositionPageProps) {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </MainLayout>
   );
 }

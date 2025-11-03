@@ -9,10 +9,13 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ label, error, helperText, icon, className = '', ...props }, ref) => {
+    // Generate unique ID if not provided (for accessibility and autofill)
+    const inputId = props.id || props.name || `input-${Math.random().toString(36).substr(2, 9)}`;
+
     return (
       <div className="w-full">
         {label && (
-          <label className="block text-sm font-medium text-foreground mb-2">
+          <label htmlFor={inputId} className="block text-sm font-medium text-foreground mb-2">
             {label}
             {props.required && <span className="text-error ml-1">*</span>}
           </label>
@@ -25,6 +28,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           )}
           <input
             ref={ref}
+            id={inputId}
+            name={props.name || inputId}
             className={`
               w-full px-4 py-3
               ${icon ? 'pl-10' : ''}
