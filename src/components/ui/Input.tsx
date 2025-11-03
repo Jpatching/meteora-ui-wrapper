@@ -1,4 +1,4 @@
-import { InputHTMLAttributes, forwardRef, ReactNode } from 'react';
+import { InputHTMLAttributes, forwardRef, ReactNode, useId } from 'react';
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -9,8 +9,9 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ label, error, helperText, icon, className = '', ...props }, ref) => {
-    // Generate unique ID if not provided (for accessibility and autofill)
-    const inputId = props.id || props.name || `input-${Math.random().toString(36).substr(2, 9)}`;
+    // Generate stable ID using React's useId hook (prevents hydration mismatch)
+    const generatedId = useId();
+    const inputId = props.id || props.name || generatedId;
 
     return (
       <div className="w-full">
