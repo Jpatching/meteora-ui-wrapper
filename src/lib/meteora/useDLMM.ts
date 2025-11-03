@@ -655,6 +655,12 @@ export function useDLMM() {
 
       console.log('Pool address:', poolAddress.toString());
 
+      // PRE-FLIGHT: Calculate rent for base account initialization
+      // Position accounts in DLMM need ~1000 bytes (conservative estimate)
+      const POSITION_ACCOUNT_SIZE = 1000;
+      const baseAccountRent = await connection.getMinimumBalanceForRentExemption(POSITION_ACCOUNT_SIZE);
+      console.log(`Base account rent: ${(baseAccountRent / 1e9).toFixed(6)} SOL for ${POSITION_ACCOUNT_SIZE} bytes`);
+
       // PRE-FLIGHT CHECK: Verify pool exists on-chain
       console.log('Checking if pool exists...');
       const poolAccountInfo = await connection.getAccountInfo(poolAddress);
@@ -785,6 +791,20 @@ export function useDLMM() {
           .add(ComputeBudgetProgram.setComputeUnitLimit({ units: 600_000 }))
           .add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5_000_000 }))
           .add(...groupIx);
+
+        // CRITICAL: Add base account creation to FIRST Phase 2 transaction
+        // This fixes error 3012 (account not initialized) at instruction #6
+        if (i === 0) {
+          const createBaseAccountIx = SystemProgram.createAccount({
+            fromPubkey: publicKey,
+            newAccountPubkey: baseKeypair.publicKey,
+            lamports: baseAccountRent,
+            space: POSITION_ACCOUNT_SIZE,
+            programId: dlmmProgramId,
+          });
+          tx.instructions.unshift(createBaseAccountIx);
+          console.log('Added base account creation instruction (rent:', (baseAccountRent / 1e9).toFixed(6), 'SOL)');
+        }
 
         // ATOMIC: If fees not yet paid (Phase 1 was skipped), add to FIRST Phase 2 transaction
         const addingFeesHere = !feesAlreadyPaid && i === 0 && feeInstructions.length > 0;
@@ -1039,6 +1059,12 @@ export function useDLMM() {
 
       console.log('Pool address:', poolAddress.toString());
 
+      // PRE-FLIGHT: Calculate rent for base account initialization
+      // Position accounts in DLMM need ~1000 bytes (conservative estimate)
+      const POSITION_ACCOUNT_SIZE = 1000;
+      const baseAccountRent = await connection.getMinimumBalanceForRentExemption(POSITION_ACCOUNT_SIZE);
+      console.log(`Base account rent: ${(baseAccountRent / 1e9).toFixed(6)} SOL for ${POSITION_ACCOUNT_SIZE} bytes`);
+
       // PRE-FLIGHT CHECK: Verify pool exists on-chain
       console.log('Checking if pool exists...');
       const poolAccountInfo = await connection.getAccountInfo(poolAddress);
@@ -1098,6 +1124,18 @@ export function useDLMM() {
         .add(ComputeBudgetProgram.setComputeUnitLimit({ units: 600_000 }))
         .add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5_000_000 }))
         .add(...instructions);
+
+      // CRITICAL: Prepend base account creation instruction
+      // This fixes error 3012 (account not initialized)
+      const createBaseAccountIx = SystemProgram.createAccount({
+        fromPubkey: publicKey,
+        newAccountPubkey: baseKeypair.publicKey,
+        lamports: baseAccountRent,
+        space: POSITION_ACCOUNT_SIZE,
+        programId: dlmmProgramId,
+      });
+      transaction.instructions.unshift(createBaseAccountIx);
+      console.log('Added base account creation instruction (rent:', (baseAccountRent / 1e9).toFixed(6), 'SOL)');
 
       // ATOMIC: Prepend fee instructions to main transaction
       if (feeInstructions.length > 0) {
