@@ -27,12 +27,25 @@ export function PoolTable({ pools, onPoolClick }: PoolTableProps) {
 
   const getQuoteTokenInfo = (pool: Pool): { logo: string; symbol: string } => {
     // Detect quote token from pool data
-    // Check pool.dex field or pool ID for hints about the quote token
-    const poolId = pool.id.toLowerCase();
-    const dex = pool.dex?.toLowerCase() || '';
+    // First check quoteAsset if available
+    if (pool.quoteAsset?.symbol) {
+      const symbol = pool.quoteAsset.symbol.toUpperCase();
+      if (symbol === 'USDC') {
+        return { logo: '/usdc-logo.png', symbol: 'USDC' };
+      }
+      if (symbol === 'SOL' || symbol === 'WSOL') {
+        return { logo: '/sol-logo.png', symbol: 'SOL' };
+      }
+      // Return first letter for unknown tokens
+      return { logo: '', symbol };
+    }
 
-    // USDC pairs - common USDC mint: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
-    if (poolId.includes('epjf') || dex.includes('usdc') || pool.id.includes('USDC')) {
+    // Fallback: check pool ID and mint addresses
+    const quoteMint = pool.quoteAsset?.id?.toLowerCase() || '';
+    const baseAssetLaunchpad = pool.baseAsset?.launchpad || '';
+
+    // USDC mint: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+    if (quoteMint.includes('epjf') || quoteMint.includes('usdc')) {
       return { logo: '/usdc-logo.png', symbol: 'USDC' };
     }
 
