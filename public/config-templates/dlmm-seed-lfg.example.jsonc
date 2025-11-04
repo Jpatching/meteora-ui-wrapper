@@ -1,0 +1,41 @@
+{
+  // ============================================
+  // DLMM SEED LFG - Example Configuration
+  // ============================================
+  // Seeds liquidity across multiple price bins using a bonding curve
+  // LFG = Liquidity For Gaming (distributed liquidity strategy)
+
+  // REQUIRED: Solana RPC endpoint
+  "rpcUrl": "https://api.devnet.solana.com",
+
+  // REQUIRED: Dry run mode
+  "dryRun": false,
+
+  // REQUIRED: Compute unit price
+  "computeUnitPriceMicroLamports": 1000,
+
+  // REQUIRED: Token pair (must be an existing DLMM pool)
+  "baseMint": "YourBaseMintAddress...",     // Base token mint
+  "quoteMint": "So11111111111111111111111111111111111111112",  // Quote token (usually SOL)
+
+  // LFG Seed Liquidity Configuration
+  "lfgSeedLiquidity": {
+    // REQUIRED: Price range for liquidity distribution
+    "minPrice": "0.05",          // Minimum price (in quote tokens per base token)
+    "maxPrice": "0.2",           // Maximum price (in quote tokens per base token)
+
+    // REQUIRED: Curvature of liquidity distribution
+    // 0.0 = uniform distribution, 1.0 = concentrated at current price
+    "curvature": 0.6,
+
+    // REQUIRED: Amount of liquidity to seed
+    "seedAmount": "500",         // Amount in quote tokens (e.g., SOL)
+
+    // REQUIRED: Position and fee ownership
+    "positionOwner": "YourWalletAddress...",   // Who owns the LP position
+    "feeOwner": "YourWalletAddress...",        // Who receives trading fees
+
+    // OPTIONAL: Lock release (0 = no lock, >0 = Unix timestamp when unlocked)
+    "lockReleasePoint": 0
+  }
+}

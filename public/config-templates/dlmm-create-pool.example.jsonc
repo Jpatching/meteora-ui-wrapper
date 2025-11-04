@@ -1,0 +1,61 @@
+{
+  // ============================================
+  // DLMM CREATE POOL - Example Configuration
+  // ============================================
+  // This config creates a Dynamic Liquidity Market Maker (DLMM) pool
+  // with customizable bin steps for concentrated liquidity.
+
+  // REQUIRED: Solana RPC endpoint
+  "rpcUrl": "https://api.devnet.solana.com",  // Use devnet for testing
+
+  // REQUIRED: Dry run mode (true = simulate, false = execute)
+  "dryRun": false,
+
+  // REQUIRED: Compute unit price in micro-lamports (for transaction priority)
+  "computeUnitPriceMicroLamports": 1000,
+
+  // REQUIRED: Quote token mint address (token to pair with)
+  // Common devnet tokens:
+  // - SOL: So11111111111111111111111111111111111111112
+  // - USDC: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+  // - USDT: Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB
+  "quoteMint": "So11111111111111111111111111111111111111112",
+
+  // OPTION 1: Create a new base token (remove this section to use existing token)
+  "createBaseToken": {
+    "name": "Test Token A",                    // Token full name
+    "symbol": "TTA",                           // Token ticker (max 10 chars)
+    "uri": "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",  // Metadata JSON URI
+    "decimals": 9,                              // Token decimals (0-9, usually 9)
+    "supply": "1000000000"                      // Total supply (in tokens, not lamports)
+  },
+
+  // OPTION 2: Use existing base token (uncomment and remove createBaseToken above)
+  // "baseMint": "YourExistingTokenMintAddress...",
+
+  // DLMM-specific configuration
+  "dlmmConfig": {
+    // REQUIRED: Bin step determines price granularity
+    // Options: 1 (0.01% - stable pairs), 5 (0.05% - tight range),
+    //          25 (0.25% - standard), 100 (1% - wide range)
+    "binStep": 25,
+
+    // REQUIRED: Initial liquidity amounts
+    "baseAmount": "1000",        // Amount of base token to deposit
+    "quoteAmount": "100",        // Amount of quote token to deposit
+
+    // OPTIONAL: Fee configuration
+    "feeBps": 1,                 // Fee in basis points (1 = 0.01%)
+
+    // OPTIONAL: Initial price (calculated from amounts if not provided)
+    "initialPrice": "0.1",       // Price of base token in quote tokens
+
+    // OPTIONAL: Activation settings
+    "activationType": 1,          // 0 = timestamp, 1 = slot
+    "activationPoint": null,      // null = activate immediately, or specify slot/timestamp
+
+    // OPTIONAL: Advanced features
+    "hasAlphaVault": false,       // Enable Alpha Vault integration
+    "creatorPoolOnOffControl": true  // Allow creator to enable/disable pool
+  }
+}

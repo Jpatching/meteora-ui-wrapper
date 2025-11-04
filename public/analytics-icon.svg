@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <defs>
+    <linearGradient id="grad-purple" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8b5cf6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7c3aed;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad-blue-analytics" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2563eb;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Bar chart bars -->
+  <rect x="3" y="14" width="3.5" height="7" rx="1.5" fill="url(#grad-purple)"/>
+  <rect x="8" y="10" width="3.5" height="11" rx="1.5" fill="url(#grad-blue-analytics)"/>
+  <rect x="13" y="6" width="3.5" height="15" rx="1.5" fill="url(#grad-purple)"/>
+  <!-- Rising trend line -->
+  <path d="M 18 16 L 20 13 L 22 10 L 24 7" stroke="url(#grad-blue-analytics)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Arrow at end of trend line -->
+  <path d="M 24 7 L 22 8.5 L 23 9.5 Z" fill="url(#grad-blue-analytics)"/>
+</svg>

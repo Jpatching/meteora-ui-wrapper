@@ -1,0 +1,47 @@
+{
+  // ============================================
+  // DAMM v2 CREATE BALANCED - Example Configuration
+  // ============================================
+  // Creates a balanced liquidity pool with both base and quote tokens
+  // DAMM v2 = Concentrated liquidity AMM with price ranges
+
+  // REQUIRED: Solana RPC endpoint
+  "rpcUrl": "https://api.devnet.solana.com",
+
+  // REQUIRED: Dry run mode
+  "dryRun": false,
+
+  // REQUIRED: Compute unit price
+  "computeUnitPriceMicroLamports": 1000,
+
+  // REQUIRED: Quote token mint
+  "quoteMint": "So11111111111111111111111111111111111111112",
+
+  // OPTION 1: Create new base token
+  "createBaseToken": {
+    "name": "Test Token C",
+    "symbol": "TTC",
+    "uri": "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
+    "decimals": 9,
+    "supply": "1000000000"
+  },
+
+  // OPTION 2: Use existing token
+  // "baseMint": "YourExistingTokenMintAddress...",
+
+  // DAMM v2 Configuration
+  "dammV2Config": {
+    // REQUIRED: Liquidity amounts
+    "baseAmount": "1000",         // Base token amount
+    "quoteAmount": "100",         // Quote token amount
+
+    // REQUIRED: Price range configuration
+    "initPrice": "0.1",           // Initial/current price
+    "maxPrice": "0.2",            // Maximum price (upper bound)
+
+    // REQUIRED: Fee configuration
+    "poolFees": {
+      "tradeFeeInBps": 25         // Trading fee in basis points (25 = 0.25%)
+    }
+  }
+}

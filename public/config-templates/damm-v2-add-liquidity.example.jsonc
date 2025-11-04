@@ -1,0 +1,29 @@
+{
+  // ============================================
+  // DAMM v2 ADD LIQUIDITY - Example Configuration
+  // ============================================
+  // Adds liquidity to an existing DAMM v2 pool
+
+  // REQUIRED: Solana RPC endpoint
+  "rpcUrl": "https://api.devnet.solana.com",
+
+  // REQUIRED: Dry run mode
+  "dryRun": false,
+
+  // REQUIRED: Compute unit price
+  "computeUnitPriceMicroLamports": 1000,
+
+  // Add Liquidity Configuration
+  "addLiquidity": {
+    // REQUIRED: Existing pool address
+    "poolAddress": "YourPoolAddress...",
+
+    // REQUIRED: Token amounts to add
+    "baseAmount": "500",          // Base token amount
+    "quoteAmount": "50",          // Quote token amount
+
+    // OPTIONAL: Slippage tolerance in basis points
+    // 100 = 1%, 50 = 0.5%, 200 = 2%
+    "slippageBps": 100
+  }
+}

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <defs>
+    <linearGradient id="dlmm-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#22d3ee;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Water drop outline -->
+  <path d="M12 2C12 2 7 8.5 7 13C7 15.7614 9.23858 18 12 18C14.7614 18 17 15.7614 17 13C17 8.5 12 2 12 2Z"
+        stroke="url(#dlmm-grad)"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        fill="none"/>
+  <!-- Lightning bolt inside -->
+  <path d="M12.5 8.5L10.5 12H12L11.5 15L13.5 11.5H12L12.5 8.5Z"
+        fill="url(#dlmm-grad)"/>
+</svg>
