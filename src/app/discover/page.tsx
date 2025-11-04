@@ -15,29 +15,17 @@ import { transformMeteoraPoolToPool } from '@/lib/services/meteoraApi';
 import { Pool } from '@/lib/jupiter/types';
 
 export default function DiscoverPage() {
-  // Fetch DBC pools from Jupiter Gems API with 90s polling
+  // Fetch DBC pools from Jupiter Gems API - DISABLED auto-refresh to prevent rapid reloading
   const { data: jupiterData, isLoading: jupiterLoading, error: jupiterError } = useAllPublicPools({
     timeframe: '24h',
-    refetchInterval: 90000, // 90 seconds
+    refetchInterval: false, // Disabled - manual refresh only
   });
 
-  // Fetch DLMM pools from Meteora API with 60s polling
+  // Fetch DLMM pools from Meteora API - DISABLED auto-refresh
   const { data: dlmmData, isLoading: dlmmLoading, error: dlmmError } = useDLMMPools({
-    refetchInterval: 60000, // 60 seconds
+    refetchInterval: false, // Disabled - manual refresh only
     sortBy: 'volume',
   });
-
-  // Debug logging
-  useEffect(() => {
-    console.log('🔍 Discover Data Status:', {
-      jupiterLoading,
-      jupiterError: jupiterError?.message,
-      jupiterPools: jupiterData ? Object.keys(jupiterData).length : 0,
-      dlmmLoading,
-      dlmmError: dlmmError?.message,
-      dlmmPools: dlmmData?.length || 0,
-    });
-  }, [jupiterLoading, jupiterError, jupiterData, dlmmLoading, dlmmError, dlmmData]);
 
   // Combine DBC pools from Jupiter
   const dbcPools = [
@@ -46,23 +34,11 @@ export default function DiscoverPage() {
     ...(jupiterData?.graduated?.pools || []),
   ].filter((pool) => pool.baseAsset.launchpad === 'met-dbc');
 
-  // Transform and filter DLMM pools - only show pools with meaningful activity
+  // Transform DLMM pools - show ALL pools (don't filter out low volume)
   const dlmmPools = (dlmmData || [])
-    .filter(pool =>
-      !pool.hide && // Not hidden
-      pool.trade_volume_24h > 0 && // Has trading volume
-      parseFloat(pool.liquidity) > 100 // Has at least $100 liquidity
-    )
+    .filter(pool => !pool.hide) // Only filter out explicitly hidden pools
     .map(transformMeteoraPoolToPool)
-    .slice(0, 100); // Limit to top 100 pools for performance
-
-  // Debug DLMM pools
-  useEffect(() => {
-    if (dlmmPools.length > 0) {
-      console.log('✅ DLMM Pools Transformed:', dlmmPools.length, 'pools');
-      console.log('📊 Sample DLMM Pool:', dlmmPools[0]);
-    }
-  }, [dlmmPools.length]);
+    .slice(0, 200); // Show top 200 pools
 
   // Combine all Meteora ecosystem pools (DBC + DLMM)
   const ecosystemPools = [...dbcPools, ...dlmmPools];
@@ -80,15 +56,6 @@ export default function DiscoverPage() {
   // Independent loading states - don't block on Jupiter API
   const isLoading = dlmmLoading && !dlmmData; // Only block if no DLMM data yet
   const hasError = dlmmError && jupiterError; // Only error if both fail
-
-  // Log final pool counts
-  useEffect(() => {
-    console.log('📊 Final Discover Pools:', {
-      dbcPools: dbcPools.length,
-      dlmmPools: dlmmPools.length,
-      total: sortedPools.length,
-    });
-  }, [dbcPools.length, dlmmPools.length, sortedPools.length]);
 
   return (
     <MainLayout>
