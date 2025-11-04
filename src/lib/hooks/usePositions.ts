@@ -9,7 +9,7 @@ import { useNetwork } from '@/contexts/NetworkContext';
 import { useDLMM } from '@/lib/meteora/useDLMM';
 import { useDAMMv2 } from '@/lib/meteora/useDAMMv2';
 import { useDBC } from '@/lib/meteora/useDBC';
-import { UserPosition } from '@/types/positions';
+import { UserPosition, PositionType, PositionStatus } from '@/types/positions';
 import { fetchMultipleTokenPrices } from '@/lib/prices';
 import { calculatePNL } from '@/lib/pnlCalculations';
 import { getWalletPositions, addPosition, updatePosition } from '@/lib/positionStore';
@@ -23,6 +23,8 @@ export interface PositionWithPNL extends UserPosition {
   apr?: number;
   impermanentLoss?: number;
   impermanentLossPercent?: number;
+  // Additional field for UI components that expect protocol name
+  protocol?: string;
 }
 
 export interface UsePositionsResult {
@@ -92,85 +94,131 @@ export function usePositions(autoRefresh = false, defaultInterval = 30000): UseP
 
       if (dlmmPositions.status === 'fulfilled') {
         allPositions.push(...dlmmPositions.value.map((p: any) => ({
+          // Identification
           id: `dlmm-${p.positionKey}`,
-          type: 'dlmm' as const,
-          walletAddress: publicKey.toBase58(),
-          network: network,
+          type: 'dlmm' as PositionType,
           poolAddress: p.poolAddress,
-          positionAddress: p.positionKey,
+          positionAddress: p.positionAddress,
+          walletAddress: publicKey.toBase58(),
+          network,
+
+          // Token information
           baseMint: p.baseMint,
           quoteMint: p.quoteMint,
           baseSymbol: p.baseSymbol,
           quoteSymbol: p.quoteSymbol,
+
+          // Position data
           lpBalance: p.lpBalance || 0,
-          baseAmount: p.baseAmount,
-          quoteAmount: p.quoteAmount,
-          currentValueUSD: 0, // Will be calculated
-          initialValueUSD: 0, // Will be calculated
-          pnlUSD: 0, // Will be calculated
-          pnlPercent: 0, // Will be calculated
+          baseAmount: p.baseAmount || 0,
+          quoteAmount: p.quoteAmount || 0,
+
+          // Value tracking (will be calculated later with prices)
+          currentValueUSD: 0,
+          initialValueUSD: p.initialValueUSD || 0,
+          pnlUSD: 0,
+          pnlPercent: 0,
+
+          // Fees
           unclaimedFeesBase: p.unclaimedFeesBase || 0,
           unclaimedFeesQuote: p.unclaimedFeesQuote || 0,
-          totalFeesEarnedUSD: 0, // Will be calculated
-          status: 'active' as const,
-          createdAt: Date.now(),
+          totalFeesEarnedUSD: p.totalFeesEarnedUSD || 0,
+
+          // Metadata
+          status: 'active' as PositionStatus,
+          createdAt: p.createdAt || Date.now(),
           lastUpdated: Date.now(),
-        })));
+          transactionSignature: p.transactionSignature,
+
+          // Extra field for backward compatibility
+          protocol: 'DLMM' as const,
+        } as UserPosition & { protocol: string })));
       }
 
       if (dammv2Positions.status === 'fulfilled') {
         allPositions.push(...dammv2Positions.value.map((p: any) => ({
+          // Identification
           id: `dammv2-${p.positionKey}`,
-          type: 'damm-v2' as const,
-          walletAddress: publicKey.toBase58(),
-          network: network,
+          type: 'damm-v2' as PositionType,
           poolAddress: p.poolAddress,
-          positionAddress: p.positionKey,
+          positionAddress: p.positionAddress,
+          walletAddress: publicKey.toBase58(),
+          network,
+
+          // Token information
           baseMint: p.baseMint,
           quoteMint: p.quoteMint,
           baseSymbol: p.baseSymbol || 'TOKEN',
           quoteSymbol: p.quoteSymbol || 'TOKEN',
+
+          // Position data
           lpBalance: p.lpBalance || 0,
           baseAmount: p.baseAmount || 0,
           quoteAmount: p.quoteAmount || 0,
+
+          // Value tracking (will be calculated later with prices)
           currentValueUSD: 0,
-          initialValueUSD: 0,
+          initialValueUSD: p.initialValueUSD || 0,
           pnlUSD: 0,
           pnlPercent: 0,
+
+          // Fees
           unclaimedFeesBase: p.unclaimedFeesBase || 0,
           unclaimedFeesQuote: p.unclaimedFeesQuote || 0,
-          totalFeesEarnedUSD: 0,
-          status: 'active' as const,
-          createdAt: Date.now(),
+          totalFeesEarnedUSD: p.totalFeesEarnedUSD || 0,
+
+          // Metadata
+          status: 'active' as PositionStatus,
+          createdAt: p.createdAt || Date.now(),
           lastUpdated: Date.now(),
-        })));
+          transactionSignature: p.transactionSignature,
+
+          // Extra field for backward compatibility
+          protocol: 'DAMM v2' as const,
+        } as UserPosition & { protocol: string })));
       }
 
       if (dbcPositions.status === 'fulfilled') {
         allPositions.push(...dbcPositions.value.map((p: any) => ({
+          // Identification
           id: `dbc-${p.positionKey}`,
-          type: 'dbc' as const,
-          walletAddress: publicKey.toBase58(),
-          network: network,
+          type: 'dbc' as PositionType,
           poolAddress: p.poolAddress,
+          positionAddress: p.positionAddress,
+          walletAddress: publicKey.toBase58(),
+          network,
+
+          // Token information
           baseMint: p.baseMint,
           quoteMint: p.quoteMint,
           baseSymbol: p.baseSymbol || 'TOKEN',
           quoteSymbol: p.quoteSymbol || 'TOKEN',
-          lpBalance: p.lpBalance || 0,
+
+          // Position data
+          lpBalance: p.lpBalance || p.shares || 0,
           baseAmount: p.baseAmount || 0,
           quoteAmount: p.quoteAmount || 0,
+
+          // Value tracking (will be calculated later with prices)
           currentValueUSD: 0,
-          initialValueUSD: 0,
+          initialValueUSD: p.initialValueUSD || 0,
           pnlUSD: 0,
           pnlPercent: 0,
+
+          // Fees (DBC doesn't have unclaimed fees)
           unclaimedFeesBase: 0,
           unclaimedFeesQuote: 0,
           totalFeesEarnedUSD: 0,
-          status: 'active' as const,
-          createdAt: Date.now(),
+
+          // Metadata
+          status: 'active' as PositionStatus,
+          createdAt: p.createdAt || Date.now(),
           lastUpdated: Date.now(),
-        })));
+          transactionSignature: p.transactionSignature,
+
+          // Extra field for backward compatibility
+          protocol: 'DBC' as const,
+        } as UserPosition & { protocol: string })));
       }
 
       // Merge with cached positions (to preserve historical data like initialPrices)
@@ -196,16 +244,33 @@ export function usePositions(autoRefresh = false, defaultInterval = 30000): UseP
 
         const pnlResult = calculatePNL(position, basePriceUSD, quotePriceUSD);
 
+        // Calculate health score (0-100)
+        // Health score based on PNL percentage and fees earned
+        let healthScore = 50; // Base score
+        if (pnlResult.totalPNLPercent > 0) {
+          healthScore += Math.min(pnlResult.totalPNLPercent, 30); // Up to 30 points for positive PNL
+        } else {
+          healthScore += Math.max(pnlResult.totalPNLPercent, -30); // Lose up to 30 points for negative PNL
+        }
+        if (pnlResult.feesEarnedUSD > 0) {
+          healthScore += Math.min(20, pnlResult.feesEarnedUSD / 10); // Up to 20 points for fees
+        }
+        healthScore = Math.max(0, Math.min(100, healthScore)); // Clamp between 0-100
+
+        // For now, set impermanent loss to 0 (would need more complex calculation)
+        const impermanentLoss = 0;
+        const impermanentLossPercent = 0;
+
         return {
           ...position,
-          currentValue: pnlResult.currentValueUSD,
+          currentValue: pnlResult.currentValueUSD, // Use correct field name
           pnl: pnlResult.totalPNL,
           pnlPercent: pnlResult.totalPNLPercent,
-          unclaimedFeesUSD: pnlResult.feesEarnedUSD,
-          healthScore: 100, // TODO: Calculate health score
-          apr: pnlResult.annualizedAPR,
-          impermanentLoss: 0, // TODO: Calculate IL
-          impermanentLossPercent: 0, // TODO: Calculate IL%
+          unclaimedFeesUSD: pnlResult.feesEarnedUSD, // Use correct field name
+          healthScore,
+          apr: pnlResult.annualizedAPR, // Use annualizedAPR from result
+          impermanentLoss,
+          impermanentLossPercent,
         };
       });
 

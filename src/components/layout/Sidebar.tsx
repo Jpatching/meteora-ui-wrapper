@@ -110,22 +110,9 @@ export function Sidebar() {
     return false;
   });
 
-  // Determine which section should be expanded based on current path
-  const getActiveSectionFromPath = (path: string): string => {
-    if (path === '/' || path === '/getting-started') return 'Navigation';
-    if (path.startsWith('/analytics')) return 'Analytics';
-    if (path.startsWith('/dlmm')) return 'DLMM';
-    if (path.startsWith('/damm-v2')) return 'DAMM v2';
-    if (path.startsWith('/damm-v1')) return 'DAMM v1';
-    if (path.startsWith('/dbc')) return 'DBC';
-    if (path.startsWith('/alpha-vault')) return 'Alpha Vault';
-    if (path.startsWith('/settings')) return 'Settings';
-    return 'Navigation';
-  };
-
-  const activeSection = getActiveSectionFromPath(pathname);
+  // All sections start collapsed - user must click to expand
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set([activeSection])
+    new Set() // Empty set - nothing expanded by default
   );
 
   // Toggle sidebar collapse
@@ -137,11 +124,8 @@ export function Sidebar() {
     });
   };
 
-  // Update expanded section when route changes
-  useEffect(() => {
-    const newActiveSection = getActiveSectionFromPath(pathname);
-    setExpandedSections(new Set([newActiveSection]));
-  }, [pathname]);
+  // Don't auto-expand sections when route changes - let user control it
+  // useEffect removed - sections stay as user left them
 
   const toggleSection = (sectionTitle: string) => {
     setExpandedSections((prev) => {
@@ -156,14 +140,14 @@ export function Sidebar() {
   };
 
   return (
-    <aside className={`relative border-r border-border bg-background-secondary/50 backdrop-blur-xl flex flex-col transition-all duration-200 ${isCollapsed ? 'w-20' : 'w-64'}`}>
-      {/* Logo Section */}
-      <div className="p-4 border-b border-border flex items-center justify-center">
+    <aside className={`relative border-r border-border bg-background-secondary/50 backdrop-blur-xl flex flex-col transition-all duration-200 ${isCollapsed ? 'w-20' : 'w-32'}`}>
+      {/* Logo Section - height matches header */}
+      <div className="h-16 border-b border-border flex items-center justify-center">
         <Image
-          src="/logo.svg"
+          src="/metatools-logo-alt2.png"
           alt="MetaTools Logo"
-          width={isCollapsed ? 56 : 48}
-          height={isCollapsed ? 56 : 48}
+          width={isCollapsed ? 40 : 48}
+          height={isCollapsed ? 40 : 48}
           className="transition-all duration-200"
         />
       </div>
@@ -171,7 +155,7 @@ export function Sidebar() {
       {/* Collapse Toggle Button */}
       <button
         onClick={toggleCollapse}
-        className="absolute top-6 -right-3 w-6 h-6 rounded-full bg-background-secondary border border-border flex items-center justify-center hover:bg-primary/10 transition-colors z-10"
+        className="absolute top-5 -right-3 w-6 h-6 rounded-full bg-background-secondary border border-border flex items-center justify-center hover:bg-primary/10 transition-colors z-10"
         aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
       >
         <svg
@@ -190,7 +174,7 @@ export function Sidebar() {
       </button>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-4 space-y-2 flex flex-col justify-center">
+      <nav className="flex-1 overflow-y-auto p-4 space-y-2 flex flex-col">
         {navigation.map((section) => {
           const isExpanded = expandedSections.has(section.title);
 
@@ -199,90 +183,70 @@ export function Sidebar() {
               {/* Section Header - Clickable to expand/collapse */}
               <button
                 onClick={() => toggleSection(section.title)}
-                className={`w-full flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} px-3 py-2 text-xs font-semibold text-foreground-muted uppercase tracking-wider hover:text-foreground transition-colors rounded-lg hover:bg-background-tertiary font-ui`}
+                className={`w-full flex ${isCollapsed ? 'justify-center items-center' : 'flex-col items-center'} px-3 py-3 text-xs font-semibold text-foreground-muted uppercase tracking-wider hover:text-foreground transition-colors rounded-lg hover:bg-background-tertiary font-ui group`}
                 title={isCollapsed ? section.title : undefined}
               >
-                <span className="flex items-center gap-2">
+                {!isCollapsed ? (
+                  <>
+                    <Image
+                      src={section.icon}
+                      alt={section.title}
+                      width={24}
+                      height={24}
+                      className="flex-shrink-0 opacity-70 group-hover:opacity-100 transition-opacity mb-1"
+                    />
+                    <span className="text-[10px]">{section.title}</span>
+                    <svg
+                      className={`w-3 h-3 transition-transform duration-200 mt-1 ${
+                        isExpanded ? 'rotate-180' : ''
+                      }`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </>
+                ) : (
                   <Image
                     src={section.icon}
                     alt={section.title}
-                    width={16}
-                    height={16}
+                    width={20}
+                    height={20}
                     className="flex-shrink-0 opacity-70"
                   />
-                  {!isCollapsed && section.title}
-                </span>
-                {!isCollapsed && (
-                  <svg
-                    className={`w-4 h-4 transition-transform duration-200 ${
-                      isExpanded ? 'rotate-180' : ''
-                    }`}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
                 )}
               </button>
 
               {/* Section Items - Collapsible */}
               {isExpanded && !isCollapsed && (
-                <div className="space-y-1 pl-2">
+                <div className="space-y-1">
                   {section.items.map((item, index) => {
                     const isActive = pathname === item.href;
-
-                    // Unique gradient for each item based on index
-                    const gradients = [
-                      'from-cyan-500/20 to-blue-500/20',
-                      'from-pink-500/20 to-orange-500/20',
-                      'from-purple-500/20 to-pink-500/20',
-                      'from-blue-500/20 to-cyan-500/20',
-                      'from-orange-500/20 to-red-500/20',
-                      'from-green-500/20 to-cyan-500/20',
-                      'from-yellow-500/20 to-orange-500/20',
-                    ];
-                    const gradient = gradients[index % gradients.length];
 
                     return (
                       <Link
                         key={item.href}
                         href={item.href}
                         className={`
-                          group flex items-center gap-3 px-3 py-2 rounded-lg
-                          text-sm font-medium transition-all duration-200 font-accent
+                          group flex flex-col items-center px-2 py-2 rounded-lg
+                          text-[11px] font-medium transition-all duration-200 font-accent text-center
                           ${
                             isActive
                               ? 'bg-primary/10 text-primary border border-primary/20'
                               : 'text-foreground-secondary hover:text-foreground hover:bg-background-tertiary'
                           }
                         `}
+                        title={item.name}
                       >
-                        {/* Animated icon container - only show if icon exists */}
-                        {item.icon && (
-                          <div className={`
-                            relative w-8 h-8 rounded-lg flex items-center justify-center
-                            bg-gradient-to-br ${gradient}
-                            group-hover:scale-110 transition-transform duration-200
-                            ${isActive ? 'animate-pulse' : ''}
-                          `}>
-                            <span className="text-lg relative z-10">{item.icon}</span>
-                            {/* Glow effect on hover */}
-                            <div className={`
-                              absolute inset-0 rounded-lg bg-gradient-to-br ${gradient}
-                              blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-200
-                            `} />
-                          </div>
-                        )}
-
-                        <span className="flex-1">{item.name}</span>
+                        <span className="truncate w-full">{item.name}</span>
                         {item.badge && (
-                          <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-primary/20 text-primary">
+                          <span className="mt-1 px-1.5 py-0.5 text-[9px] font-semibold rounded-full bg-primary/20 text-primary">
                             {item.badge}
                           </span>
                         )}
@@ -297,10 +261,10 @@ export function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-border">
-        <div className="flex items-center gap-2 text-xs text-foreground-muted">
+      <div className="p-3 border-t border-border">
+        <div className={`flex ${isCollapsed ? 'justify-center' : 'flex-col items-center gap-1'} text-xs text-foreground-muted`}>
           <span className="w-2 h-2 rounded-full bg-success animate-pulse"></span>
-          <span>Connected to Solana</span>
+          {!isCollapsed && <span className="text-[10px] text-center">Connected</span>}
         </div>
       </div>
     </aside>

@@ -170,7 +170,7 @@ export function TradingChart({
     }
 
     // Set data immediately after series creation (atomic operation)
-    if (priceSeriesRef.current && data.length > 0) {
+    if (priceSeriesRef.current && data && data.length > 0) {
       try {
         if (chartType === 'candlestick') {
           const candleData = data.map(d => ({
@@ -194,7 +194,7 @@ export function TradingChart({
     }
 
     // Update volume data
-    if (volumeSeriesRef.current && showVolume && data.length > 0) {
+    if (volumeSeriesRef.current && showVolume && data && data.length > 0) {
       try {
         const volumeData = data.map(d => ({
           time: d.time,

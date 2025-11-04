@@ -1492,31 +1492,42 @@ export function useDLMM() {
           let totalUnclaimedFeesBase = 0;
           let totalUnclaimedFeesQuote = 0;
 
+          // TokenReserve might have different property names depending on SDK version
+          const tokenXDecimals = (tokenX as any).decimals ?? (tokenX as any).decimal ?? 9;
+          const tokenYDecimals = (tokenY as any).decimals ?? (tokenY as any).decimal ?? 9;
+
           for (const position of lbPairPositionsData) {
             // Sum up amounts across all bins
-            totalBaseAmount += Number(position.positionData.totalXAmount) / Math.pow(10, tokenX.decimals || 9);
-            totalQuoteAmount += Number(position.positionData.totalYAmount) / Math.pow(10, tokenY.decimals || 9);
+            totalBaseAmount += Number(position.positionData.totalXAmount) / Math.pow(10, tokenXDecimals);
+            totalQuoteAmount += Number(position.positionData.totalYAmount) / Math.pow(10, tokenYDecimals);
 
             // Sum up unclaimed fees
-            totalUnclaimedFeesBase += Number(position.positionData.feeX) / Math.pow(10, tokenX.decimals || 9);
-            totalUnclaimedFeesQuote += Number(position.positionData.feeY) / Math.pow(10, tokenY.decimals || 9);
+            totalUnclaimedFeesBase += Number(position.positionData.feeX) / Math.pow(10, tokenXDecimals);
+            totalUnclaimedFeesQuote += Number(position.positionData.feeY) / Math.pow(10, tokenYDecimals);
           }
+
+          // Handle different property names from SDK
+          const poolAddress = (lbPair as any).publicKey?.toString() || (lbPair as any).address?.toString() || '';
+          const baseMint = (tokenX as any).publicKey?.toString() || (tokenX as any).address?.toString() || (tokenX as any).mint?.toString() || '';
+          const quoteMint = (tokenY as any).publicKey?.toString() || (tokenY as any).address?.toString() || (tokenY as any).mint?.toString() || '';
+          const baseSymbol = (tokenX as any).symbol || (tokenX as any).name || 'Token X';
+          const quoteSymbol = (tokenY as any).symbol || (tokenY as any).name || 'Token Y';
 
           userPositions.push({
             positionKey,
-            poolAddress: lbPair.publicKey.toString(),
-            baseMint: tokenX.publicKey.toString(),
-            quoteMint: tokenY.publicKey.toString(),
-            baseSymbol: tokenX.symbol,
-            quoteSymbol: tokenY.symbol,
+            poolAddress,
+            baseMint,
+            quoteMint,
+            baseSymbol,
+            quoteSymbol,
             baseAmount: totalBaseAmount,
             quoteAmount: totalQuoteAmount,
             unclaimedFeesBase: totalUnclaimedFeesBase,
             unclaimedFeesQuote: totalUnclaimedFeesQuote,
             binPositions: lbPairPositionsData.map((p) => ({
-              binId: p.binId,
-              baseAmount: Number(p.positionData.totalXAmount) / Math.pow(10, tokenX.decimal),
-              quoteAmount: Number(p.positionData.totalYAmount) / Math.pow(10, tokenY.decimal),
+              binId: (p as any).binId ?? 0,
+              baseAmount: Number(p.positionData.totalXAmount) / Math.pow(10, tokenXDecimals),
+              quoteAmount: Number(p.positionData.totalYAmount) / Math.pow(10, tokenYDecimals),
             })),
           });
         } catch (error) {

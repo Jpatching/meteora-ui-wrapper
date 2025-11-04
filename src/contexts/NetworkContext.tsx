@@ -135,7 +135,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   // Load from localStorage on mount (client-side only)
   useEffect(() => {
     const saved = localStorage.getItem('meteora-network') as NetworkType;
-    if (saved && ['devnet', 'mainnet-beta'].includes(saved)) {
+    if (saved && ['localnet', 'devnet', 'mainnet-beta'].includes(saved)) {
       setNetworkState(saved);
     }
   }, []);
