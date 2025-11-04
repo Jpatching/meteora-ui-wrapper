@@ -6,6 +6,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { MainLayout } from '@/components/layout';
 import { PoolTable } from '@/components/dashboard/PoolTable';
 import { TokenTable, type TokenData } from '@/components/dashboard/TokenTable';
@@ -18,6 +19,7 @@ type SortOption = 'volume' | 'liquidity' | 'holders' | 'txs';
 type ViewMode = 'token' | 'pair';
 
 export default function DiscoverPage() {
+  const router = useRouter();
   const [selectedPool, setSelectedPool] = useState<Pool | null>(null);
   const [protocolFilter, setProtocolFilter] = useState<ProtocolFilter>('all');
   const [sortBy, setSortBy] = useState<SortOption>('volume');
@@ -26,10 +28,10 @@ export default function DiscoverPage() {
   const [tableSearchTerm, setTableSearchTerm] = useState('');
   const [poolsWithDetails, setPoolsWithDetails] = useState<Map<string, { binStep?: number; baseFee?: number }>>(new Map());
 
-  // Fetch all public pools with 90s polling
+  // Fetch all public pools - DISABLED auto-refresh to prevent rapid polling
   const { data, isLoading, error } = useAllPublicPools({
     timeframe: '24h',
-    refetchInterval: 90000,
+    refetchInterval: false, // Disabled - manual refresh only
   });
 
   // Combine and filter pools
@@ -69,6 +71,11 @@ export default function DiscoverPage() {
         new Map(pools.map(pool => [pool.id, pool])).values()
       ).filter(pool => pool.type === 'dlmm' || pool.type.startsWith('damm'));
 
+      // Skip if no Meteora pools to fetch
+      if (meteoraPools.length === 0) {
+        return;
+      }
+
       console.log(`🚀 Fetching details for ALL ${meteoraPools.length} Meteora pools in ONE request...`);
 
       // Fetch ALL pools in ONE bulk request - instant like charting.ag!
@@ -102,10 +109,11 @@ export default function DiscoverPage() {
       }
     }
 
+    // Only fetch if we have data and haven't fetched details yet
     if (data && poolsWithDetails.size === 0) {
       fetchDetails();
     }
-  }, [data, poolsWithDetails]);
+  }, [data]); // Removed poolsWithDetails from deps to prevent infinite loop
 
   // Aggregate pools by token (for Token view)
   const aggregatedTokens = useMemo(() => {
@@ -328,11 +336,10 @@ export default function DiscoverPage() {
                         : true
                     )}
                     onTokenClick={(token) => {
-                      // When clicking a token, show its primary pool (highest volume)
+                      // When clicking a token, navigate to its primary pool (highest volume)
                       const primaryPool = token.pools.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0))[0];
                       if (primaryPool) {
-                        setSelectedPool(primaryPool);
-                        setShowChartModal(true);
+                        router.push(`/pool/${primaryPool.id}`);
                       }
                     }}
                   />
@@ -345,8 +352,8 @@ export default function DiscoverPage() {
                         : true
                     )}
                     onPoolClick={(pool) => {
-                      setSelectedPool(pool);
-                      setShowChartModal(true);
+                      // Navigate to pool detail page instead of showing modal
+                      router.push(`/pool/${pool.id}`);
                     }}
                   />
                 )}

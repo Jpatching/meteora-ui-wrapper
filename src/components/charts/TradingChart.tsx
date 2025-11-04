@@ -75,6 +75,8 @@ export function TradingChart({
         borderColor: CHART_COLORS.grid,
         timeVisible: true,
         secondsVisible: interval === '1m' || interval === '5m',
+        barSpacing: 3,        // Ultra-thin candles (professional look)
+        minBarSpacing: 0.5,   // Minimum spacing when zoomed in
       },
       rightPriceScale: {
         borderColor: CHART_COLORS.grid,

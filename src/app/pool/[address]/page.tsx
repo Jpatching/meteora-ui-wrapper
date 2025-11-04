@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation';
 import { MainLayout } from '@/components/layout';
 import { ChartDetailsPanel } from '@/components/dashboard/ChartDetailsPanel';
 import { TokenInfoSidebar } from '@/components/pool/TokenInfoSidebar';
-import { TradingPanel } from '@/components/pool/TradingPanel';
+import { AddLiquidityPanel } from '@/components/liquidity/AddLiquidityPanel';
 import { AIAssistantPanel } from '@/components/pool/AIAssistantPanel';
 import { LiquidityPlanner } from '@/components/pool/LiquidityPlanner';
 import { PoolStatisticsPanel } from '@/components/pool/PoolStatisticsPanel';
@@ -31,9 +31,9 @@ export default function PoolPage({ params }: PoolPageProps) {
   const [pool, setPool] = useState<Pool | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch pools
-  const { data: dlmmData } = useDLMMPools({ refetchInterval: 60000 });
-  const { data: jupiterData } = useAllPublicPools({ timeframe: '24h', refetchInterval: 90000 });
+  // Fetch pools - DISABLED auto-refresh
+  const { data: dlmmData } = useDLMMPools({ refetchInterval: false });
+  const { data: jupiterData } = useAllPublicPools({ timeframe: '24h', refetchInterval: false });
 
   // Find the pool by address
   useEffect(() => {
@@ -157,10 +157,41 @@ export default function PoolPage({ params }: PoolPageProps) {
             </div>
           </div>
 
-          {/* Right Sidebar - Trading + AI */}
+          {/* Right Sidebar - Add Liquidity + AI */}
           <div className="space-y-6">
-            {/* Trading Panel */}
-            <TradingPanel pool={pool} />
+            {/* Add Liquidity Panel - DLMM Meteora SDK */}
+            {pool.type === 'dlmm' && (
+              <div className="bg-background border border-border-light rounded-xl overflow-hidden">
+                <div className="p-4 border-b border-border-light">
+                  <h3 className="text-lg font-semibold text-white">Add Liquidity (DLMM)</h3>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Using Meteora DLMM SDK • Choose your strategy below
+                  </p>
+                </div>
+                <div className="p-6">
+                  <AddLiquidityPanel
+                    poolAddress={pool.id}
+                    tokenXMint={pool.baseAsset.id}
+                    tokenYMint={pool.quoteAsset?.id || 'So11111111111111111111111111111111111111112'}
+                    tokenXSymbol={pool.baseAsset.symbol}
+                    tokenYSymbol={pool.quoteAsset?.symbol || 'SOL'}
+                    currentPrice={(pool as any).price || 0.000032}
+                    binStep={(pool as any).binStep || 50}
+                    baseFee={parseFloat((pool as any).base_fee_percentage || '0.2')}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* For non-DLMM pools, show coming soon */}
+            {pool.type !== 'dlmm' && (
+              <div className="bg-background border border-border-light rounded-xl p-6">
+                <h3 className="text-lg font-semibold text-white mb-4">Add Liquidity</h3>
+                <div className="text-gray-400 text-sm">
+                  Add liquidity functionality coming soon for {pool.type.toUpperCase()} pools.
+                </div>
+              </div>
+            )}
 
             {/* Pool Statistics */}
             <PoolStatisticsPanel pool={pool} />

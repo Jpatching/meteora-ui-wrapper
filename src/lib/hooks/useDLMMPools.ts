@@ -9,7 +9,7 @@ import { useNetwork } from '@/contexts/NetworkContext';
 import { fetchAllDLMMPools, MeteoraPool, sortPools } from '@/lib/services/meteoraApi';
 
 export interface UseDLMMPoolsOptions {
-  refetchInterval?: number;
+  refetchInterval?: number | false;
   enabled?: boolean;
   sortBy?: 'liquidity' | 'volume' | 'apr' | 'fees';
 }

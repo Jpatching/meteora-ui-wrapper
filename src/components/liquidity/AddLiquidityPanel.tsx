@@ -156,8 +156,6 @@ export function AddLiquidityPanel({
         maxPrice,
         amount: parseFloat(tokenXAmount),
         tokenMint: tokenXMint,
-        quoteAmount: ratio === '50-50' ? tokenYAmount : undefined,
-        slippage: 1, // 1% slippage
       });
 
       if (result.success) {

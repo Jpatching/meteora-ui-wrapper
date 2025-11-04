@@ -35,8 +35,9 @@ export interface UsePublicPoolsOptions {
   filters?: PublicPoolsFilters;
   /**
    * Auto-refresh interval in milliseconds (default: 30000ms = 30s)
+   * Set to false to disable auto-refresh
    */
-  refetchInterval?: number;
+  refetchInterval?: number | false;
   /**
    * Whether to enable the query (default: true)
    */

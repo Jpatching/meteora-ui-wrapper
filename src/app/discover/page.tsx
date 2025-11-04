@@ -11,7 +11,9 @@ import { TokenListPanel } from '@/components/discover/TokenListPanel';
 import { PairListPanel } from '@/components/discover/PairListPanel';
 import { useAllPublicPools } from '@/lib/hooks/usePublicPools';
 import { useDLMMPools } from '@/lib/hooks/useDLMMPools';
+import { useDAMMPools } from '@/lib/hooks/useDAMMPools';
 import { transformMeteoraPoolToPool } from '@/lib/services/meteoraApi';
+import { transformDAMMPoolToPool } from '@/lib/services/dammApi';
 import { Pool } from '@/lib/jupiter/types';
 
 export default function DiscoverPage() {
@@ -27,6 +29,12 @@ export default function DiscoverPage() {
     sortBy: 'volume',
   });
 
+  // Fetch DAMM pools (v1 + v2) from Meteora API - DISABLED auto-refresh
+  const { data: dammData, isLoading: dammLoading, error: dammError } = useDAMMPools({
+    refetchInterval: false, // Disabled - manual refresh only
+    version: 'all', // Fetch both v1 and v2
+  });
+
   // Combine DBC pools from Jupiter
   const dbcPools = [
     ...(jupiterData?.recent?.pools || []),
@@ -40,8 +48,12 @@ export default function DiscoverPage() {
     .map(transformMeteoraPoolToPool)
     .slice(0, 200); // Show top 200 pools
 
-  // Combine all Meteora ecosystem pools (DBC + DLMM)
-  const ecosystemPools = [...dbcPools, ...dlmmPools];
+  // Transform DAMM pools
+  const dammPools = (dammData || [])
+    .map(transformDAMMPoolToPool);
+
+  // Combine all Meteora ecosystem pools (DBC + DLMM + DAMM)
+  const ecosystemPools = [...dbcPools, ...dlmmPools, ...dammPools];
 
   // Remove duplicates by pool ID
   const uniquePools = Array.from(
@@ -54,18 +66,18 @@ export default function DiscoverPage() {
   );
 
   // Independent loading states - don't block on Jupiter API
-  const isLoading = dlmmLoading && !dlmmData; // Only block if no DLMM data yet
-  const hasError = dlmmError && jupiterError; // Only error if both fail
+  const isLoading = (dlmmLoading && !dlmmData) || (dammLoading && !dammData); // Only block if no data yet
+  const hasError = dlmmError && jupiterError && dammError; // Only error if all fail
 
   return (
     <MainLayout>
       <div className="max-w-[1800px] mx-auto h-[calc(100vh-140px)]">
-        {/* Error State - Only show if both APIs fail */}
+        {/* Error State - Only show if all APIs fail */}
         {hasError && (
           <div className="text-center py-12">
             <p className="text-error font-medium mb-2">Failed to load pools</p>
             <p className="text-sm text-foreground-muted">
-              {dlmmError?.message || jupiterError?.message}
+              {dlmmError?.message || jupiterError?.message || dammError?.message}
             </p>
           </div>
         )}

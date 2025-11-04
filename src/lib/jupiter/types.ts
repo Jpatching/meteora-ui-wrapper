@@ -234,6 +234,14 @@ export type Pool = {
     smartCtLikes?: number | undefined;
   };
 
+  // Quote asset (for pair pools)
+  quoteAsset?: {
+    id?: string;
+    symbol?: string;
+    name?: string;
+    icon?: string;
+  };
+
   // frontend field
   streamed?: boolean;
 };
