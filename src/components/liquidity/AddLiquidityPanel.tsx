@@ -35,8 +35,7 @@ export function AddLiquidityPanel({
 }: AddLiquidityPanelProps) {
   const { publicKey, connected } = useWallet();
   const { network } = useNetwork();
-  const dlmmHook = useDLMM();
-  const addLiquidity = (dlmmHook as any).addLiquidity || (() => Promise.reject(new Error('addLiquidity not implemented yet')));
+  const { initializePositionAndAddLiquidityByStrategy } = useDLMM();
 
   // Fetch token balances
   const { data: tokenXBalance } = useTokenBalance(tokenXMint);
@@ -149,15 +148,14 @@ export function AddLiquidityPanel({
     const loadingToast = toast.loading('Adding liquidity...');
 
     try {
-      // Call the new addLiquidity function with proper parameters
-      const result = await addLiquidity({
-        baseMint: tokenXMint,
-        quoteMint: tokenYMint,
-        minPrice: minPrice.toString(),
-        maxPrice: maxPrice.toString(),
-        strategy,
-        ratio,
-        baseAmount: tokenXAmount,
+      // Call the DLMM SDK add liquidity function
+      const result = await initializePositionAndAddLiquidityByStrategy({
+        poolAddress,
+        strategy: strategy === 'spot' ? 'spot' : strategy === 'curve' ? 'curve' : 'bid-ask',
+        minPrice,
+        maxPrice,
+        amount: parseFloat(tokenXAmount),
+        tokenMint: tokenXMint,
         quoteAmount: ratio === '50-50' ? tokenYAmount : undefined,
         slippage: 1, // 1% slippage
       });

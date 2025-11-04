@@ -1551,11 +1551,144 @@ export function useDLMM() {
     }
   };
 
+  /**
+   * Initialize new position and add liquidity using strategy
+   * For users adding liquidity to an existing DLMM pool
+   */
+  const initializePositionAndAddLiquidityByStrategy = async (params: {
+    poolAddress: string;
+    strategy: 'spot' | 'curve' | 'bid-ask';
+    minPrice: number;
+    maxPrice: number;
+    amount: number; // Amount in UI units
+    tokenMint: string; // Which token to deposit
+  }) => {
+    if (!publicKey) {
+      throw new Error('Wallet not connected');
+    }
+
+    console.log('[DLMM] Initializing position and adding liquidity...', params);
+
+    try {
+      const poolPubkey = validatePublicKey(params.poolAddress, 'Pool address');
+      const tokenMintPubkey = validatePublicKey(params.tokenMint, 'Token mint');
+
+      // Create DLMM pool instance
+      const dlmmPool = await DLMM.create(connection, poolPubkey, {
+        cluster: network as 'mainnet-beta' | 'devnet',
+      });
+
+      // Convert amount to lamports (assume 9 decimals)
+      const amountBN = new BN(Math.floor(params.amount * 1e9));
+
+      // Determine strategy type for SDK
+      let strategyType: any;
+      if (params.strategy === 'spot') {
+        strategyType = dlmmPool.constructor.StrategyType?.SpotBalanced || 0;
+      } else if (params.strategy === 'curve') {
+        strategyType = dlmmPool.constructor.StrategyType?.Curve || 1;
+      } else {
+        strategyType = dlmmPool.constructor.StrategyType?.BidAsk || 2;
+      }
+
+      // Create liquidity parameters
+      const liquidityParams = {
+        positionPubKey: Keypair.generate().publicKey,
+        user: publicKey,
+        totalXAmount: tokenMintPubkey.equals(dlmmPool.tokenX.publicKey) ? amountBN : new BN(0),
+        totalYAmount: tokenMintPubkey.equals(dlmmPool.tokenY.publicKey) ? amountBN : new BN(0),
+        strategy: {
+          maxBinId: dlmmPool.getBinIdFromPrice(params.maxPrice, true),
+          minBinId: dlmmPool.getBinIdFromPrice(params.minPrice, false),
+          strategyType,
+        },
+      };
+
+      console.log('[DLMM] Liquidity params:', liquidityParams);
+
+      // Create add liquidity transaction
+      const addLiquidityTx = await dlmmPool.initializePositionAndAddLiquidityByStrategy(liquidityParams);
+
+      // Send transaction
+      console.log('[DLMM] Sending add liquidity transaction...');
+      const signature = await sendAndConfirmTransaction(connection, addLiquidityTx, [wallet as any], {
+        commitment: 'confirmed',
+        preflightCommitment: 'confirmed',
+      });
+
+      console.log('[DLMM] Position created and liquidity added! Signature:', signature);
+
+      return {
+        success: true,
+        signature,
+        positionAddress: liquidityParams.positionPubKey.toString(),
+      };
+    } catch (error: any) {
+      console.error('[DLMM] Error adding liquidity:', error);
+      throw new Error(error.message || 'Failed to add liquidity');
+    }
+  };
+
+  /**
+   * Add liquidity to existing position
+   */
+  const addLiquidityByStrategy = async (params: {
+    poolAddress: string;
+    positionAddress: string;
+    amount: number;
+    tokenMint: string;
+  }) => {
+    if (!publicKey) {
+      throw new Error('Wallet not connected');
+    }
+
+    console.log('[DLMM] Adding liquidity to existing position...', params);
+
+    try {
+      const poolPubkey = validatePublicKey(params.poolAddress, 'Pool address');
+      const positionPubkey = validatePublicKey(params.positionAddress, 'Position address');
+      const tokenMintPubkey = validatePublicKey(params.tokenMint, 'Token mint');
+
+      // Create DLMM pool instance
+      const dlmmPool = await DLMM.create(connection, poolPubkey, {
+        cluster: network as 'mainnet-beta' | 'devnet',
+      });
+
+      // Convert amount to lamports
+      const amountBN = new BN(Math.floor(params.amount * 1e9));
+
+      // Add liquidity to existing position
+      const addLiquidityTx = await dlmmPool.addLiquidity({
+        position: positionPubkey,
+        user: publicKey,
+        totalXAmount: tokenMintPubkey.equals(dlmmPool.tokenX.publicKey) ? amountBN : new BN(0),
+        totalYAmount: tokenMintPubkey.equals(dlmmPool.tokenY.publicKey) ? amountBN : new BN(0),
+      });
+
+      // Send transaction
+      const signature = await sendAndConfirmTransaction(connection, addLiquidityTx, [wallet as any], {
+        commitment: 'confirmed',
+      });
+
+      console.log('[DLMM] Liquidity added! Signature:', signature);
+
+      return {
+        success: true,
+        signature,
+      };
+    } catch (error: any) {
+      console.error('[DLMM] Error adding liquidity:', error);
+      throw new Error(error.message || 'Failed to add liquidity');
+    }
+  };
+
   return {
     createPool,
     seedLiquidityLFG,
     seedLiquiditySingleBin,
     setPoolStatus,
     fetchUserPositions,
+    initializePositionAndAddLiquidityByStrategy,
+    addLiquidityByStrategy,
   };
 }
