@@ -5,8 +5,13 @@
 
 import { PublicKey } from '@solana/web3.js';
 
-// DAMM v2 API base URL (from Meteora docs)
-const DAMM_V2_API_URL = 'https://amm-v2.meteora.ag';
+// DAMM v2 API base URLs (from Meteora Telegram dev channel)
+// Source: https://t.me/meteora_dev/37
+const DAMM_V2_API_URLS = {
+  'mainnet-beta': 'https://amm-v2-api.meteora.ag',
+  'devnet': 'https://amm-v2-api.meteora.ag', // Use mainnet for now
+  'localhost': 'https://amm-v2-api.meteora.ag', // Use mainnet for now
+};
 
 // DAMM v1 uses on-chain fetching (no dedicated API endpoint)
 // Will need to fetch directly from Solana using dynamic-amm-sdk
@@ -36,18 +41,20 @@ export interface FetchDAMMPoolsOptions {
 
 /**
  * Fetch DAMM v2 pools from Meteora API
- * Uses the official endpoint: https://amm-v2.meteora.ag/api/pools
+ * Official endpoint: https://amm-v2-api.meteora.ag/pools
+ * Rate limit: 10 requests per second
+ * Source: https://t.me/meteora_dev/37
  */
 export async function fetchDAMMv2Pools(
   options: FetchDAMMPoolsOptions = {}
 ): Promise<DAMMPool[]> {
   const { network = 'mainnet-beta' } = options;
+  const baseUrl = DAMM_V2_API_URLS[network];
 
-  console.log(`🌊 Fetching DAMM v2 pools from ${DAMM_V2_API_URL} (network: ${network})...`);
+  console.log(`🌊 Fetching DAMM v2 pools from ${baseUrl}/pools (network: ${network})...`);
 
   try {
-    // Meteora DAMM v2 API endpoint
-    const response = await fetch(`${DAMM_V2_API_URL}/api/pools`, {
+    const response = await fetch(`${baseUrl}/pools`, {
       headers: {
         'Accept': 'application/json',
       },
@@ -55,8 +62,8 @@ export async function fetchDAMMv2Pools(
     });
 
     if (!response.ok) {
-      console.error(`❌ DAMM v2 API error: ${response.status} ${response.statusText}`);
-      throw new Error(`DAMM v2 API error: ${response.status} ${response.statusText}`);
+      console.warn(`⚠️ DAMM v2 API returned ${response.status}: ${response.statusText}`);
+      return [];
     }
 
     const data = await response.json();
@@ -81,9 +88,8 @@ export async function fetchDAMMv2Pools(
     console.log(`✅ Fetched ${pools.length} DAMM v2 pools`);
     return pools;
   } catch (error: any) {
-    console.error('❌ Error fetching DAMM v2 pools:', error);
-    // Return empty array instead of throwing to prevent breaking the app
-    return [];
+    console.error('❌ Error fetching DAMM v2 pools:', error.message);
+    return []; // Return empty array to prevent breaking the app
   }
 }
 
