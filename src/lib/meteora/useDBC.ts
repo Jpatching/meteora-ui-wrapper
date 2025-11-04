@@ -198,8 +198,11 @@ export function useDBC() {
       const dbcClient = new DynamicBondingCurveClient(connection, 'confirmed');
 
       // Fetch pool state and config (required for swapQuote)
-      const poolAddress = await dbcClient.state.getPoolByBaseMint(baseMint);
-      const virtualPoolState = await dbcClient.state.getPool(poolAddress);
+      const poolAccount = await dbcClient.state.getPoolByBaseMint(baseMint);
+      if (!poolAccount) {
+        throw new Error('Pool not found for base mint');
+      }
+      const virtualPoolState = await dbcClient.state.getPool(poolAccount.publicKey);
       const poolConfigState = await dbcClient.state.getPoolConfig(virtualPoolState.config);
 
       // Calculate slippage
@@ -218,17 +221,17 @@ export function useDBC() {
 
       console.log('Swap quote:', quote);
 
-      // Calculate minimum output with slippage
-      const minimumAmountOut = quote.amountOut.mul(new BN(10000 - slippageBps)).div(new BN(10000));
+      // Use minimumAmountOut from the quote (SDK already calculated slippage)
+      const minimumAmountOut = (quote as any).minimumAmountOut || new BN(0);
 
       // Swap transaction
       const tx = await dbcClient.pool.swap({
         amountIn,
         minimumAmountOut,
         owner: publicKey,
-        pool: poolAddress,
+        pool: poolAccount.publicKey,
         swapBaseForQuote,
-        referralTokenAccount: params.referralTokenAccount ? new PublicKey(params.referralTokenAccount) : undefined,
+        referralTokenAccount: params.referralTokenAccount ? new PublicKey(params.referralTokenAccount) : null,
       });
 
       tx.instructions.unshift(
@@ -257,7 +260,7 @@ export function useDBC() {
       return {
         success: true,
         signature,
-        amountOut: quote.amountOut.toString(),
+        amountOut: ((quote as any).amountOut || new BN(0)).toString(),
       };
     } catch (error: any) {
       console.error('Error swapping:', error);

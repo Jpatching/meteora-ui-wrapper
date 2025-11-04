@@ -3,7 +3,7 @@
  * These are the official program addresses from Meteora documentation
  */
 
-export type NetworkType = 'mainnet-beta' | 'devnet' | 'localnet';
+export type NetworkType = 'mainnet-beta' | 'devnet';
 
 /**
  * DLMM (Dynamic Liquidity Market Maker) Program IDs
@@ -12,7 +12,6 @@ export type NetworkType = 'mainnet-beta' | 'devnet' | 'localnet';
 export const DLMM_PROGRAM_IDS: Record<NetworkType, string> = {
   'mainnet-beta': 'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo',
   'devnet': 'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo',
-  'localnet': 'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo',
 };
 
 /**
@@ -22,7 +21,6 @@ export const DLMM_PROGRAM_IDS: Record<NetworkType, string> = {
 export const DBC_PROGRAM_IDS: Record<NetworkType, string> = {
   'mainnet-beta': 'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN',
   'devnet': 'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN',
-  'localnet': 'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN',
 };
 
 /**
@@ -32,7 +30,6 @@ export const DBC_PROGRAM_IDS: Record<NetworkType, string> = {
 export const DAMM_V1_PROGRAM_IDS: Record<NetworkType, string> = {
   'mainnet-beta': 'Eo7WjKq67rjJQSZxS6z3YkapzY3eMj6Xy8X5EQVn5UaB',
   'devnet': 'Eo7WjKq67rjJQSZxS6z3YkapzY3eMj6Xy8X5EQVn5UaB',
-  'localnet': 'Eo7WjKq67rjJQSZxS6z3YkapzY3eMj6Xy8X5EQVn5UaB',
 };
 
 /**
@@ -42,7 +39,6 @@ export const DAMM_V1_PROGRAM_IDS: Record<NetworkType, string> = {
 export const DAMM_V2_PROGRAM_IDS: Record<NetworkType, string> = {
   'mainnet-beta': 'cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG',
   'devnet': 'cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG',
-  'localnet': 'cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG',
 };
 
 /**
@@ -57,7 +53,6 @@ export const DAMM_V2_POOL_AUTHORITY = 'HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiT
 export const ALPHA_VAULT_PROGRAM_IDS: Record<NetworkType, string> = {
   'mainnet-beta': 'vaU6kP7iNEGkbmPkLmZfGwiGxd4Mob24QQCie5R9kd2',
   'devnet': 'vaU6kP7iNEGkbmPkLmZfGwiGxd4Mob24QQCie5R9kd2',
-  'localnet': 'vaU6kP7iNEGkbmPkLmZfGwiGxd4Mob24QQCie5R9kd2',
 };
 
 /**
@@ -67,7 +62,6 @@ export const ALPHA_VAULT_PROGRAM_IDS: Record<NetworkType, string> = {
 export const DYNAMIC_VAULT_PROGRAM_IDS: Record<NetworkType, string> = {
   'mainnet-beta': '24Uqj9JCLxUeoC3hGfh5W3s9FM9uCHDS2SG3LYwBpyTi',
   'devnet': '24Uqj9JCLxUeoC3hGfh5W3s9FM9uCHDS2SG3LYwBpyTi',
-  'localnet': '24Uqj9JCLxUeoC3hGfh5W3s9FM9uCHDS2SG3LYwBpyTi',
 };
 
 /**
@@ -77,7 +71,6 @@ export const DYNAMIC_VAULT_PROGRAM_IDS: Record<NetworkType, string> = {
 export const STAKE2EARN_PROGRAM_IDS: Record<NetworkType, string> = {
   'mainnet-beta': 'FEESngU3neckdwib9X3KWqdL7Mjmqk9XNp3uh5JbP4KP',
   'devnet': 'FEESngU3neckdwib9X3KWqdL7Mjmqk9XNp3uh5JbP4KP',
-  'localnet': 'FEESngU3neckdwib9X3KWqdL7Mjmqk9XNp3uh5JbP4KP',
 };
 
 /**
@@ -87,7 +80,6 @@ export const STAKE2EARN_PROGRAM_IDS: Record<NetworkType, string> = {
 export const DYNAMIC_FEE_SHARING_PROGRAM_IDS: Record<NetworkType, string> = {
   'mainnet-beta': 'dfsdo2UqvwfN8DuUVrMRNfQe11VaiNoKcMqLHVvDPzh',
   'devnet': 'dfsdo2UqvwfN8DuUVrMRNfQe11VaiNoKcMqLHVvDPzh',
-  'localnet': 'dfsdo2UqvwfN8DuUVrMRNfQe11VaiNoKcMqLHVvDPzh',
 };
 
 /**

@@ -1275,7 +1275,8 @@ export function useDLMM() {
 
       // PRE-FLIGHT CHECK: Verify pool activation point has passed
       console.log('Checking pool activation status...');
-      const poolState = await dlmmInstance.refetchStates();
+      await dlmmInstance.refetchStates();
+      const poolState = dlmmInstance.lbPair;
       const currentTimestamp = Math.floor(Date.now() / 1000);
 
       // Check if pool has an activation point and if it has passed
@@ -1300,7 +1301,7 @@ export function useDLMM() {
       }
 
       // PRE-FLIGHT CHECK: Verify wallet is the pool creator (if creator control enabled)
-      const lbPair = await dlmmInstance.getLbPair();
+      const lbPair = dlmmInstance.lbPair;
       console.log('Pool creator:', lbPair.creator.toString());
       console.log('Connected wallet:', publicKey.toString());
       console.log('Creator control enabled:', lbPair.creatorPoolOnOffControl);
@@ -1493,12 +1494,12 @@ export function useDLMM() {
 
           for (const position of lbPairPositionsData) {
             // Sum up amounts across all bins
-            totalBaseAmount += Number(position.positionData.totalXAmount) / Math.pow(10, tokenX.decimal);
-            totalQuoteAmount += Number(position.positionData.totalYAmount) / Math.pow(10, tokenY.decimal);
+            totalBaseAmount += Number(position.positionData.totalXAmount) / Math.pow(10, tokenX.decimals || 9);
+            totalQuoteAmount += Number(position.positionData.totalYAmount) / Math.pow(10, tokenY.decimals || 9);
 
             // Sum up unclaimed fees
-            totalUnclaimedFeesBase += Number(position.positionData.feeX) / Math.pow(10, tokenX.decimal);
-            totalUnclaimedFeesQuote += Number(position.positionData.feeY) / Math.pow(10, tokenY.decimal);
+            totalUnclaimedFeesBase += Number(position.positionData.feeX) / Math.pow(10, tokenX.decimals || 9);
+            totalUnclaimedFeesQuote += Number(position.positionData.feeY) / Math.pow(10, tokenY.decimals || 9);
           }
 
           userPositions.push({

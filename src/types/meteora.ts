@@ -1,5 +1,5 @@
 // Common types
-export type NetworkType = 'localnet' | 'devnet' | 'mainnet-beta';
+export type NetworkType = 'devnet' | 'mainnet-beta';
 
 export interface TokenCreateConfig {
   name: string;

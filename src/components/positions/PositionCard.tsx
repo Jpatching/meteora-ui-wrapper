@@ -72,7 +72,7 @@ export function PositionCard({
   };
 
   const healthInfo = getHealthScore(position.healthScore);
-  const protocolGradient = getProtocolColor(position.protocol);
+  const protocolGradient = getProtocolColor(position.type);
 
   return (
     <Card hover className="overflow-hidden">
@@ -84,7 +84,7 @@ export function PositionCard({
           <div className="space-y-2">
             {/* Protocol Badge */}
             <Badge variant="purple" className="text-xs">
-              {position.protocol}
+              {position.type}
             </Badge>
 
             {/* Token Pair */}

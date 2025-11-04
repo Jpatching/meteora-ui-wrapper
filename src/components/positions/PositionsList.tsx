@@ -14,7 +14,7 @@ interface PositionsListProps {
 }
 
 type SortOption = 'value' | 'pnl' | 'pnlPercent' | 'fees' | 'health';
-type FilterOption = 'all' | 'DLMM' | 'DAMM v2' | 'DAMM v1' | 'DBC' | 'Alpha Vault';
+type FilterOption = 'all' | 'dlmm' | 'damm-v1' | 'damm-v2' | 'dbc' | 'alpha-vault';
 
 export function PositionsList({
   positions,
@@ -29,7 +29,7 @@ export function PositionsList({
   // Filter positions
   const filteredPositions = positions.filter(pos => {
     if (filterBy === 'all') return true;
-    return pos.protocol === filterBy;
+    return pos.type === filterBy;
   });
 
   // Sort positions
@@ -101,11 +101,11 @@ export function PositionsList({
             className="w-40"
           >
             <option value="all">All Protocols</option>
-            <option value="DLMM">DLMM</option>
-            <option value="DAMM v2">DAMM v2</option>
-            <option value="DAMM v1">DAMM v1</option>
-            <option value="DBC">DBC</option>
-            <option value="Alpha Vault">Alpha Vault</option>
+            <option value="dlmm">DLMM</option>
+            <option value="damm-v2">DAMM v2</option>
+            <option value="damm-v1">DAMM v1</option>
+            <option value="dbc">DBC</option>
+            <option value="alpha-vault">Alpha Vault</option>
           </Select>
 
           {/* Sort */}

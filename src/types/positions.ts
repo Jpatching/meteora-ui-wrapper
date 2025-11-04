@@ -18,7 +18,7 @@ export interface UserPosition {
   poolAddress: string;
   positionAddress?: string; // NFT address for DAMM v2
   walletAddress: string;
-  network: 'localnet' | 'devnet' | 'mainnet-beta';
+  network: 'devnet' | 'mainnet-beta';
 
   // Token information
   baseMint: string;

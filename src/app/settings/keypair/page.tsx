@@ -174,7 +174,7 @@ export default function KeypairPage() {
               <span className="text-2xl">💡</span>
               <div className="space-y-2 text-sm text-foreground-secondary">
                 <p><strong>Use Cases:</strong></p>
-                <p>• Generate keypairs for testing on devnet/localnet</p>
+                <p>• Generate keypairs for testing on devnet</p>
                 <p>• Create wallets for automated scripts</p>
                 <p>• Generate token mint authorities</p>
                 <p>• Create pool creator keypairs</p>

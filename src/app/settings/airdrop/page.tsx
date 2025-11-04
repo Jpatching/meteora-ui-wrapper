@@ -59,7 +59,7 @@ export default function AirdropPage() {
         <div>
           <h1 className="text-3xl font-bold gradient-text">SOL Airdrop</h1>
           <p className="text-foreground-secondary mt-2">
-            Request test SOL on devnet or localnet
+            Request test SOL on devnet
           </p>
         </div>
 
@@ -81,7 +81,7 @@ export default function AirdropPage() {
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <span className="text-2xl">🚫</span>
-                <p className="text-error">Airdrop is not available on mainnet. Switch to devnet or localnet.</p>
+                <p className="text-error">Airdrop is not available on mainnet. Switch to devnet.</p>
               </div>
             </CardContent>
           </Card>
@@ -122,7 +122,7 @@ export default function AirdropPage() {
               max="5"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              helperText={network === 'localnet' ? 'Max 5 SOL per request on localnet' : 'Max 2 SOL per request on devnet'}
+              helperText="Max 2 SOL per request on devnet"
             />
 
             <Button
@@ -145,13 +145,11 @@ export default function AirdropPage() {
               <span className="text-2xl">💡</span>
               <div className="space-y-2 text-sm text-foreground-secondary">
                 <p><strong>Airdrop Limits:</strong></p>
-                <p>• <strong>Localnet:</strong> Up to 5 SOL per request, unlimited requests</p>
                 <p>• <strong>Devnet:</strong> Up to 2 SOL per request, rate limited</p>
                 <p>• <strong>Mainnet:</strong> No airdrop available (real SOL only)</p>
                 <p className="pt-2"><strong>Tips:</strong></p>
                 <p>• If airdrop fails, wait a few seconds and try again</p>
                 <p>• Use smaller amounts if requests are failing</p>
-                <p>• For localnet, you can run: <code className="px-1 py-0.5 bg-background-tertiary rounded">solana airdrop 10</code> in terminal</p>
               </div>
             </div>
           </CardContent>
@@ -169,7 +167,7 @@ export default function AirdropPage() {
             <div className="space-y-2">
               <p className="text-sm text-foreground-secondary">1. Configure network:</p>
               <div className="p-3 rounded-lg bg-background-tertiary font-mono text-sm">
-                solana config set --url {network === 'devnet' ? 'devnet' : network === 'localnet' ? 'localhost' : 'mainnet-beta'}
+                solana config set --url {network === 'devnet' ? 'devnet' : 'mainnet-beta'}
               </div>
             </div>
             <div className="space-y-2">

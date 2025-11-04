@@ -11,7 +11,7 @@ import { useDAMMv2 } from '@/lib/meteora/useDAMMv2';
 import { useDBC } from '@/lib/meteora/useDBC';
 import { UserPosition } from '@/types/positions';
 import { fetchMultipleTokenPrices } from '@/lib/prices';
-import { calculatePNL, calculatePortfolioMetrics } from '@/lib/pnlCalculations';
+import { calculatePNL } from '@/lib/pnlCalculations';
 import { getWalletPositions, addPosition, updatePosition } from '@/lib/positionStore';
 
 export interface PositionWithPNL extends UserPosition {
@@ -93,73 +93,90 @@ export function usePositions(autoRefresh = false, defaultInterval = 30000): UseP
       if (dlmmPositions.status === 'fulfilled') {
         allPositions.push(...dlmmPositions.value.map((p: any) => ({
           id: `dlmm-${p.positionKey}`,
+          type: 'dlmm' as const,
           walletAddress: publicKey.toBase58(),
-          protocol: 'DLMM' as const,
+          network: network,
           poolAddress: p.poolAddress,
+          positionAddress: p.positionKey,
           baseMint: p.baseMint,
           quoteMint: p.quoteMint,
           baseSymbol: p.baseSymbol,
           quoteSymbol: p.quoteSymbol,
+          lpBalance: p.lpBalance || 0,
           baseAmount: p.baseAmount,
           quoteAmount: p.quoteAmount,
+          currentValueUSD: 0, // Will be calculated
+          initialValueUSD: 0, // Will be calculated
+          pnlUSD: 0, // Will be calculated
+          pnlPercent: 0, // Will be calculated
           unclaimedFeesBase: p.unclaimedFeesBase || 0,
           unclaimedFeesQuote: p.unclaimedFeesQuote || 0,
+          totalFeesEarnedUSD: 0, // Will be calculated
+          status: 'active' as const,
           createdAt: Date.now(),
           lastUpdated: Date.now(),
-          initialBaseAmount: p.baseAmount,
-          initialQuoteAmount: p.quoteAmount,
-          protocolSpecific: {
-            binPositions: p.binPositions,
-          },
         })));
       }
 
       if (dammv2Positions.status === 'fulfilled') {
         allPositions.push(...dammv2Positions.value.map((p: any) => ({
           id: `dammv2-${p.positionKey}`,
+          type: 'damm-v2' as const,
           walletAddress: publicKey.toBase58(),
-          protocol: 'DAMM v2' as const,
+          network: network,
           poolAddress: p.poolAddress,
+          positionAddress: p.positionKey,
           baseMint: p.baseMint,
           quoteMint: p.quoteMint,
           baseSymbol: p.baseSymbol || 'TOKEN',
           quoteSymbol: p.quoteSymbol || 'TOKEN',
+          lpBalance: p.lpBalance || 0,
           baseAmount: p.baseAmount || 0,
           quoteAmount: p.quoteAmount || 0,
+          currentValueUSD: 0,
+          initialValueUSD: 0,
+          pnlUSD: 0,
+          pnlPercent: 0,
           unclaimedFeesBase: p.unclaimedFeesBase || 0,
           unclaimedFeesQuote: p.unclaimedFeesQuote || 0,
+          totalFeesEarnedUSD: 0,
+          status: 'active' as const,
           createdAt: Date.now(),
           lastUpdated: Date.now(),
-          initialBaseAmount: p.baseAmount || 0,
-          initialQuoteAmount: p.quoteAmount || 0,
         })));
       }
 
       if (dbcPositions.status === 'fulfilled') {
         allPositions.push(...dbcPositions.value.map((p: any) => ({
           id: `dbc-${p.positionKey}`,
+          type: 'dbc' as const,
           walletAddress: publicKey.toBase58(),
-          protocol: 'DBC' as const,
+          network: network,
           poolAddress: p.poolAddress,
           baseMint: p.baseMint,
           quoteMint: p.quoteMint,
           baseSymbol: p.baseSymbol || 'TOKEN',
           quoteSymbol: p.quoteSymbol || 'TOKEN',
+          lpBalance: p.lpBalance || 0,
           baseAmount: p.baseAmount || 0,
           quoteAmount: p.quoteAmount || 0,
+          currentValueUSD: 0,
+          initialValueUSD: 0,
+          pnlUSD: 0,
+          pnlPercent: 0,
           unclaimedFeesBase: 0,
           unclaimedFeesQuote: 0,
+          totalFeesEarnedUSD: 0,
+          status: 'active' as const,
           createdAt: Date.now(),
           lastUpdated: Date.now(),
-          initialBaseAmount: p.baseAmount || 0,
-          initialQuoteAmount: p.quoteAmount || 0,
         })));
       }
 
       // Merge with cached positions (to preserve historical data like initialPrices)
       const mergedPositions = allPositions.map(pos => {
         const cached = cachedPositions.find(c =>
-          c.protocol === pos.protocol && c.poolAddress === pos.poolAddress
+          c.type === pos.type && c.poolAddress === pos.poolAddress
         );
         return cached ? { ...cached, ...pos, lastUpdated: Date.now() } : pos;
       });
@@ -181,14 +198,14 @@ export function usePositions(autoRefresh = false, defaultInterval = 30000): UseP
 
         return {
           ...position,
-          currentValue: pnlResult.currentValue,
+          currentValue: pnlResult.currentValueUSD,
           pnl: pnlResult.totalPNL,
           pnlPercent: pnlResult.totalPNLPercent,
-          unclaimedFeesUSD: pnlResult.unclaimedFeesUSD,
-          healthScore: pnlResult.healthScore,
-          apr: pnlResult.apr,
-          impermanentLoss: pnlResult.impermanentLoss,
-          impermanentLossPercent: pnlResult.impermanentLossPercent,
+          unclaimedFeesUSD: pnlResult.feesEarnedUSD,
+          healthScore: 100, // TODO: Calculate health score
+          apr: pnlResult.annualizedAPR,
+          impermanentLoss: 0, // TODO: Calculate IL
+          impermanentLossPercent: 0, // TODO: Calculate IL%
         };
       });
 
@@ -245,7 +262,7 @@ export function usePositions(autoRefresh = false, defaultInterval = 30000): UseP
   const totalValue = positions.reduce((sum, p) => sum + p.currentValue, 0);
   const totalPNL = positions.reduce((sum, p) => sum + p.pnl, 0);
   const totalInitialValue = positions.reduce(
-    (sum, p) => sum + (p.initialValue || 0),
+    (sum, p) => sum + (p.initialValueUSD || 0),
     0
   );
   const totalPNLPercent = totalInitialValue > 0

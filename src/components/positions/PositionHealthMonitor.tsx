@@ -188,11 +188,11 @@ export function PositionHealthMonitor({
   };
 
   // Show browser notification
-  const showBrowserNotification = (alerts: typeof alerts) => {
+  const showBrowserNotification = (alertData: { outOfRange: PositionHealth[]; lowEfficiency: PositionHealth[] }) => {
     if (!notificationsEnabled) return;
 
     if ('Notification' in window && Notification.permission === 'granted') {
-      const alertCount = alerts.outOfRange.length + alerts.lowEfficiency.length;
+      const alertCount = alertData.outOfRange.length + alertData.lowEfficiency.length;
       new Notification('Position Alert', {
         body: `${alertCount} position${alertCount > 1 ? 's' : ''} need${alertCount === 1 ? 's' : ''} attention`,
         icon: '/logo.svg',

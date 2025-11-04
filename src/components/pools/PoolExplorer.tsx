@@ -114,7 +114,7 @@ export interface PoolExplorerProps {
 
 export function PoolExplorer({ onSelectPool }: PoolExplorerProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<'recent' | 'graduating' | 'graduated'>('recent');
+  const [selectedCategory, setSelectedCategory] = useState<'recent' | 'aboutToGraduate' | 'graduated'>('recent');
 
   const { data, isLoading, error } = useMeteoraPools({
     timeframe: '24h',
@@ -164,11 +164,11 @@ export function PoolExplorer({ onSelectPool }: PoolExplorerProps) {
               Recent Launches
             </Button>
             <Button
-              variant={selectedCategory === 'graduating' ? 'primary' : 'secondary'}
+              variant={selectedCategory === 'aboutToGraduate' ? 'primary' : 'secondary'}
               size="sm"
-              onClick={() => setSelectedCategory('graduating')}
+              onClick={() => setSelectedCategory('aboutToGraduate')}
             >
-              Graduating
+              About to Graduate
             </Button>
             <Button
               variant={selectedCategory === 'graduated' ? 'primary' : 'secondary'}

@@ -45,7 +45,7 @@ export interface TransactionRecord {
   signature: string; // Transaction signature
   walletAddress: string; // User's wallet address
   timestamp: number; // Unix timestamp
-  network: 'localnet' | 'devnet' | 'mainnet-beta';
+  network: 'devnet' | 'mainnet-beta';
 
   // Classification
   protocol: ProtocolType;

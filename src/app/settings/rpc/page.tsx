@@ -13,14 +13,12 @@ type RPCPreset = 'default' | 'custom';
 interface RPCConfig {
   devnet: string;
   mainnet: string;
-  localnet: string;
   custom?: string;
 }
 
 const DEFAULT_RPC_ENDPOINTS: RPCConfig = {
   devnet: 'https://api.devnet.solana.com',
   mainnet: 'https://api.mainnet-beta.solana.com',
-  localnet: 'http://127.0.0.1:8899',
 };
 
 export default function RPCSettingsPage() {
@@ -35,7 +33,6 @@ export default function RPCSettingsPage() {
   const [connectionStatus, setConnectionStatus] = useState<{
     devnet?: boolean;
     mainnet?: boolean;
-    localnet?: boolean;
     custom?: boolean;
   }>({});
 
@@ -82,7 +79,6 @@ export default function RPCSettingsPage() {
       const endpoints = [
         { name: 'Devnet', url: configToSave.devnet },
         { name: 'Mainnet', url: configToSave.mainnet },
-        { name: 'Localnet', url: configToSave.localnet },
       ];
 
       for (const endpoint of endpoints) {
@@ -199,9 +195,6 @@ export default function RPCSettingsPage() {
                 <p className="text-sm text-foreground-secondary">
                   <strong>Mainnet:</strong> <span className="font-mono text-xs">{DEFAULT_RPC_ENDPOINTS.mainnet}</span>
                 </p>
-                <p className="text-sm text-foreground-secondary">
-                  <strong>Localnet:</strong> <span className="font-mono text-xs">{DEFAULT_RPC_ENDPOINTS.localnet}</span>
-                </p>
               </div>
             )}
           </CardContent>
@@ -263,31 +256,6 @@ export default function RPCSettingsPage() {
                 {connectionStatus.mainnet !== undefined && (
                   <span className={`text-sm py-2 ${connectionStatus.mainnet ? 'text-success' : 'text-error'}`}>
                     {connectionStatus.mainnet ? '✓ Connected' : '✗ Failed'}
-                  </span>
-                )}
-              </div>
-
-              <Input
-                label="Localnet RPC"
-                placeholder="http://127.0.0.1:8899"
-                value={rpcConfig.localnet}
-                onChange={(e) => setRPCConfig({ ...rpcConfig, localnet: e.target.value })}
-                helperText="RPC endpoint for Localnet"
-              />
-
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => testConnection(rpcConfig.localnet, 'localnet')}
-                  variant="outline"
-                  size="sm"
-                  loading={testing}
-                  disabled={testing || !rpcConfig.localnet}
-                >
-                  Test Localnet
-                </Button>
-                {connectionStatus.localnet !== undefined && (
-                  <span className={`text-sm py-2 ${connectionStatus.localnet ? 'text-success' : 'text-error'}`}>
-                    {connectionStatus.localnet ? '✓ Connected' : '✗ Failed'}
                   </span>
                 )}
               </div>
