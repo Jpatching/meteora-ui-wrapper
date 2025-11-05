@@ -9,6 +9,9 @@ import { useState } from 'react';
 import { Pool } from '@/lib/jupiter/types';
 import { TradingChart, ChartType, TimeInterval } from '@/components/charts/TradingChart';
 import { useGeckoTerminalChartData } from '@/hooks/queries/useGeckoTerminalChartData';
+import { useBinData } from '@/lib/hooks/useBinData';
+import { useUserPositions } from '@/lib/hooks/useUserPositions';
+import { useWallet } from '@solana/wallet-adapter-react';
 import { formatUSD, formatNumber } from '@/lib/format/number';
 import { formatTimeAgo } from '@/lib/format/date';
 import { Button } from '@/components/ui';
@@ -21,11 +24,38 @@ export interface ChartDetailsPanelProps {
 export function ChartDetailsPanel({ pool }: ChartDetailsPanelProps) {
   const [chartType, setChartType] = useState<ChartType>('candlestick');
   const [interval, setInterval] = useState<TimeInterval>('15m');
+  const { publicKey } = useWallet();
 
   const { data: chartDataPoints, loading: isLoading } = useGeckoTerminalChartData({
     pool,
     interval,
   });
+
+  // Detect pool type
+  const poolType = pool.type || (pool.dex === 'Meteora' && pool.baseAsset.launchpad?.includes('dlmm') ? 'dlmm' : 'dbc');
+  const isDLMM = poolType === 'dlmm';
+
+  // Fetch bin data for DLMM pools
+  const { activeBin, binsAroundActive } = useBinData({
+    poolAddress: pool.id,
+    enabled: isDLMM,
+    refreshInterval: 0, // No auto-refresh for chart
+    binRange: 50,
+  });
+
+  // Fetch user positions to show on chart
+  const { data: allPositions } = useUserPositions();
+
+  // Build position ranges from user's positions
+  const positionRanges = isDLMM && publicKey
+    ? allPositions
+        ?.filter(p => p.poolAddress === pool.id)
+        .map(p => ({
+          minPrice: p.lowerBinId,  // Using bin IDs as price proxies
+          maxPrice: p.upperBinId,
+          color: '#8b5cf6', // Purple color for position ranges
+        })) || []
+    : [];
 
   const priceChange = pool.baseAsset.stats24h?.priceChange || 0;
   const isPositive = priceChange >= 0;
@@ -105,6 +135,11 @@ export function ChartDetailsPanel({ pool }: ChartDetailsPanelProps) {
             loading={isLoading}
             onIntervalChange={setInterval}
             onChartTypeChange={setChartType}
+            // DLMM-specific props
+            binData={isDLMM ? binsAroundActive : undefined}
+            showBinHistogram={isDLMM && binsAroundActive.length > 0}
+            activeBinPrice={isDLMM && activeBin && typeof activeBin.price === 'number' ? activeBin.price : undefined}
+            positionRanges={positionRanges.length > 0 ? positionRanges : undefined}
           />
         </div>
 

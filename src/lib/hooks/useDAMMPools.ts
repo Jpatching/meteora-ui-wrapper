@@ -40,9 +40,12 @@ export function useDAMMPools(options: UseDAMMPoolsOptions = {}) {
     },
     refetchInterval,
     enabled,
-    staleTime: 30000, // Consider data stale after 30 seconds
+    staleTime: 5 * 60 * 1000, // 5 minutes - show cached data instantly
+    gcTime: 10 * 60 * 1000, // 10 minutes - keep in cache
     retry: 2,
     retryDelay: 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: 'always',
   });
 }
 
@@ -69,8 +72,11 @@ export function useDAMMv2Pools(options: Omit<UseDAMMPoolsOptions, 'version'> = {
     },
     refetchInterval,
     enabled,
-    staleTime: 30000,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
     retry: 2,
     retryDelay: 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: 'always',
   });
 }

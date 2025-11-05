@@ -89,9 +89,28 @@ export function PairListPanel({ pools, isLoading }: PairListPanelProps) {
   };
 
   const getProtocolBadge = (pool: Pool) => {
+    // Check for DLMM
     if (pool.type === 'dlmm') return { label: 'DLMM', variant: 'info' as const };
-    if (pool.baseAsset.launchpad === 'met-dbc') return { label: 'DBC', variant: 'success' as const };
-    if (pool.type === 'damm' || pool.type === 'damm-v2') return { label: 'DAMM', variant: 'warning' as const };
+
+    // Check for DBC
+    if (pool.baseAsset.launchpad === 'met-dbc' || pool.type === 'dbc') {
+      return { label: 'DBC', variant: 'success' as const };
+    }
+
+    // Check for DAMM (includes v1 and v2)
+    if (pool.type === 'damm' ||
+        pool.baseAsset.launchpad === 'met-damm-v1' ||
+        pool.baseAsset.launchpad === 'met-damm-v2' ||
+        (pool as any).version === 'v1' ||
+        (pool as any).version === 'v2') {
+      // Show DYN2 for DAMM v2, DAMM for v1
+      const isDammV2 = pool.baseAsset.launchpad === 'met-damm-v2' || (pool as any).version === 'v2';
+      return {
+        label: isDammV2 ? 'DYN2' : 'DAMM',
+        variant: 'warning' as const
+      };
+    }
+
     return { label: 'OTHER', variant: 'default' as const };
   };
 
@@ -211,7 +230,20 @@ export function PairListPanel({ pools, isLoading }: PairListPanelProps) {
                         </Badge>
                       </div>
                       <p className="text-xs text-gray-400">
-                        Pool {pool.id.slice(0, 8)}...
+                        {/* Show binStep for DLMM pools, fee tier for others */}
+                        {pool.type === 'dlmm' && (pool as any).binStep ? (
+                          <>
+                            <span className="text-info">binStep: {(pool as any).binStep}</span>
+                            {' | '}
+                            <span className="text-warning">
+                              base fee: {(pool as any).baseFeePercentage || (pool as any).base_fee_percentage || '0'}%
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-warning">fee: {(pool as any).feeTier || '0.30'}%</span>
+                          </>
+                        )}
                       </p>
                     </div>
                   </div>

@@ -39,9 +39,12 @@ export function useDLMMPools(options: UseDLMMPoolsOptions = {}) {
     },
     refetchInterval,
     enabled,
-    staleTime: 30000, // Consider data stale after 30 seconds
+    staleTime: 5 * 60 * 1000, // 5 minutes - show cached data instantly
+    gcTime: 10 * 60 * 1000, // 10 minutes - keep in cache
     retry: 2, // Retry failed requests 2 times
     retryDelay: 1000, // Wait 1 second between retries
+    refetchOnWindowFocus: false, // Don't refetch when window regains focus
+    refetchOnMount: 'always', // Always check for fresh data on mount
   });
 }
 

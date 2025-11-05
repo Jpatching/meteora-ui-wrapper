@@ -10,7 +10,8 @@ import { useRouter } from 'next/navigation';
 import { MainLayout } from '@/components/layout';
 import { ChartDetailsPanel } from '@/components/dashboard/ChartDetailsPanel';
 import { TokenInfoSidebar } from '@/components/pool/TokenInfoSidebar';
-import { AddLiquidityPanel } from '@/components/liquidity/AddLiquidityPanel';
+import { PoolActionsPanel } from '@/components/pool/PoolActionsPanel';
+import { SmartAIPanel } from '@/components/pool/SmartAIPanel';
 import { AIAssistantPanel } from '@/components/pool/AIAssistantPanel';
 import { LiquidityPlanner } from '@/components/pool/LiquidityPlanner';
 import { PoolStatisticsPanel } from '@/components/pool/PoolStatisticsPanel';
@@ -157,41 +158,30 @@ export default function PoolPage({ params }: PoolPageProps) {
             </div>
           </div>
 
-          {/* Right Sidebar - Add Liquidity + AI */}
+          {/* Right Sidebar - Pool Actions + AI */}
           <div className="space-y-6">
-            {/* Add Liquidity Panel - DLMM Meteora SDK */}
-            {pool.type === 'dlmm' && (
-              <div className="bg-background border border-border-light rounded-xl overflow-hidden">
-                <div className="p-4 border-b border-border-light">
-                  <h3 className="text-lg font-semibold text-white">Add Liquidity (DLMM)</h3>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Using Meteora DLMM SDK • Choose your strategy below
-                  </p>
-                </div>
-                <div className="p-6">
-                  <AddLiquidityPanel
-                    poolAddress={pool.id}
-                    tokenXMint={pool.baseAsset.id}
-                    tokenYMint={pool.quoteAsset?.id || 'So11111111111111111111111111111111111111112'}
-                    tokenXSymbol={pool.baseAsset.symbol}
-                    tokenYSymbol={pool.quoteAsset?.symbol || 'SOL'}
-                    currentPrice={(pool as any).price || 0.000032}
-                    binStep={(pool as any).binStep || 50}
-                    baseFee={parseFloat((pool as any).base_fee_percentage || '0.2')}
-                  />
-                </div>
-              </div>
-            )}
+            {/* Pool Actions Panel - Tabbed Interface for Add/Remove/Swap/Claim */}
+            <PoolActionsPanel
+              poolAddress={pool.id}
+              tokenXMint={pool.baseAsset.id}
+              tokenYMint={pool.quoteAsset?.id || 'So11111111111111111111111111111111111111112'}
+              tokenXSymbol={pool.baseAsset.symbol}
+              tokenYSymbol={pool.quoteAsset?.symbol || 'SOL'}
+              currentPrice={(pool as any).price || 0.000032}
+              binStep={(pool as any).binStep || 50}
+              baseFee={parseFloat((pool as any).base_fee_percentage || '0.2')}
+              poolType={pool.type || 'dlmm'}
+            />
 
-            {/* For non-DLMM pools, show coming soon */}
-            {pool.type !== 'dlmm' && (
-              <div className="bg-background border border-border-light rounded-xl p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Add Liquidity</h3>
-                <div className="text-gray-400 text-sm">
-                  Add liquidity functionality coming soon for {pool.type.toUpperCase()} pools.
-                </div>
-              </div>
-            )}
+            {/* Smart AI - Live Suggestions */}
+            <SmartAIPanel
+              poolAddress={pool.id}
+              poolType={pool.type || 'dlmm'}
+              currentPrice={(pool as any).price || 0.000032}
+              binStep={(pool as any).binStep || 50}
+              volume24h={pool.volume24h || 0}
+              liquidity={parseFloat(pool.baseAsset.liquidity?.toString() || '0')}
+            />
 
             {/* Pool Statistics */}
             <PoolStatisticsPanel pool={pool} />

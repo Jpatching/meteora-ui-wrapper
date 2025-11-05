@@ -8,12 +8,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { createChart } from 'lightweight-charts';
 import type { OHLCVDataPoint } from '@/lib/services/geckoterminal';
+import type { BinData } from '@/lib/meteora/binDataService';
 
 // Type alias for backwards compatibility
 type OHLCDataPoint = OHLCVDataPoint;
 
 export type ChartType = 'candlestick' | 'line' | 'area';
 export type TimeInterval = '1m' | '5m' | '15m' | '1h' | '4h' | '1d' | '1w';
+
+export interface PositionRange {
+  minPrice: number;
+  maxPrice: number;
+  color?: string;
+}
 
 interface TradingChartProps {
   data: OHLCDataPoint[];
@@ -24,6 +31,12 @@ interface TradingChartProps {
   loading?: boolean;
   onIntervalChange?: (interval: TimeInterval) => void;
   onChartTypeChange?: (type: ChartType) => void;
+  // New: Bin data for liquidity histogram overlay
+  binData?: BinData[];
+  showBinHistogram?: boolean;
+  // New: Position ranges to visualize on chart
+  positionRanges?: PositionRange[];
+  activeBinPrice?: number;
 }
 
 const INTERVALS: TimeInterval[] = ['1m', '5m', '15m', '1h', '4h', '1d', '1w'];
@@ -47,11 +60,16 @@ export function TradingChart({
   loading = false,
   onIntervalChange,
   onChartTypeChange,
+  binData,
+  showBinHistogram = false,
+  positionRanges,
+  activeBinPrice,
 }: TradingChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
   const priceSeriesRef = useRef<any>(null);
   const volumeSeriesRef = useRef<any>(null);
+  const binHistogramSeriesRef = useRef<any>(null);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
 

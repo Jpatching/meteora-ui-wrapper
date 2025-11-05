@@ -125,7 +125,7 @@ export function FeeDisclosure({
                       )}
                     </div>
                     <span className="text-lg font-bold text-foreground font-mono">
-                      {tierInfo.price.toFixed(4)} SOL
+                      {typeof tierInfo.price === 'number' ? tierInfo.price.toFixed(4) : '0.0000'} SOL
                     </span>
                   </div>
                   <ul className="text-xs text-foreground-secondary space-y-1">

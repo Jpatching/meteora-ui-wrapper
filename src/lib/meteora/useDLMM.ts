@@ -1631,17 +1631,278 @@ export function useDLMM() {
   };
 
   /**
-   * Add liquidity to existing position
-   * TODO: Implement this function using proper DLMM SDK method
+   * Remove liquidity from a position
+   * Uses removeLiquidity() SDK function with bps parameter
    */
-  // const addLiquidityByStrategy = async (params: {
-  //   poolAddress: string;
-  //   positionAddress: string;
-  //   amount: number;
-  //   tokenMint: string;
-  // }) => {
-  //   throw new Error('Not yet implemented - use initializePositionAndAddLiquidityByStrategy to create new position');
-  // };
+  const removeLiquidityFromPosition = async (params: {
+    poolAddress: string;
+    positionAddress: string;
+    bps: number; // 0-10000 (10000 = 100%)
+  }) => {
+    if (!publicKey) {
+      throw new Error('Wallet not connected');
+    }
+
+    console.log('[DLMM] Removing liquidity...', params);
+
+    try {
+      const poolPubkey = validatePublicKey(params.poolAddress, 'Pool address');
+      const positionPubkey = validatePublicKey(params.positionAddress, 'Position address');
+
+      // Create DLMM pool instance
+      const dlmmPool = await DLMM.create(connection, poolPubkey, {
+        cluster: network as 'mainnet-beta' | 'devnet',
+      });
+
+      // Get position to determine bin range
+      const position = await dlmmPool.getPosition(positionPubkey);
+
+      // Create remove liquidity transaction
+      const bpsBN = new BN(params.bps);
+      const removeLiquidityTx = await dlmmPool.removeLiquidity({
+        position: positionPubkey,
+        user: publicKey,
+        binIds: position.positionData.map((p: any) => p.binId),
+        bps: bpsBN,
+        shouldClaimAndClose: params.bps === 10000, // Close position if removing 100%
+      });
+
+      // Get fee breakdown
+      const feeBreakdown = getFeeBreakdown(referrerWallet || undefined);
+      const feeInstructions = await getFeeDistributionInstructions(
+        publicKey,
+        referrerWallet || undefined
+      );
+
+      // Add fees atomically
+      if (feeInstructions.length > 0) {
+        feeInstructions.reverse().forEach((ix) => {
+          removeLiquidityTx.instructions.unshift(ix);
+        });
+      }
+
+      // Send transaction
+      console.log('[DLMM] Sending remove liquidity transaction...');
+      const signature = await sendTransaction(removeLiquidityTx, connection);
+      await confirmTransactionWithRetry(connection, signature);
+
+      // Record referral earning
+      if (referrerWallet && feeBreakdown.referral.lamports > 0) {
+        recordEarning(
+          feeBreakdown.referral.lamports,
+          publicKey.toBase58(),
+          signature
+        );
+      }
+
+      // Track transaction
+      addTransaction({
+        signature,
+        walletAddress: publicKey.toBase58(),
+        network,
+        protocol: 'dlmm',
+        action: 'dlmm-remove-liquidity',
+        status: 'success',
+        params,
+        poolAddress: poolPubkey.toString(),
+        platformFee: feeBreakdown.total.lamports,
+      });
+
+      console.log('[DLMM] Liquidity removed! Signature:', signature);
+
+      return {
+        success: true,
+        signature,
+      };
+    } catch (error: any) {
+      console.error('[DLMM] Error removing liquidity:', error);
+      throw new Error(error.message || 'Failed to remove liquidity');
+    }
+  };
+
+  /**
+   * Claim all rewards (swap fees + LM rewards) for a position
+   * Uses claimAllRewardsByPosition() SDK function
+   */
+  const claimAllRewards = async (params: {
+    poolAddress: string;
+    positionAddress: string;
+  }) => {
+    if (!publicKey) {
+      throw new Error('Wallet not connected');
+    }
+
+    console.log('[DLMM] Claiming all rewards...', params);
+
+    try {
+      const poolPubkey = validatePublicKey(params.poolAddress, 'Pool address');
+      const positionPubkey = validatePublicKey(params.positionAddress, 'Position address');
+
+      // Create DLMM pool instance
+      const dlmmPool = await DLMM.create(connection, poolPubkey, {
+        cluster: network as 'mainnet-beta' | 'devnet',
+      });
+
+      // Create claim rewards transaction
+      const claimTx = await dlmmPool.claimAllRewardsByPosition(
+        positionPubkey,
+        publicKey
+      );
+
+      // Get fee breakdown
+      const feeBreakdown = getFeeBreakdown(referrerWallet || undefined);
+      const feeInstructions = await getFeeDistributionInstructions(
+        publicKey,
+        referrerWallet || undefined
+      );
+
+      // Add fees atomically
+      if (feeInstructions.length > 0) {
+        feeInstructions.reverse().forEach((ix) => {
+          claimTx.instructions.unshift(ix);
+        });
+      }
+
+      // Send transaction
+      console.log('[DLMM] Sending claim rewards transaction...');
+      const signature = await sendTransaction(claimTx, connection);
+      await confirmTransactionWithRetry(connection, signature);
+
+      // Record referral earning
+      if (referrerWallet && feeBreakdown.referral.lamports > 0) {
+        recordEarning(
+          feeBreakdown.referral.lamports,
+          publicKey.toBase58(),
+          signature
+        );
+      }
+
+      // Track transaction
+      addTransaction({
+        signature,
+        walletAddress: publicKey.toBase58(),
+        network,
+        protocol: 'dlmm',
+        action: 'dlmm-claim-rewards',
+        status: 'success',
+        params,
+        poolAddress: poolPubkey.toString(),
+        platformFee: feeBreakdown.total.lamports,
+      });
+
+      console.log('[DLMM] Rewards claimed! Signature:', signature);
+
+      return {
+        success: true,
+        signature,
+      };
+    } catch (error: any) {
+      console.error('[DLMM] Error claiming rewards:', error);
+      throw new Error(error.message || 'Failed to claim rewards');
+    }
+  };
+
+  /**
+   * Swap tokens using DLMM pool
+   */
+  const swapTokens = async (params: {
+    poolAddress: string;
+    amountIn: number; // Amount in UI units
+    tokenMintIn: string;
+    tokenMintOut: string;
+    slippageBps: number; // Slippage in basis points (100 = 1%)
+  }) => {
+    if (!publicKey) {
+      throw new Error('Wallet not connected');
+    }
+
+    console.log('[DLMM] Swapping tokens...', params);
+
+    try {
+      const poolPubkey = validatePublicKey(params.poolAddress, 'Pool address');
+      const inTokenPubkey = validatePublicKey(params.tokenMintIn, 'Input token');
+      const outTokenPubkey = validatePublicKey(params.tokenMintOut, 'Output token');
+
+      // Create DLMM pool instance
+      const dlmmPool = await DLMM.create(connection, poolPubkey, {
+        cluster: network as 'mainnet-beta' | 'devnet',
+      });
+
+      // Convert amount to lamports (assume 9 decimals)
+      const amountInBN = new BN(Math.floor(params.amountIn * 1e9));
+
+      // Get quote for the swap
+      const quote = await dlmmPool.swapQuote(
+        amountInBN,
+        inTokenPubkey.equals(dlmmPool.tokenX.publicKey), // swapForY
+        new BN(params.slippageBps),
+        publicKey
+      );
+
+      // Create swap transaction
+      const swapTx = await dlmmPool.swap({
+        inToken: inTokenPubkey,
+        binArraysPubkey: quote.binArraysPubkey,
+        inAmount: amountInBN,
+        lbPair: poolPubkey,
+        user: publicKey,
+        minOutAmount: quote.minOutAmount,
+        outToken: outTokenPubkey,
+      });
+
+      // Get fee breakdown
+      const feeBreakdown = getFeeBreakdown(referrerWallet || undefined);
+      const feeInstructions = await getFeeDistributionInstructions(
+        publicKey,
+        referrerWallet || undefined
+      );
+
+      // Add fees atomically
+      if (feeInstructions.length > 0) {
+        feeInstructions.reverse().forEach((ix) => {
+          swapTx.instructions.unshift(ix);
+        });
+      }
+
+      // Send transaction
+      console.log('[DLMM] Sending swap transaction...');
+      const signature = await sendTransaction(swapTx, connection);
+      await confirmTransactionWithRetry(connection, signature);
+
+      // Record referral earning
+      if (referrerWallet && feeBreakdown.referral.lamports > 0) {
+        recordEarning(
+          feeBreakdown.referral.lamports,
+          publicKey.toBase58(),
+          signature
+        );
+      }
+
+      // Track transaction
+      addTransaction({
+        signature,
+        walletAddress: publicKey.toBase58(),
+        network,
+        protocol: 'dlmm',
+        action: 'dlmm-swap',
+        status: 'success',
+        params,
+        poolAddress: poolPubkey.toString(),
+        platformFee: feeBreakdown.total.lamports,
+      });
+
+      console.log('[DLMM] Swap complete! Signature:', signature);
+
+      return {
+        success: true,
+        signature,
+        outAmount: quote.minOutAmount.toNumber() / 1e9, // Convert to UI units
+      };
+    } catch (error: any) {
+      console.error('[DLMM] Error swapping:', error);
+      throw new Error(error.message || 'Failed to swap tokens');
+    }
+  };
 
   return {
     createPool,
@@ -1650,6 +1911,8 @@ export function useDLMM() {
     setPoolStatus,
     fetchUserPositions,
     initializePositionAndAddLiquidityByStrategy,
-    // addLiquidityByStrategy, // TODO: Implement this
+    removeLiquidityFromPosition,
+    claimAllRewards,
+    swapTokens,
   };
 }

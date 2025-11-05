@@ -21,3 +21,5 @@ export { ReferralInput } from './ReferralInput';
 export { ReferralDisplay } from './ReferralDisplay';
 
 export { Logo } from './Logo';
+
+export { CollapsibleCard } from './CollapsibleCard';

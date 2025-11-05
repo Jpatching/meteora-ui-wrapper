@@ -23,8 +23,8 @@ const navigation: NavSection[] = [
     title: 'Navigation',
     icon: '/navigation-icon.svg',
     items: [
+      { name: 'Discover', href: '/' },
       { name: 'Getting Started', href: '/getting-started' },
-      { name: 'Recent Pools', href: '/' },
     ],
   },
   {

@@ -187,10 +187,10 @@ export function TokenListPanel({ pools, isLoading }: TokenListPanelProps) {
                       token.priceChange24h >= 0 ? 'text-success' : 'text-error'
                     }`}>
                       {token.priceChange24h >= 0 ? '+' : ''}
-                      {token.priceChange24h.toFixed(2)}%
+                      {typeof token.priceChange24h === 'number' ? token.priceChange24h.toFixed(2) : '0.00'}%
                     </div>
                     <div className="text-xs text-gray-400">
-                      ${token.price.toFixed(6)}
+                      ${typeof token.price === 'number' ? token.price.toFixed(6) : '0.000000'}
                     </div>
                   </div>
                 </div>
