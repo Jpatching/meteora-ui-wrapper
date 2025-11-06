@@ -118,40 +118,7 @@ CREATE INDEX IF NOT EXISTS idx_user_txs_status ON user_transactions(status);
 CREATE INDEX IF NOT EXISTS idx_user_txs_created ON user_transactions(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_user_txs_referral ON user_transactions(referral_code) WHERE referral_code IS NOT NULL;
 
--- Pools cache (cached from Jupiter/Meteora APIs)
-CREATE TABLE IF NOT EXISTS pools (
-  id VARCHAR(44) PRIMARY KEY,
-  protocol VARCHAR(20) NOT NULL,
-
-  -- Token info
-  base_mint VARCHAR(44) NOT NULL,
-  quote_mint VARCHAR(44) NOT NULL,
-  base_symbol VARCHAR(20),
-  quote_symbol VARCHAR(20),
-
-  -- Pool metrics
-  liquidity_usd DECIMAL(20, 2),
-  volume_24h DECIMAL(20, 2),
-  volume_7d DECIMAL(20, 2),
-  fees_24h DECIMAL(20, 2),
-  apr DECIMAL(10, 2),
-
-  -- Metadata
-  creator VARCHAR(44),
-  created_at_block BIGINT,
-  metadata JSONB,
-
-  -- Cache control
-  last_updated TIMESTAMP DEFAULT NOW(),
-
-  CONSTRAINT valid_pool_id CHECK (LENGTH(id) BETWEEN 32 AND 44)
-);
-
-CREATE INDEX IF NOT EXISTS idx_pools_protocol ON pools(protocol);
-CREATE INDEX IF NOT EXISTS idx_pools_base ON pools(base_mint);
-CREATE INDEX IF NOT EXISTS idx_pools_quote ON pools(quote_mint);
-CREATE INDEX IF NOT EXISTS idx_pools_volume ON pools(volume_24h DESC NULLS LAST);
-CREATE INDEX IF NOT EXISTS idx_pools_updated ON pools(last_updated DESC);
+-- Note: Pools table is created in 001_create_pools_table.sql
 
 -- User tier progression history
 CREATE TABLE IF NOT EXISTS tier_history (
