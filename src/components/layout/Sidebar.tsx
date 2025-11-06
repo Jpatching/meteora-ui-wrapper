@@ -140,14 +140,14 @@ export function Sidebar() {
   };
 
   return (
-    <aside className={`relative border-r border-border bg-background-secondary/50 backdrop-blur-xl flex flex-col transition-all duration-200 ${isCollapsed ? 'w-20' : 'w-32'}`}>
+    <aside className={`relative border-r border-border bg-background-secondary/50 backdrop-blur-xl flex flex-col transition-all duration-200 ${isCollapsed ? 'w-16' : 'w-28'}`}>
       {/* Logo Section - height matches header */}
       <div className="h-16 border-b border-border flex items-center justify-center">
         <Image
           src="/metatools-logo-alt2.png"
           alt="MetaTools Logo"
-          width={isCollapsed ? 40 : 48}
-          height={isCollapsed ? 40 : 48}
+          width={isCollapsed ? 32 : 40}
+          height={isCollapsed ? 32 : 40}
           className="transition-all duration-200"
         />
       </div>

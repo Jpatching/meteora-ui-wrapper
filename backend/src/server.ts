@@ -9,26 +9,41 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import referralRoutes from './routes/referrals';
 import userRoutes from './routes/users';
 import analyticsRoutes from './routes/analytics';
+import poolsRoutes from './routes/pools';
+import { startCronJobs } from './services/cronService';
+import { syncAllPools } from './services/poolSyncService';
+import { runMigrations } from './migrations';
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
-const PORT = process.env.BACKEND_PORT || 4000;
+// Railway uses PORT env var, fallback to BACKEND_PORT for local dev
+const PORT = process.env.PORT || process.env.BACKEND_PORT || 4000;
 
 // Middleware
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
 // Parse FRONTEND_URL as comma-separated list or use default array
+// Strip trailing slashes to avoid CORS mismatches
 const allowedOrigins = process.env.FRONTEND_URL
-  ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
+  ? process.env.FRONTEND_URL.split(',').map(url => url.trim().replace(/\/$/, ''))
   : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'];
 
-app.use(cors({
+console.log('🌐 CORS allowed origins:', allowedOrigins);
+
+// CORS configuration - allow configured origins
+const corsOptions: cors.CorsOptions = {
   origin: allowedOrigins,
   credentials: true,
-}));
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Content-Length', 'X-Request-Id'],
+  maxAge: 86400, // 24 hours
+};
+
+app.use(cors(corsOptions));
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -74,17 +89,56 @@ app.get('/health', async (req, res) => {
 app.use('/api/referrals', referralRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/pools', poolsRoutes);
 
 // Error handlers (must be last)
 app.use(notFoundHandler);
 app.use(errorHandler);
 
 // Start server
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, async () => {
   console.log('🚀 Backend server running');
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🌐 Port: ${PORT}`);
   console.log(`🔗 Frontend: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+
+  // Run database migrations first
+  try {
+    await runMigrations();
+  } catch (error) {
+    console.error('❌ Failed to run migrations:', error);
+    console.error('⚠️ Server may not function properly');
+  }
+
+  // Start cron jobs for pool syncing
+  startCronJobs();
+
+  // Check if database has pools, if not, trigger initial sync
+  try {
+    const result = await db.query('SELECT COUNT(*) as count FROM pools');
+    const poolCount = parseInt(result.rows[0]?.count || '0');
+
+    if (poolCount === 0) {
+      console.log('🔄 Database is empty - triggering initial pool sync...');
+      console.log('⏳ This will take 30-60 seconds...');
+
+      // Run sync in background so server starts immediately
+      syncAllPools()
+        .then((result) => {
+          console.log('✅ Initial pool sync complete:', result);
+          console.log('🎉 Ready to serve pool data!');
+        })
+        .catch((error) => {
+          console.error('❌ Initial pool sync failed:', error);
+          console.error('💡 You can manually trigger sync via: POST /api/pools/sync');
+        });
+    } else {
+      console.log(`✅ Database has ${poolCount} pools - ready to serve!`);
+    }
+  } catch (error) {
+    console.error('⚠️ Could not check pool count:', error);
+    console.log('💡 You can manually trigger sync via: POST /api/pools/sync');
+  }
 });
 
 // Graceful shutdown

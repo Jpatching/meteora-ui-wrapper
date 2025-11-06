@@ -1,46 +1,43 @@
 /**
  * Component to display pool metadata (binStep, baseFee)
- * Fetches REAL data from Meteora SDK using usePoolMetadata hook
+ * Now receives REAL data directly from Meteora API via pool object
  */
 
 'use client';
 
-import { usePoolMetadata } from '@/lib/hooks/usePoolMetadata';
-
 interface PoolMetadataDisplayProps {
-  poolAddress: string;
-  poolType: string;
+  meteoraData?: {
+    binStep?: number;
+    baseFeePercentage?: string;
+    poolType: 'dlmm' | 'damm-v1' | 'damm-v2';
+  };
 }
 
-export function PoolMetadataDisplay({ poolAddress, poolType }: PoolMetadataDisplayProps) {
-  const { binStep, baseFee, isLoading, error } = usePoolMetadata(poolAddress, poolType);
-
-  if (isLoading) {
-    return <span className="text-[10px] text-foreground-muted/50">Loading...</span>;
-  }
-
-  if (error) {
+export function PoolMetadataDisplay({ meteoraData }: PoolMetadataDisplayProps) {
+  if (!meteoraData) {
     return <span className="text-[10px] text-foreground-muted/50">-</span>;
   }
 
-  // DLMM pools: show binStep and fee
-  if (poolType === 'dlmm' && binStep !== undefined && baseFee !== undefined) {
+  const { binStep, baseFeePercentage, poolType } = meteoraData;
+
+  // Format display based on pool type
+  if (poolType === 'dlmm' && binStep !== undefined && baseFeePercentage !== undefined) {
+    const feePercent = parseFloat(baseFeePercentage);
     return (
       <span className="text-[10px] text-foreground-muted/70">
-        binStep: {binStep} | fee: {(baseFee / 100).toFixed(2)}%
+        binStep: {binStep} | fee: {feePercent.toFixed(2)}%
       </span>
     );
   }
 
-  // DAMM pools: show fee only
-  if (poolType.startsWith('damm') && baseFee !== undefined) {
+  if (baseFeePercentage !== undefined) {
+    const feePercent = parseFloat(baseFeePercentage);
     return (
       <span className="text-[10px] text-foreground-muted/70">
-        fee: {(baseFee / 100).toFixed(2)}%
+        fee: {feePercent.toFixed(2)}%
       </span>
     );
   }
 
-  // No data available
   return <span className="text-[10px] text-foreground-muted/50">-</span>;
 }

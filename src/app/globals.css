@@ -135,6 +135,16 @@ code, pre, .mono, .address, .number {
   background: var(--primary-dark);
 }
 
+/* Hide scrollbar but keep scroll functionality */
+.hide-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
 /* Animations */
 @keyframes shimmer {
   0% {

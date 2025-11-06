@@ -24,7 +24,8 @@ export function LargePoolCard({ pool, isSelected = false, onClick }: LargePoolCa
   const getProtocolBadge = () => {
     if (pool.baseAsset.launchpad === 'met-dbc') return 'DBC';
     if (pool.type === 'dlmm') return 'DLMM';
-    if (pool.type === 'damm' || pool.type === 'damm-v1' || pool.type === 'damm-v2') return 'DAMM';
+    if (pool.type === 'damm-v2') return 'DAMM v2';
+    if (pool.type === 'damm' || pool.type === 'damm-v1') return 'DAMM v1';
     if (pool.type === 'alpha-vault') return 'ALPHA';
     return 'POOL';
   };
