@@ -303,3 +303,4 @@ The API routes should import and call functions from meteora-invent. You may nee
 5. **Validate forms** before submission
 6. **Show transaction links** to Solscan/SolanaFM after success
 7. **Handle errors gracefully** with clear messages
+- don't start docker or npm start for frontedn as i want to have these running in terminal - just give me commands if you must

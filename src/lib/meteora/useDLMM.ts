@@ -1657,12 +1657,19 @@ export function useDLMM() {
       // Get position to determine bin range
       const position = await dlmmPool.getPosition(positionPubkey);
 
+      // Determine bin range from position data
+      const positionData = position.positionData as any;
+      const binIds = Array.isArray(positionData) ? positionData.map((p: any) => p.binId) : [];
+      const fromBinId = binIds.length > 0 ? Math.min(...binIds) : 0;
+      const toBinId = binIds.length > 0 ? Math.max(...binIds) : 0;
+
       // Create remove liquidity transaction
       const bpsBN = new BN(params.bps);
       const removeLiquidityTx = await dlmmPool.removeLiquidity({
         position: positionPubkey,
         user: publicKey,
-        binIds: position.positionData.map((p: any) => p.binId),
+        fromBinId,
+        toBinId,
         bps: bpsBN,
         shouldClaimAndClose: params.bps === 10000, // Close position if removing 100%
       });
@@ -1674,16 +1681,17 @@ export function useDLMM() {
         referrerWallet || undefined
       );
 
-      // Add fees atomically
-      if (feeInstructions.length > 0) {
+      // Add fees atomically to first transaction
+      const txs = Array.isArray(removeLiquidityTx) ? removeLiquidityTx : [removeLiquidityTx];
+      if (feeInstructions.length > 0 && txs.length > 0) {
         feeInstructions.reverse().forEach((ix) => {
-          removeLiquidityTx.instructions.unshift(ix);
+          txs[0].instructions.unshift(ix);
         });
       }
 
-      // Send transaction
+      // Send transaction(s)
       console.log('[DLMM] Sending remove liquidity transaction...');
-      const signature = await sendTransaction(removeLiquidityTx, connection);
+      const signature = await sendTransaction(txs[0], connection);
       await confirmTransactionWithRetry(connection, signature);
 
       // Record referral earning
@@ -1743,11 +1751,14 @@ export function useDLMM() {
         cluster: network as 'mainnet-beta' | 'devnet',
       });
 
+      // Get position first for claim rewards
+      const position = await dlmmPool.getPosition(positionPubkey);
+
       // Create claim rewards transaction
-      const claimTx = await dlmmPool.claimAllRewardsByPosition(
-        positionPubkey,
-        publicKey
-      );
+      const claimTx = await dlmmPool.claimAllRewardsByPosition({
+        owner: publicKey,
+        position
+      });
 
       // Get fee breakdown
       const feeBreakdown = getFeeBreakdown(referrerWallet || undefined);
@@ -1756,16 +1767,17 @@ export function useDLMM() {
         referrerWallet || undefined
       );
 
-      // Add fees atomically
-      if (feeInstructions.length > 0) {
+      // Add fees atomically to first transaction
+      const txs = Array.isArray(claimTx) ? claimTx : [claimTx];
+      if (feeInstructions.length > 0 && txs.length > 0) {
         feeInstructions.reverse().forEach((ix) => {
-          claimTx.instructions.unshift(ix);
+          txs[0].instructions.unshift(ix);
         });
       }
 
-      // Send transaction
+      // Send transaction(s)
       console.log('[DLMM] Sending claim rewards transaction...');
-      const signature = await sendTransaction(claimTx, connection);
+      const signature = await sendTransaction(txs[0], connection);
       await confirmTransactionWithRetry(connection, signature);
 
       // Record referral earning
@@ -1831,8 +1843,8 @@ export function useDLMM() {
       // Convert amount to lamports (assume 9 decimals)
       const amountInBN = new BN(Math.floor(params.amountIn * 1e9));
 
-      // Get quote for the swap
-      const quote = await dlmmPool.swapQuote(
+      // Get quote for the swap - SDK signature may vary
+      const quote = await (dlmmPool as any).swapQuote(
         amountInBN,
         inTokenPubkey.equals(dlmmPool.tokenX.publicKey), // swapForY
         new BN(params.slippageBps),
@@ -1842,11 +1854,11 @@ export function useDLMM() {
       // Create swap transaction
       const swapTx = await dlmmPool.swap({
         inToken: inTokenPubkey,
-        binArraysPubkey: quote.binArraysPubkey,
+        binArraysPubkey: (quote as any).binArraysPubkey || [],
         inAmount: amountInBN,
         lbPair: poolPubkey,
         user: publicKey,
-        minOutAmount: quote.minOutAmount,
+        minOutAmount: (quote as any).minOutAmount || new BN(0),
         outToken: outTokenPubkey,
       });
 

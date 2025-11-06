@@ -11,6 +11,11 @@ export type ActionType =
   | 'dlmm-seed-lfg'
   | 'dlmm-seed-single'
   | 'dlmm-set-status'
+  | 'dlmm-add-liquidity'
+  | 'dlmm-remove-liquidity'
+  | 'dlmm-claim-fees'
+  | 'dlmm-claim-rewards'
+  | 'dlmm-swap'
   // DAMM v1
   | 'damm-v1-create-pool'
   | 'damm-v1-lock-liquidity'

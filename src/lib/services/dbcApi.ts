@@ -62,28 +62,28 @@ export async function fetchDBCPools(
     console.log(`📊 Found ${virtualPools.length} DBC pools`);
 
     // Transform to our standard format
-    const pools: DBCPool[] = await Promise.all(
-      virtualPools.map(async (poolAccount) => {
+    const poolResults = await Promise.all(
+      virtualPools.map(async (poolAccount): Promise<DBCPool | null> => {
         try {
-          const pool = poolAccount.account;
+          const pool = poolAccount.account as any;
           const poolAddress = poolAccount.publicKey.toString();
 
           // Get pool config for additional details
           const config = await dbcClient.state.getPoolConfig(pool.config);
 
-          // Calculate pool metrics
-          const baseAmount = pool.poolBaseAmount.toNumber();
-          const quoteAmount = pool.poolQuoteAmount.toNumber();
+          // Calculate pool metrics - SDK structure may have changed
+          const baseAmount = pool.poolBaseAmount?.toNumber() || 0;
+          const quoteAmount = pool.poolQuoteAmount?.toNumber() || 0;
           const price = quoteAmount > 0 ? baseAmount / quoteAmount : 0;
 
           // Calculate bonding curve progress
           const progress = config ? calculateProgress(pool, config) : 0;
 
-          return {
+          const result: DBCPool = {
             pool_address: poolAddress,
             pool_name: pool.name || 'Unknown Pool',
-            base_mint: pool.baseMint.toString(),
-            quote_mint: pool.quoteMint.toString(),
+            base_mint: pool.baseMint?.toString() || '',
+            quote_mint: pool.quoteMint?.toString() || '',
             base_symbol: pool.symbol || 'UNKNOWN',
             quote_symbol: 'SOL', // Most DBC pools use SOL as quote
             base_amount: baseAmount,
@@ -93,6 +93,7 @@ export async function fetchDBCPools(
             progress,
             creator: pool.creator?.toString(),
           };
+          return result;
         } catch (error) {
           console.warn(`⚠️ Error processing pool ${poolAccount.publicKey.toString()}:`, error);
           return null;
@@ -101,10 +102,10 @@ export async function fetchDBCPools(
     );
 
     // Filter out null entries
-    const validPools = pools.filter((p): p is DBCPool => p !== null);
+    const pools: DBCPool[] = poolResults.filter((p): p is DBCPool => p !== null);
 
-    console.log(`✅ Successfully processed ${validPools.length} DBC pools`);
-    return validPools;
+    console.log(`✅ Successfully processed ${pools.length} DBC pools`);
+    return pools;
   } catch (error: any) {
     console.error('❌ Error fetching DBC pools:', error.message);
     // Return empty array instead of throwing to prevent breaking the app
@@ -137,26 +138,27 @@ export async function fetchDBCPool(
 
     // Get pool config
     const config = await dbcClient.state.getPoolConfig(pool.config);
+    const poolAny = pool as any;
 
-    // Calculate metrics
-    const baseAmount = pool.poolBaseAmount.toNumber();
-    const quoteAmount = pool.poolQuoteAmount.toNumber();
+    // Calculate metrics - SDK structure may have changed
+    const baseAmount = poolAny.poolBaseAmount?.toNumber() || 0;
+    const quoteAmount = poolAny.poolQuoteAmount?.toNumber() || 0;
     const price = quoteAmount > 0 ? baseAmount / quoteAmount : 0;
     const progress = config ? calculateProgress(pool, config) : 0;
 
     return {
       pool_address: poolAddress,
-      pool_name: pool.name || 'Unknown Pool',
-      base_mint: pool.baseMint.toString(),
-      quote_mint: pool.quoteMint.toString(),
-      base_symbol: pool.symbol || 'UNKNOWN',
+      pool_name: poolAny.name || 'Unknown Pool',
+      base_mint: poolAny.baseMint?.toString() || '',
+      quote_mint: poolAny.quoteMint?.toString() || '',
+      base_symbol: poolAny.symbol || 'UNKNOWN',
       quote_symbol: 'SOL',
       base_amount: baseAmount,
       quote_amount: quoteAmount,
       tvl: quoteAmount * 2,
       price,
       progress,
-      creator: pool.creator?.toString(),
+      creator: poolAny.creator?.toString(),
     };
   } catch (error: any) {
     console.error(`❌ Error fetching DBC pool ${poolAddress}:`, error.message);

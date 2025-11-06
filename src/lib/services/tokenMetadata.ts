@@ -58,9 +58,11 @@ async function loadTokenList(): Promise<TokenMetadata[]> {
 
         // Build index map for O(1) lookups
         tokenListMap = new Map();
-        tokenListCache.forEach(token => {
-          tokenListMap!.set(token.address.toLowerCase(), token);
-        });
+        if (tokenListCache) {
+          tokenListCache.forEach(token => {
+            tokenListMap!.set(token.address.toLowerCase(), token);
+          });
+        }
 
         tokenListLoaded = true;
 
@@ -70,7 +72,7 @@ async function loadTokenList(): Promise<TokenMetadata[]> {
           refreshTokenListInBackground();
         }
 
-        return tokenListCache;
+        return tokenListCache || [];
       }
     }
 
@@ -97,9 +99,11 @@ async function loadTokenList(): Promise<TokenMetadata[]> {
 
     // Build index map for O(1) lookups
     tokenListMap = new Map();
-    tokenListCache.forEach(token => {
-      tokenListMap!.set(token.address.toLowerCase(), token);
-    });
+    if (tokenListCache) {
+      tokenListCache.forEach(token => {
+        tokenListMap!.set(token.address.toLowerCase(), token);
+      });
+    }
 
     // Save to localStorage for next time
     try {
@@ -109,10 +113,10 @@ async function loadTokenList(): Promise<TokenMetadata[]> {
       console.warn('Failed to cache token list to localStorage:', e);
     }
 
-    console.log(`✅ Loaded ${tokenListCache.length} tokens from Jupiter`);
+    console.log(`✅ Loaded ${tokenListCache?.length || 0} tokens from Jupiter`);
     tokenListLoaded = true;
 
-    return tokenListCache;
+    return tokenListCache || [];
   } catch (error) {
     console.error('❌ Failed to load token list:', error);
     tokenListLoaded = true;
@@ -122,7 +126,7 @@ async function loadTokenList(): Promise<TokenMetadata[]> {
     if (cachedData) {
       console.log('⚠️ Using stale cache as fallback');
       tokenListCache = JSON.parse(cachedData);
-      return tokenListCache;
+      return tokenListCache || [];
     }
 
     return [];
