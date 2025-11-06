@@ -290,7 +290,7 @@ export function RemoveLiquidityPanel({
       <Button
         onClick={handleRemoveLiquidity}
         disabled={!connected || loading || !selectedPosition}
-        variant="error"
+        variant="danger"
         size="lg"
         loading={loading}
         className="w-full"

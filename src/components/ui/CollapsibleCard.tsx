@@ -27,11 +27,11 @@ export function CollapsibleCard({
 
   return (
     <Card className={className}>
-      <CardHeader
-        className={`cursor-pointer select-none hover:bg-background-secondary/50 transition-colors ${headerClassName}`}
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        <div className="flex items-center justify-between">
+      <CardHeader className={headerClassName}>
+        <div
+          className="flex items-center justify-between cursor-pointer select-none hover:opacity-80 transition-opacity"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
           <CardTitle>{title}</CardTitle>
           <button
             className="text-gray-400 hover:text-white transition-colors"

@@ -54,7 +54,7 @@ export function SmartAIPanel({
   const { activeBin, binsAroundActive, isLoading } = useBinData({
     poolAddress,
     enabled: isDLMM, // Only fetch bin data for DLMM pools
-    refreshInterval: isDLMM ? 5000 : false, // Update every 5 seconds for DLMM only
+    refreshInterval: isDLMM ? 5000 : undefined, // Update every 5 seconds for DLMM only
     binRange: 30,
   });
 

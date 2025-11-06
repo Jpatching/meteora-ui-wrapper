@@ -105,7 +105,8 @@ export class BinDataService {
 
       // Calculate price from bin ID
       const priceDecimal = getPriceOfBinByBinId(binId, binStep);
-      const price = this.dlmmPool!.fromPricePerLamport(priceDecimal);
+      const priceString = this.dlmmPool!.fromPricePerLamport(priceDecimal.toNumber());
+      const price = parseFloat(priceString);
 
       const activeBinInfo: ActiveBinInfo = {
         binId,
@@ -149,7 +150,8 @@ export class BinDataService {
       // Convert BinLiquidity[] to BinData[]
       return bins.map((bin: any) => {
         const priceDecimal = getPriceOfBinByBinId(bin.binId, binStep);
-        const price = this.dlmmPool!.fromPricePerLamport(priceDecimal);
+        const priceString = this.dlmmPool!.fromPricePerLamport(priceDecimal.toNumber());
+        const price = parseFloat(priceString);
 
         return {
           binId: bin.binId,
@@ -183,7 +185,8 @@ export class BinDataService {
       // Convert BinLiquidity[] to BinData[]
       return bins.map((bin: any) => {
         const priceDecimal = getPriceOfBinByBinId(bin.binId, binStep);
-        const price = this.dlmmPool!.fromPricePerLamport(priceDecimal);
+        const priceString = this.dlmmPool!.fromPricePerLamport(priceDecimal.toNumber());
+        const price = parseFloat(priceString);
 
         return {
           binId: bin.binId,
@@ -211,25 +214,27 @@ export class BinDataService {
       await this.dlmmPool!.refetchStates();
 
       const activeBin = this.dlmmPool!.lbPair.activeId;
-      const binArrays = this.dlmmPool!.getBinArrays();
-      const bins: BinData[] = [];
+      const binArrays = await this.dlmmPool!.getBinArrays();
+      const binsResult: BinData[] = [];
 
       // Iterate through all bin arrays
       for (const binArray of binArrays) {
-        for (const bin of binArray.bins) {
+        // BinArrayAccount type doesn't expose bins property, but it exists at runtime
+        const bins = (binArray as any).bins || [];
+        for (const bin of bins) {
           const binId = (bin as any).binId || 0;
 
           // Only include bins in our range
           if (binId >= minBinId && binId <= maxBinId) {
             const binStep = this.dlmmPool!.lbPair.binStep;
-            const price = this.dlmmPool!.fromPricePerLamport(
-              getPriceOfBinByBinId(binId, binStep)
-            );
+            const priceDecimal = getPriceOfBinByBinId(binId, binStep);
+            const priceString = this.dlmmPool!.fromPricePerLamport(priceDecimal.toNumber());
+            const price = parseFloat(priceString);
 
             const liquidityX = Number((bin as any).amountX || 0) / 1e9;
             const liquidityY = Number((bin as any).amountY || 0) / 1e9;
 
-            bins.push({
+            binsResult.push({
               binId,
               price,
               pricePerToken: price,
@@ -243,9 +248,9 @@ export class BinDataService {
       }
 
       // Sort by bin ID
-      bins.sort((a, b) => a.binId - b.binId);
+      binsResult.sort((a, b) => a.binId - b.binId);
 
-      return bins;
+      return binsResult;
     } catch (error) {
       console.error('[BinDataService] Error getting bins between range:', error);
       throw error;
@@ -271,7 +276,9 @@ export class BinDataService {
       let unclaimedFeesX = 0;
       let unclaimedFeesY = 0;
 
-      for (const posData of position.positionData) {
+      // Position data may not be iterable, cast to any for SDK compatibility
+      const positionData = position.positionData as any;
+      for (const posData of Array.isArray(positionData) ? positionData : []) {
         const binId = (posData as any).binId || 0;
         minBinId = Math.min(minBinId, binId);
         maxBinId = Math.max(maxBinId, binId);
@@ -284,12 +291,10 @@ export class BinDataService {
 
       // Calculate price range
       const binStep = this.dlmmPool!.lbPair.binStep;
-      const minPrice = this.dlmmPool!.fromPricePerLamport(
-        getPriceOfBinByBinId(minBinId, binStep)
-      );
-      const maxPrice = this.dlmmPool!.fromPricePerLamport(
-        getPriceOfBinByBinId(maxBinId, binStep)
-      );
+      const minPriceDecimal = getPriceOfBinByBinId(minBinId, binStep);
+      const maxPriceDecimal = getPriceOfBinByBinId(maxBinId, binStep);
+      const minPriceStr = this.dlmmPool!.fromPricePerLamport(minPriceDecimal.toNumber());
+      const maxPriceStr = this.dlmmPool!.fromPricePerLamport(maxPriceDecimal.toNumber());
 
       // Get bin data for visualization
       const bins = await this.getBinsBetweenRange(minBinId, maxBinId);
@@ -298,8 +303,8 @@ export class BinDataService {
         positionKey: positionAddress,
         minBinId,
         maxBinId,
-        minPrice,
-        maxPrice,
+        minPrice: parseFloat(minPriceStr),
+        maxPrice: parseFloat(maxPriceStr),
         bins,
         totalLiquidityX,
         totalLiquidityY,

@@ -301,7 +301,7 @@ export function ClaimFeesPanel({
       <Button
         onClick={handleClaimSelected}
         disabled={!connected || loading || selectedPositions.size === 0}
-        variant="success"
+        variant="primary"
         size="lg"
         loading={loading}
         className="w-full"
