@@ -85,8 +85,25 @@ export default function PoolPage({ params }: PoolPageProps) {
 
         {/* Right Sidebar - Trading + AI */}
         <div className="col-span-12 lg:col-span-3 space-y-6">
-          <PoolActionsPanel pool={pool} />
-          <SmartAIPanel pool={pool} />
+          <PoolActionsPanel
+            poolAddress={pool.id}
+            tokenXMint={pool.baseAsset.id}
+            tokenYMint={pool.quoteAsset?.id || ''}
+            tokenXSymbol={pool.baseAsset.symbol}
+            tokenYSymbol={pool.quoteAsset?.symbol || 'USDC'}
+            currentPrice={pool.baseAsset.usdPrice || 0}
+            binStep={(pool as any).binStep || 0}
+            baseFee={(pool as any).baseFee || 0}
+            poolType={pool.type}
+          />
+          <SmartAIPanel
+            poolAddress={pool.id}
+            poolType={pool.type}
+            currentPrice={pool.baseAsset.usdPrice || 0}
+            binStep={(pool as any).binStep || 0}
+            volume24h={pool.volume24h || 0}
+            liquidity={pool.baseAsset.liquidity || 0}
+          />
           <AIAssistantPanel pool={pool} />
           <LiquidityPlanner pool={pool} />
         </div>

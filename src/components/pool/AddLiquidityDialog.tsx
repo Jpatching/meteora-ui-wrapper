@@ -60,10 +60,10 @@ export function AddLiquidityDialog({ pool, isOpen, onClose }: AddLiquidityDialog
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          poolAddress: pool.address,
+          poolAddress: pool.id,
           walletAddress: publicKey.toBase58(),
           tokenAAmount: formData.tokenAAmount ? parseFloat(formData.tokenAAmount) * (10 ** (pool.baseAsset.decimals || 9)) : 0,
-          tokenBAmount: formData.tokenBAmount ? parseFloat(formData.tokenBAmount) * (10 ** (pool.quoteAsset?.decimals || 9)) : 0,
+          tokenBAmount: formData.tokenBAmount ? parseFloat(formData.tokenBAmount) * (10 ** 9) : 0, // Default to 9 decimals for quote asset
           strategy: formData.strategy,
           network: 'mainnet-beta', // TODO: Use network from context
         }),
@@ -144,15 +144,15 @@ export function AddLiquidityDialog({ pool, isOpen, onClose }: AddLiquidityDialog
               <div className="bg-surface-light rounded-lg p-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-text-secondary">Pool Address:</span>
-                  <code className="text-primary">{pool.address.slice(0, 8)}...{pool.address.slice(-8)}</code>
+                  <code className="text-primary">{pool.id.slice(0, 8)}...{pool.id.slice(-8)}</code>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-text-secondary">Current Price:</span>
-                  <span className="text-white">${pool.price?.toFixed(6) || 'N/A'}</span>
+                  <span className="text-white">${pool.baseAsset.usdPrice?.toFixed(6) || 'N/A'}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-text-secondary">TVL:</span>
-                  <span className="text-white">${pool.tvl?.toLocaleString() || 'N/A'}</span>
+                  <span className="text-white">${pool.baseAsset.liquidity?.toLocaleString() || 'N/A'}</span>
                 </div>
               </div>
 

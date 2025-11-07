@@ -187,6 +187,14 @@ function transformBackendPoolToPool(
     ? parseFloat((backendPool as BackendDLMMPool).liquidity)
     : (backendPool as BackendDAMMPool).tvl;
 
+  const binStep = isDLMM
+    ? (backendPool as BackendDLMMPool).bin_step
+    : 0;
+
+  const baseFee = isDLMM
+    ? parseFloat((backendPool as BackendDLMMPool).base_fee_percentage || '0')
+    : (backendPool as BackendDAMMPool).base_fee;
+
   // Build the Pool object
   return {
     id: address,
@@ -228,17 +236,18 @@ function transformBackendPoolToPool(
       stats6h: undefined,
       stats24h: volume24h ? {
         priceChange: undefined,
-        volume: volume24h,
-        txs: undefined,
-        buys: undefined,
-        sells: undefined,
-        traders: undefined,
-        numNetBuyers: undefined,
-        netVolume: undefined,
+        volumeChange: undefined,
+        liquidityChange: undefined,
         holderChange: undefined,
+        buyVolume: volume24h / 2, // Approximate split
+        sellVolume: volume24h / 2,
+        buyOrganicVolume: undefined,
+        sellOrganicVolume: undefined,
+        numBuys: undefined,
+        numSells: undefined,
+        numTraders: undefined,
         numOrganicBuyers: undefined,
-        organicVolume: undefined,
-        netOrganicVolume: undefined,
+        numNetBuyers: undefined,
       } : undefined,
       audit: undefined, // Not available from backend
       organicScore: undefined,
@@ -257,6 +266,12 @@ function transformBackendPoolToPool(
     },
 
     streamed: false,
+
+    // Add custom metadata (not in Pool type but needed by components)
+    // @ts-ignore - Adding custom properties for component use
+    binStep,
+    // @ts-ignore
+    baseFee,
   };
 }
 
