@@ -10,10 +10,16 @@
     "migrate": "node dist/migrations/run.js",
     "lint": "eslint src --ext .ts"
   },
+  "overrides": {
+    "@solana/web3.js": "^1.98.4"
+  },
   "dependencies": {
+    "@meteora-ag/dlmm": "^1.8.0",
     "@meteora-ag/dynamic-amm-sdk": "^1.4.1",
     "@meteora-ag/dynamic-bonding-curve-sdk": "^1.4.5",
+    "@solana/spl-token": "^0.4.14",
     "@solana/web3.js": "^1.98.4",
+    "bn.js": "^5.2.2",
     "compression": "^1.7.4",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

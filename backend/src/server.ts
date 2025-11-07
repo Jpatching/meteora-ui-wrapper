@@ -11,6 +11,7 @@ import userRoutes from './routes/users';
 import analyticsRoutes from './routes/analytics';
 import poolsRoutes from './routes/pools';
 import tokensRoutes from './routes/tokens';
+import positionsRoutes from './routes/positions';
 import { startCronJobs } from './services/cronService';
 import { syncAllPools } from './services/poolSyncService';
 import { runMigrations } from './migrations';
@@ -92,6 +93,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/pools', poolsRoutes);
 app.use('/api/tokens', tokensRoutes);
+app.use('/api/positions', positionsRoutes);
 
 // Error handlers (must be last)
 app.use(notFoundHandler);
