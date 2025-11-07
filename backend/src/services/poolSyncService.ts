@@ -152,18 +152,20 @@ async function fetchAllDBCPools(): Promise<DBCPool[]> {
  * NOW WITH TOKEN METADATA ENRICHMENT from Jupiter API!
  */
 async function upsertDLMMPool(pool: DLMMPool): Promise<void> {
-  // Fetch token metadata from Jupiter API (30k+ tokens)
+  // Parse pool name for fallback
+  const nameParts = (pool.name || '').split('-');
+
+  // Fetch token metadata from Jupiter API (for enrichment only)
   const [tokenAMetadata, tokenBMetadata] = await Promise.all([
     getTokenMetadata(pool.mint_x),
     getTokenMetadata(pool.mint_y),
   ]);
 
-  // Use symbols from Jupiter API (priority 1)
-  // Fallback to parsing pool name (priority 2)
-  // Fallback to empty string (priority 3)
-  const nameParts = (pool.name || '').split('-');
-  const token_a_symbol = tokenAMetadata?.symbol || nameParts[0]?.trim() || '';
-  const token_b_symbol = tokenBMetadata?.symbol || nameParts[1]?.trim() || '';
+  // Priority 1: Pool name parsing (Meteora's own data is most reliable)
+  // Priority 2: Jupiter API enrichment
+  // Priority 3: 'UNKNOWN' (for proper identification)
+  const token_a_symbol = nameParts[0]?.trim() || tokenAMetadata?.symbol || 'UNKNOWN';
+  const token_b_symbol = nameParts[1]?.trim() || tokenBMetadata?.symbol || 'UNKNOWN';
 
   const metadata = {
     bin_step: pool.bin_step,
@@ -214,19 +216,21 @@ async function upsertDLMMPool(pool: DLMMPool): Promise<void> {
  * NOW WITH TOKEN METADATA ENRICHMENT from Jupiter API!
  */
 async function upsertDAMMPool(pool: DAMMPool): Promise<void> {
-  // Fetch token metadata from Jupiter API (30k+ tokens)
+  // Parse pool name for fallback
+  const nameParts = (pool.pool_name || '').split('-');
+
+  // Fetch token metadata from Jupiter API (for enrichment only)
   const [tokenAMetadata, tokenBMetadata] = await Promise.all([
     getTokenMetadata(pool.token_a_mint),
     getTokenMetadata(pool.token_b_mint),
   ]);
 
-  // Use symbols from Jupiter API (priority 1)
-  // Fallback to Meteora API symbols (priority 2)
-  // Fallback to parsing pool name (priority 3)
-  // Fallback to empty string (priority 4)
-  const nameParts = (pool.pool_name || '').split('-');
-  const token_a_symbol = tokenAMetadata?.symbol || pool.token_a_symbol || nameParts[0]?.trim() || '';
-  const token_b_symbol = tokenBMetadata?.symbol || pool.token_b_symbol || nameParts[1]?.trim() || '';
+  // Priority 1: Meteora API symbols (official source)
+  // Priority 2: Pool name parsing
+  // Priority 3: Jupiter API enrichment
+  // Priority 4: 'UNKNOWN' (for proper identification)
+  const token_a_symbol = pool.token_a_symbol || nameParts[0]?.trim() || tokenAMetadata?.symbol || 'UNKNOWN';
+  const token_b_symbol = pool.token_b_symbol || nameParts[1]?.trim() || tokenBMetadata?.symbol || 'UNKNOWN';
 
   // Use API's TVL if available (when sorted by TVL, API returns correct values)
   // Otherwise calculate from token amounts as fallback
