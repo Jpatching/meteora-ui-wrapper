@@ -86,7 +86,7 @@ async function fetchFromJupiter(address: string): Promise<TokenMetadata | null> 
       return null;
     }
 
-    const tokens = await response.json();
+    const tokens = await response.json() as any[];
 
     // Search returns array - find exact match
     const token = tokens.find((t: any) => t.id === address);
@@ -136,7 +136,7 @@ async function fetchFromSolanaFM(address: string): Promise<TokenMetadata | null>
       return null;
     }
 
-    const data = await response.json();
+    const data = await response.json() as any;
 
     // Extract metadata from response
     const symbol = data.tokenList?.symbol || data.tokenMetadata?.onChainInfo?.symbol || null;
