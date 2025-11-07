@@ -6,6 +6,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { Pool } from '@/lib/jupiter/types';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
@@ -138,6 +139,128 @@ function transformDBPoolToDAMM(pool: DBPool): BackendDAMMPool {
 }
 
 /**
+ * Transform backend pool types to full Pool type
+ * Converts BackendDLMMPool or BackendDAMMPool to complete Pool interface
+ * Missing properties (social links, audit) are set to undefined
+ */
+function transformBackendPoolToPool(
+  backendPool: BackendDLMMPool | BackendDAMMPool,
+  protocol: 'dlmm' | 'damm-v2'
+): Pool {
+  // Determine if this is a DLMM pool
+  const isDLMM = protocol === 'dlmm';
+
+  // Extract common properties
+  const address = isDLMM
+    ? (backendPool as BackendDLMMPool).address
+    : (backendPool as BackendDAMMPool).pool_address;
+
+  const name = isDLMM
+    ? (backendPool as BackendDLMMPool).name
+    : (backendPool as BackendDAMMPool).pool_name;
+
+  const tokenXMint = isDLMM
+    ? (backendPool as BackendDLMMPool).mint_x
+    : (backendPool as BackendDAMMPool).token_a_mint;
+
+  const tokenYMint = isDLMM
+    ? (backendPool as BackendDLMMPool).mint_y
+    : (backendPool as BackendDAMMPool).token_b_mint;
+
+  const tokenXSymbol = isDLMM
+    ? (backendPool as BackendDLMMPool).token_a_symbol
+    : (backendPool as BackendDAMMPool).token_a_symbol;
+
+  const tokenYSymbol = isDLMM
+    ? (backendPool as BackendDLMMPool).token_b_symbol
+    : (backendPool as BackendDAMMPool).token_b_symbol;
+
+  const volume24h = isDLMM
+    ? (backendPool as BackendDLMMPool).trade_volume_24h
+    : (backendPool as BackendDAMMPool).volume24h;
+
+  const currentPrice = isDLMM
+    ? (backendPool as BackendDLMMPool).current_price
+    : undefined;
+
+  const liquidity = isDLMM
+    ? parseFloat((backendPool as BackendDLMMPool).liquidity)
+    : (backendPool as BackendDAMMPool).tvl;
+
+  // Build the Pool object
+  return {
+    id: address,
+    chain: 'solana',
+    dex: 'meteora',
+    type: protocol,
+    createdAt: new Date().toISOString(), // Use current time as we don't have creation date
+    bondingCurve: undefined,
+    volume24h: volume24h || undefined,
+    isUnreliable: false,
+    updatedAt: new Date().toISOString(),
+
+    // Build baseAsset object
+    baseAsset: {
+      id: tokenXMint,
+      name: tokenXSymbol || 'Unknown Token',
+      symbol: tokenXSymbol || 'UNKNOWN',
+      icon: undefined, // Will be enriched by frontend token metadata service
+      decimals: 9, // Default to 9 decimals (SPL standard)
+      twitter: undefined, // Not available from backend
+      telegram: undefined, // Not available from backend
+      website: undefined, // Not available from backend
+      dev: undefined,
+      circSupply: undefined,
+      totalSupply: undefined,
+      tokenProgram: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+      launchpad: undefined,
+      graduatedAt: undefined,
+      graduatedPool: undefined,
+      firstPool: undefined,
+      holderCount: undefined,
+      fdv: undefined,
+      mcap: undefined,
+      usdPrice: currentPrice, // DLMM has current price
+      priceBlockId: undefined,
+      liquidity: liquidity || undefined,
+      stats5m: undefined,
+      stats1h: undefined,
+      stats6h: undefined,
+      stats24h: volume24h ? {
+        priceChange: undefined,
+        volume: volume24h,
+        txs: undefined,
+        buys: undefined,
+        sells: undefined,
+        traders: undefined,
+        numNetBuyers: undefined,
+        netVolume: undefined,
+        holderChange: undefined,
+        numOrganicBuyers: undefined,
+        organicVolume: undefined,
+        netOrganicVolume: undefined,
+      } : undefined,
+      audit: undefined, // Not available from backend
+      organicScore: undefined,
+      organicScoreLabel: 'medium', // Default
+      isVerified: false, // Default to false
+      ctLikes: undefined,
+      smartCtLikes: undefined,
+    },
+
+    // Build quoteAsset object (pair token)
+    quoteAsset: {
+      id: tokenYMint,
+      symbol: tokenYSymbol || 'UNKNOWN',
+      name: tokenYSymbol || 'Unknown Token',
+      icon: undefined, // Will be enriched by frontend
+    },
+
+    streamed: false,
+  };
+}
+
+/**
  * Fetch DLMM pools from backend DATABASE (cached in Redis for 5 min)
  * Queries PostgreSQL with 100k+ pools stored
  * 10-100x faster than fetching from Meteora API directly
@@ -228,14 +351,23 @@ export function useBackendPool(address: string | null) {
       console.log(`✅ Found pool ${address} (${dbPool.protocol}, cached: ${result.cached})`);
 
       // Transform based on protocol
+      let backendPool: BackendDLMMPool | BackendDAMMPool;
+      let protocol: 'dlmm' | 'damm-v2';
+
       if (dbPool.protocol === 'dlmm') {
-        return transformDBPoolToDLMM(dbPool);
+        backendPool = transformDBPoolToDLMM(dbPool);
+        protocol = 'dlmm';
       } else if (dbPool.protocol === 'damm-v2') {
-        return transformDBPoolToDAMM(dbPool);
+        backendPool = transformDBPoolToDAMM(dbPool);
+        protocol = 'damm-v2';
       } else {
         // Generic transformation for other protocols
-        return transformDBPoolToDAMM(dbPool);
+        backendPool = transformDBPoolToDAMM(dbPool);
+        protocol = 'damm-v2';
       }
+
+      // Transform to full Pool type for component compatibility
+      return transformBackendPoolToPool(backendPool, protocol);
     },
     enabled: !!address,
     staleTime: 5 * 60 * 1000, // 5 minutes
