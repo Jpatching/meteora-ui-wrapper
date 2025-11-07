@@ -149,18 +149,39 @@ export function PoolTable({ pools, onPoolClick, sortBy, onSortChange }: PoolTabl
                           src={pool.baseAsset.icon}
                           alt={pool.baseAsset.symbol}
                           className="w-8 h-8 rounded-full border-2 border-background"
+                          onError={(e) => {
+                            // Fallback to placeholder if image fails to load
+                            e.currentTarget.style.display = 'none';
+                            const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div
+                        className="w-8 h-8 rounded-full border-2 border-background bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-[10px] font-bold"
+                        style={{ display: pool.baseAsset.icon ? 'none' : 'flex' }}
+                      >
+                        {pool.baseAsset.symbol.charAt(0)}
+                      </div>
+
+                      {/* Quote Token Icon - use enriched data if available */}
+                      {pool.quoteAsset?.icon ? (
+                        <img
+                          src={pool.quoteAsset.icon}
+                          alt={pool.quoteAsset.symbol || quoteToken.symbol}
+                          className="w-8 h-8 rounded-full border-2 border-background"
+                          onError={(e) => {
+                            // Fallback to default quote token logo
+                            e.currentTarget.src = quoteToken.logo;
+                          }}
                         />
                       ) : (
-                        <div className="w-8 h-8 rounded-full border-2 border-background bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-[10px] font-bold">
-                          {pool.baseAsset.symbol.charAt(0)}
-                        </div>
+                        <img
+                          src={quoteToken.logo}
+                          alt={quoteToken.symbol}
+                          className="w-8 h-8 rounded-full border-2 border-background bg-background"
+                        />
                       )}
-                      {/* Base Pair Icon (SOL/USDC/etc) */}
-                      <img
-                        src={quoteToken.logo}
-                        alt={quoteToken.symbol}
-                        className="w-8 h-8 rounded-full border-2 border-background bg-background"
-                      />
                     </div>
 
                     {/* Pool Info */}
@@ -170,7 +191,7 @@ export function PoolTable({ pools, onPoolClick, sortBy, onSortChange }: PoolTabl
                           {protocol.label}
                         </span>
                         <span className="font-semibold text-[13px] text-foreground/90 truncate">
-                          {pool.baseAsset.symbol}-{quoteToken.symbol}
+                          {pool.baseAsset.symbol}-{pool.quoteAsset?.symbol || quoteToken.symbol}
                         </span>
                       </div>
                       <div>

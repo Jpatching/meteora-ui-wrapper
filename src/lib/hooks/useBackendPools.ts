@@ -54,6 +54,9 @@ export interface BackendDLMMPool {
   apr: number;
   apy: number;
   fees_24h: number;
+  // Token symbols (extracted from name or database)
+  token_a_symbol?: string;
+  token_b_symbol?: string;
 }
 
 export interface BackendDAMMPool {
@@ -80,6 +83,16 @@ function transformDBPoolToDLMM(pool: DBPool): BackendDLMMPool {
   const apr = typeof pool.apr === 'string' ? parseFloat(pool.apr) : pool.apr;
   const fees24h = typeof pool.fees_24h === 'string' ? parseFloat(pool.fees_24h) : pool.fees_24h;
 
+  // Extract token symbols from database OR pool name (e.g., "SOL-USDC" -> ["SOL", "USDC"])
+  let token_a_symbol = pool.token_a_symbol;
+  let token_b_symbol = pool.token_b_symbol;
+
+  if (!token_a_symbol || !token_b_symbol) {
+    const nameParts = (pool.pool_name || '').split('-');
+    token_a_symbol = token_a_symbol || nameParts[0]?.trim() || '';
+    token_b_symbol = token_b_symbol || nameParts[1]?.trim() || '';
+  }
+
   return {
     address: pool.pool_address,
     name: pool.pool_name,
@@ -95,6 +108,8 @@ function transformDBPoolToDLMM(pool: DBPool): BackendDLMMPool {
     apr: apr,
     apy: apr, // Use APR as APY for now
     fees_24h: fees24h,
+    token_a_symbol,
+    token_b_symbol,
   };
 }
 
@@ -182,5 +197,49 @@ export function useBackendDAMMPools() {
     gcTime: 10 * 60 * 1000, // 10 minutes
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
+  });
+}
+
+/**
+ * Fetch a single pool by address (any protocol)
+ * Used by pool detail pages
+ */
+export function useBackendPool(address: string | null) {
+  return useQuery({
+    queryKey: ['backend-pool', address],
+    queryFn: async () => {
+      if (!address) return null;
+
+      console.log(`🔍 Fetching pool ${address} from backend...`);
+
+      const response = await fetch(`${BACKEND_URL}/api/pools/${address}`);
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.warn(`⚠️ Pool ${address} not found in database`);
+          return null;
+        }
+        throw new Error(`Backend API error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      const dbPool = result.data as DBPool;
+
+      console.log(`✅ Found pool ${address} (${dbPool.protocol}, cached: ${result.cached})`);
+
+      // Transform based on protocol
+      if (dbPool.protocol === 'dlmm') {
+        return transformDBPoolToDLMM(dbPool);
+      } else if (dbPool.protocol === 'damm-v2') {
+        return transformDBPoolToDAMM(dbPool);
+      } else {
+        // Generic transformation for other protocols
+        return transformDBPoolToDAMM(dbPool);
+      }
+    },
+    enabled: !!address,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    retry: 1,
   });
 }

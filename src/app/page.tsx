@@ -15,8 +15,9 @@ import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { useAllPublicPools } from '@/lib/hooks/usePublicPools';
 import { useBackendDLMMPools, useBackendDAMMPools } from '@/lib/hooks/useBackendPools';
 import { Pool } from '@/lib/jupiter/types';
+import { enrichPoolsWithMetadata } from '@/lib/services/tokenMetadata';
 
-type ProtocolFilter = 'all' | 'dlmm' | 'damm-v1' | 'damm-v2' | 'dbc' | 'alpha';
+type ProtocolFilter = 'all' | 'dlmm' | 'damm-v2';
 type TokenSortOption = 'volume' | 'liquidity' | 'holders' | 'txs' | 'marketCap';
 type PoolSortOption = 'volume' | 'liquidity';
 type ViewMode = 'token' | 'pair';
@@ -35,6 +36,8 @@ export default function DiscoverPage() {
   const [maxLiquidity, setMaxLiquidity] = useState<string>('');
   const [minMarketCap, setMinMarketCap] = useState<string>('');
   const [maxMarketCap, setMaxMarketCap] = useState<string>('');
+  const [enrichedPools, setEnrichedPools] = useState<Pool[]>([]);
+  const [isEnriching, setIsEnriching] = useState(false);
 
   // Fetch Jupiter pools for TOKEN aggregation (LEFT SIDE)
   const { data: jupiterData, isLoading: isLoadingJupiter, error: jupiterError } = useAllPublicPools({
@@ -62,11 +65,23 @@ export default function DiscoverPage() {
 
   // Transform and combine Meteora pools for POOL view (RIGHT SIDE)
   const meteoraPools = useMemo(() => {
+    // Debug: Log first pool to verify data structure
+    if (dlmmPools.length > 0) {
+      console.log('🔍 First DLMM pool data:', {
+        name: dlmmPools[0].name,
+        token_a_symbol: dlmmPools[0].token_a_symbol,
+        token_b_symbol: dlmmPools[0].token_b_symbol,
+        address: dlmmPools[0].address,
+      });
+    }
+
     // Transform DLMM pools to Pool format
     const dlmmTransformed = dlmmPools.map((pool: any) => {
-      const nameParts = pool.name.split('-');
-      const baseSymbol = nameParts[0] || 'UNKNOWN';
-      const quoteSymbol = nameParts[1] || 'SOL';
+      // Use symbols from pool data (added by transform function)
+      // Fallback to parsing pool name if symbols are still missing
+      // CRITICAL FIX: Backend returns field named "name" not "pool_name"
+      const baseSymbol = pool.token_a_symbol || pool.name?.split('-')[0]?.trim() || 'UNKNOWN';
+      const quoteSymbol = pool.token_b_symbol || pool.name?.split('-')[1]?.trim() || 'SOL';
 
       return {
         id: pool.address,
@@ -75,20 +90,24 @@ export default function DiscoverPage() {
         type: 'dlmm',
         createdAt: new Date().toISOString(),
         bondingCurve: undefined,
-        volume24h: pool.trade_volume_24h,
+        volume24h: pool.trade_volume_24h || 0,
         isUnreliable: false,
         updatedAt: new Date().toISOString(),
-        price: pool.current_price,
+        price: pool.current_price || 0,
         baseAsset: {
           id: pool.mint_x,
-          name: baseSymbol,
+          name: baseSymbol, // Use symbol as name since API doesn't provide full names
           symbol: baseSymbol,
-          liquidity: parseFloat(pool.liquidity),
+          decimals: 0, // Will be fetched from token metadata service
+          tokenProgram: '', // Will be fetched from token metadata service
+          organicScoreLabel: 'medium' as const,
+          liquidity: parseFloat(pool.liquidity || '0'),
           stats24h: {},
         },
         quoteAsset: {
           id: pool.mint_y,
           symbol: quoteSymbol,
+          name: quoteSymbol,
         },
         meteoraData: {
           binStep: pool.bin_step,
@@ -98,34 +117,57 @@ export default function DiscoverPage() {
       };
     });
 
+    // Debug: Log first DAMM pool to verify data structure
+    if (dammPools.length > 0) {
+      console.log('🔍 First DAMM pool data:', {
+        pool_name: dammPools[0].pool_name,
+        token_a_symbol: dammPools[0].token_a_symbol,
+        token_b_symbol: dammPools[0].token_b_symbol,
+        pool_address: dammPools[0].pool_address,
+      });
+    }
+
     // Transform DAMM pools to Pool format
-    const dammTransformed = dammPools.map((pool: any) => ({
-      id: pool.pool_address,
-      chain: 'solana',
-      dex: 'Meteora',
-      type: 'damm-v2',
-      createdAt: new Date().toISOString(),
-      bondingCurve: undefined,
-      volume24h: pool.volume24h || 0,
-      isUnreliable: false,
-      updatedAt: new Date().toISOString(),
-      price: 0,
-      baseAsset: {
-        id: pool.token_a_mint,
-        name: pool.token_a_symbol,
-        symbol: pool.token_a_symbol,
-        liquidity: pool.tvl || 0,
-        stats24h: {},
-      },
-      quoteAsset: {
-        id: pool.token_b_mint,
-        symbol: pool.token_b_symbol,
-      },
-      meteoraData: {
-        baseFeePercentage: (pool.base_fee || 0.25).toString(),
-        poolType: 'damm-v2' as const,
-      }
-    }));
+    const dammTransformed = dammPools.map((pool: any) => {
+      // DAMM v2 API provides token_a_symbol and token_b_symbol directly
+      const baseSymbol = pool.token_a_symbol || 'UNKNOWN';
+      const quoteSymbol = pool.token_b_symbol || 'UNKNOWN';
+
+      const transformed = {
+        id: pool.pool_address,
+        chain: 'solana',
+        dex: 'Meteora',
+        type: 'damm-v2',
+        createdAt: new Date().toISOString(),
+        bondingCurve: undefined,
+        volume24h: parseFloat(pool.volume24h || pool.volume_24h || '0'),
+        isUnreliable: false,
+        updatedAt: new Date().toISOString(),
+        price: parseFloat(pool.pool_price || '0'),
+        baseAsset: {
+          id: pool.token_a_mint,
+          name: baseSymbol, // Use symbol as name since API doesn't provide full names
+          symbol: baseSymbol,
+          decimals: 0, // Will be fetched from token metadata service
+          tokenProgram: '', // Will be fetched from token metadata service
+          organicScoreLabel: 'medium' as const,
+          liquidity: parseFloat(pool.tvl || '0'),
+          stats24h: {},
+          icon: undefined, // Will be fetched from token metadata service
+        },
+        quoteAsset: {
+          id: pool.token_b_mint,
+          symbol: quoteSymbol,
+          name: quoteSymbol,
+        },
+        meteoraData: {
+          baseFeePercentage: ((pool.base_fee || 0.25).toString()),
+          poolType: 'damm-v2' as const,
+        }
+      };
+
+      return transformed;
+    });
 
     // Combine all Meteora pools
     const combined = [...dlmmTransformed, ...dammTransformed];
@@ -141,6 +183,51 @@ export default function DiscoverPage() {
     console.log(`📊 Showing top 100 pools out of ${combined.length} total`);
     return top100;
   }, [dlmmPools, dammPools]);
+
+  // Enrich pools with token metadata (logos only - symbols come from API)
+  useEffect(() => {
+    // Skip if no pools or already enriching
+    if (meteoraPools.length === 0 || isEnriching) return;
+
+    // Only enrich once per pool set (use pool IDs as stable key)
+    const poolIds = meteoraPools.map(p => p.id).join(',');
+
+    console.log(`🔍 Starting enrichment for ${meteoraPools.length} pools...`);
+    setIsEnriching(true);
+
+    enrichPoolsWithMetadata(meteoraPools)
+      .then(enriched => {
+        console.log(`✅ Enriched ${enriched.length} pools with token metadata`);
+
+        // Debug: Check first enriched pool
+        if (enriched.length > 0) {
+          console.log('📊 Sample enriched pool:', {
+            id: enriched[0].id,
+            baseAsset: {
+              symbol: enriched[0].baseAsset.symbol,
+              icon: enriched[0].baseAsset.icon,
+              name: enriched[0].baseAsset.name,
+            },
+            quoteAsset: enriched[0].quoteAsset ? {
+              symbol: enriched[0].quoteAsset.symbol,
+              icon: enriched[0].quoteAsset.icon,
+            } : null,
+          });
+        }
+
+        setEnrichedPools(enriched);
+        setIsEnriching(false);
+      })
+      .catch(error => {
+        console.error('❌ Failed to enrich pools:', error);
+        setEnrichedPools(meteoraPools); // Fallback to unenriched
+        setIsEnriching(false);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meteoraPools.length, dlmmPools.length, dammPools.length]); // Stable dependencies
+
+  // Use enriched pools if available, otherwise use raw pools
+  const displayPools = enrichedPools.length > 0 ? enrichedPools : meteoraPools;
 
   // No need to fetch pool details separately - Meteora API provides them!
 
@@ -182,16 +269,13 @@ export default function DiscoverPage() {
 
   // Apply filters and sorting to Meteora pools (RIGHT SIDE)
   const filteredPools = useMemo(() => {
-    let filtered = meteoraPools;
+    let filtered = displayPools;
 
     // Protocol filter
     if (protocolFilter !== 'all') {
       filtered = filtered.filter((pool) => {
-        if (protocolFilter === 'dbc') return false; // DBC pools not yet implemented
         if (protocolFilter === 'dlmm') return pool.type === 'dlmm';
-        if (protocolFilter === 'damm-v1') return pool.type === 'damm-v1' || pool.type === 'damm';
         if (protocolFilter === 'damm-v2') return pool.type === 'damm-v2';
-        if (protocolFilter === 'alpha') return pool.type === 'alpha-vault';
         return true;
       });
     }
@@ -204,7 +288,7 @@ export default function DiscoverPage() {
     });
 
     return filtered;
-  }, [meteoraPools, protocolFilter, poolSortBy]);
+  }, [displayPools, protocolFilter, poolSortBy]);
 
   // Apply filters and sorting to tokens
   const filteredTokens = useMemo(() => {
@@ -420,7 +504,7 @@ export default function DiscoverPage() {
                   <div className="flex flex-col gap-2">
                     {/* Protocol Filters Row */}
                     <div className="flex items-center gap-1">
-                      {(['all', 'dlmm', 'damm-v1', 'damm-v2', 'dbc', 'alpha'] as ProtocolFilter[]).map((filter) => (
+                      {(['all', 'dlmm', 'damm-v2'] as ProtocolFilter[]).map((filter) => (
                         <button
                           key={filter}
                           onClick={() => setProtocolFilter(filter)}
@@ -430,7 +514,7 @@ export default function DiscoverPage() {
                               : 'text-foreground-muted hover:text-foreground'
                           }`}
                         >
-                          {filter === 'all' ? 'All' : filter === 'damm-v1' ? 'DAMM v1' : filter === 'damm-v2' ? 'DAMM v2' : filter.toUpperCase()}
+                          {filter === 'all' ? 'All' : filter === 'damm-v2' ? 'DYN2' : filter.toUpperCase()}
                         </button>
                       ))}
                     </div>

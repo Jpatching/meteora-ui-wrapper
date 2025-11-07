@@ -10,6 +10,7 @@ import referralRoutes from './routes/referrals';
 import userRoutes from './routes/users';
 import analyticsRoutes from './routes/analytics';
 import poolsRoutes from './routes/pools';
+import tokensRoutes from './routes/tokens';
 import { startCronJobs } from './services/cronService';
 import { syncAllPools } from './services/poolSyncService';
 import { runMigrations } from './migrations';
@@ -90,6 +91,7 @@ app.use('/api/referrals', referralRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/pools', poolsRoutes);
+app.use('/api/tokens', tokensRoutes);
 
 // Error handlers (must be last)
 app.use(notFoundHandler);

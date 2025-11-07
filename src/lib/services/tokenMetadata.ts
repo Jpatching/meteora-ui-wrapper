@@ -1,180 +1,83 @@
 /**
  * Token Metadata Service
- * Fetches token metadata from various sources:
- * - Solana Token List (official registry)
- * - On-chain metadata (SPL Token Metadata)
- * - DexScreener API (fallback)
+ * Fetches token metadata from BACKEND API (cached in Redis)
+ * Backend uses SolanaFM API for reliable, fast token data
  */
-
-import { Connection, PublicKey } from '@solana/web3.js';
 
 interface TokenMetadata {
   address: string;
   symbol: string;
   name: string;
-  decimals: number;
+  decimals?: number;
   logoURI?: string;
-  tags?: string[];
   verified?: boolean;
 }
 
 // Cache for token metadata (in-memory for O(1) lookups)
 const metadataCache = new Map<string, TokenMetadata>();
 
-// Solana Token List (CDN)
-const TOKEN_LIST_URL = 'https://token.jup.ag/all';
-
-// LocalStorage keys
-const TOKEN_LIST_CACHE_KEY = 'meteora_token_list_cache';
-const TOKEN_LIST_TIMESTAMP_KEY = 'meteora_token_list_timestamp';
-const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
-
-let tokenListCache: TokenMetadata[] | null = null;
-let tokenListLoaded = false;
-let tokenListMap: Map<string, TokenMetadata> | null = null;
+// Backend API endpoint
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
 /**
- * Load token list from localStorage or fetch from Jupiter
- * Uses aggressive caching to speed up subsequent loads
+ * Resolve IPFS URLs to accessible HTTP URLs
+ * Skips unreachable IPFS storage links
  */
-async function loadTokenList(): Promise<TokenMetadata[]> {
-  // Return if already loaded
-  if (tokenListCache && tokenListMap) return tokenListCache;
-  if (tokenListLoaded) return tokenListCache || [];
+function resolveIPFSUrl(url: string | undefined): string | undefined {
+  if (!url) return undefined;
 
+  // Handle ipfs:// protocol
+  if (url.startsWith('ipfs://')) {
+    return url.replace('ipfs://', 'https://ipfs.io/ipfs/');
+  }
+
+  // Skip unreachable nftstorage.link URLs (often fail with ERR_NAME_NOT_RESOLVED)
+  if (url.includes('.ipfs.nftstorage.link')) {
+    console.warn(`⚠️ Skipping unreachable IPFS storage URL: ${url}`);
+    return undefined;
+  }
+
+  return url;
+}
+
+/**
+ * Fetch token metadata from backend API
+ */
+async function fetchTokenFromBackend(address: string): Promise<TokenMetadata | null> {
   try {
-    // Try loading from localStorage first (FAST PATH)
-    const cachedData = localStorage.getItem(TOKEN_LIST_CACHE_KEY);
-    const cachedTimestamp = localStorage.getItem(TOKEN_LIST_TIMESTAMP_KEY);
+    // Use AbortController for better browser compatibility
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
 
-    if (cachedData && cachedTimestamp) {
-      const timestamp = parseInt(cachedTimestamp, 10);
-      const age = Date.now() - timestamp;
-
-      // Use cached data if less than 24 hours old
-      if (age < CACHE_DURATION) {
-        console.log('⚡ Loading token list from cache (instant)');
-        tokenListCache = JSON.parse(cachedData);
-
-        // Build index map for O(1) lookups
-        tokenListMap = new Map();
-        if (tokenListCache) {
-          tokenListCache.forEach(token => {
-            tokenListMap!.set(token.address.toLowerCase(), token);
-          });
-        }
-
-        tokenListLoaded = true;
-
-        // Background refresh if cache is getting old (> 12 hours)
-        if (age > CACHE_DURATION / 2) {
-          console.log('🔄 Background refresh of token list');
-          refreshTokenListInBackground();
-        }
-
-        return tokenListCache || [];
-      }
+    let response;
+    try {
+      response = await fetch(`${BACKEND_URL}/api/tokens/${address}`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      throw fetchError;
     }
-
-    // Cache miss or expired - fetch from network
-    console.log('📦 Fetching fresh token list from Jupiter...');
-    const response = await fetch(TOKEN_LIST_URL, {
-      cache: 'no-store',
-    });
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch token list: ${response.statusText}`);
+      return null;
     }
 
-    const tokens = await response.json();
-    tokenListCache = tokens.map((token: any) => ({
-      address: token.address,
-      symbol: token.symbol,
-      name: token.name,
-      decimals: token.decimals,
-      logoURI: token.logoURI,
-      tags: token.tags,
-      verified: token.verified || false,
-    }));
-
-    // Build index map for O(1) lookups
-    tokenListMap = new Map();
-    if (tokenListCache) {
-      tokenListCache.forEach(token => {
-        tokenListMap!.set(token.address.toLowerCase(), token);
-      });
+    const result = await response.json();
+    if (result.success && result.data) {
+      return result.data;
     }
 
-    // Save to localStorage for next time
-    try {
-      localStorage.setItem(TOKEN_LIST_CACHE_KEY, JSON.stringify(tokenListCache));
-      localStorage.setItem(TOKEN_LIST_TIMESTAMP_KEY, Date.now().toString());
-    } catch (e) {
-      console.warn('Failed to cache token list to localStorage:', e);
-    }
-
-    console.log(`✅ Loaded ${tokenListCache?.length || 0} tokens from Jupiter`);
-    tokenListLoaded = true;
-
-    return tokenListCache || [];
-  } catch (error) {
-    console.error('❌ Failed to load token list:', error);
-    tokenListLoaded = true;
-
-    // Return cached data even if expired as fallback
-    const cachedData = localStorage.getItem(TOKEN_LIST_CACHE_KEY);
-    if (cachedData) {
-      console.log('⚠️ Using stale cache as fallback');
-      tokenListCache = JSON.parse(cachedData);
-      return tokenListCache || [];
-    }
-
-    return [];
+    return null;
+  } catch (error: any) {
+    console.warn(`⚠️ Failed to fetch metadata for ${address}:`, error.message);
+    return null;
   }
 }
 
 /**
- * Refresh token list in background without blocking
- */
-function refreshTokenListInBackground() {
-  fetch(TOKEN_LIST_URL)
-    .then(res => res.json())
-    .then(tokens => {
-      const freshList = tokens.map((token: any) => ({
-        address: token.address,
-        symbol: token.symbol,
-        name: token.name,
-        decimals: token.decimals,
-        logoURI: token.logoURI,
-        tags: token.tags,
-        verified: token.verified || false,
-      }));
-
-      // Update cache
-      tokenListCache = freshList;
-
-      // Rebuild map
-      tokenListMap = new Map();
-      freshList.forEach((token: TokenMetadata) => {
-        tokenListMap!.set(token.address.toLowerCase(), token);
-      });
-
-      // Save to localStorage
-      try {
-        localStorage.setItem(TOKEN_LIST_CACHE_KEY, JSON.stringify(freshList));
-        localStorage.setItem(TOKEN_LIST_TIMESTAMP_KEY, Date.now().toString());
-        console.log('✅ Background refresh complete');
-      } catch (e) {
-        console.warn('Failed to save background refresh:', e);
-      }
-    })
-    .catch(err => {
-      console.warn('Background refresh failed:', err);
-    });
-}
-
-/**
- * Get token metadata from token list (O(1) lookup)
+ * Get token metadata from backend API (cached in Redis)
  */
 export async function getTokenMetadata(address: string): Promise<TokenMetadata | null> {
   const addressLower = address.toLowerCase();
@@ -184,43 +87,87 @@ export async function getTokenMetadata(address: string): Promise<TokenMetadata |
     return metadataCache.get(addressLower) || null;
   }
 
-  // Load token list if needed (loads from localStorage if available)
-  await loadTokenList();
+  // Fetch from backend (which checks Redis cache first)
+  const metadata = await fetchTokenFromBackend(address);
 
-  // Use indexed map for O(1) lookup
-  if (tokenListMap && tokenListMap.has(addressLower)) {
-    const token = tokenListMap.get(addressLower)!;
-    metadataCache.set(addressLower, token);
-    return token;
+  if (metadata) {
+    // Resolve IPFS URLs to accessible URLs
+    if (metadata.logoURI) {
+      metadata.logoURI = resolveIPFSUrl(metadata.logoURI);
+    }
+
+    metadataCache.set(addressLower, metadata);
+    return metadata;
   }
 
   return null;
 }
 
 /**
- * Get multiple token metadata in parallel
+ * Get multiple token metadata in parallel using batch API
  */
 export async function getMultipleTokenMetadata(
   addresses: string[]
 ): Promise<Map<string, TokenMetadata>> {
-  // Load token list once
-  await loadTokenList();
+  try {
+    // Use AbortController for better browser compatibility
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout for batch
 
-  // Get all metadata
-  const results = await Promise.all(
-    addresses.map(addr => getTokenMetadata(addr))
-  );
-
-  // Build map
-  const metadataMap = new Map<string, TokenMetadata>();
-  addresses.forEach((addr, idx) => {
-    const metadata = results[idx];
-    if (metadata) {
-      metadataMap.set(addr, metadata);
+    let response;
+    try {
+      response = await fetch(`${BACKEND_URL}/api/tokens/batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ addresses }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      throw fetchError;
     }
-  });
 
-  return metadataMap;
+    if (!response.ok) {
+      throw new Error(`Batch API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+
+    if (result.success && result.data) {
+      const metadataMap = new Map<string, TokenMetadata>();
+
+      // Cache all results
+      Object.entries(result.data).forEach(([address, metadata]) => {
+        const meta = metadata as TokenMetadata;
+        metadataMap.set(address, meta);
+        metadataCache.set(address.toLowerCase(), meta);
+      });
+
+      console.log(`✅ Fetched metadata for ${metadataMap.size} tokens`);
+      return metadataMap;
+    }
+
+    return new Map();
+  } catch (error: any) {
+    console.error('❌ Batch metadata fetch failed:', error.message);
+
+    // Fallback: Fetch individually
+    console.log('⚠️ Falling back to individual fetches...');
+    const results = await Promise.all(
+      addresses.map(addr => getTokenMetadata(addr))
+    );
+
+    const metadataMap = new Map<string, TokenMetadata>();
+    addresses.forEach((addr, idx) => {
+      const metadata = results[idx];
+      if (metadata) {
+        metadataMap.set(addr, metadata);
+      }
+    });
+
+    return metadataMap;
+  }
 }
 
 /**
@@ -236,17 +183,15 @@ export async function enrichPoolWithMetadata(pool: any): Promise<any> {
     ...pool,
     baseAsset: {
       ...pool.baseAsset,
+      // Only enrich icon/logo - preserve symbol and name from backend
       icon: baseMetadata?.logoURI || pool.baseAsset.icon,
-      name: baseMetadata?.name || pool.baseAsset.name,
-      symbol: baseMetadata?.symbol || pool.baseAsset.symbol,
       decimals: baseMetadata?.decimals || pool.baseAsset.decimals,
       verified: baseMetadata?.verified || false,
     },
     quoteAsset: pool.quoteAsset ? {
       ...pool.quoteAsset,
+      // Only enrich icon/logo - preserve symbol and name from backend
       icon: quoteMetadata?.logoURI || pool.quoteAsset.icon,
-      name: quoteMetadata?.name || pool.quoteAsset.name,
-      symbol: quoteMetadata?.symbol || pool.quoteAsset.symbol,
       decimals: quoteMetadata?.decimals || pool.quoteAsset.decimals,
     } : undefined,
   };
@@ -281,31 +226,6 @@ export async function getTokenIcon(address: string): Promise<string | null> {
 }
 
 /**
- * Common Solana tokens for fallback
+ * Export TokenMetadata type for use in other modules
  */
-export const COMMON_TOKENS: Record<string, TokenMetadata> = {
-  'So11111111111111111111111111111111111111112': {
-    address: 'So11111111111111111111111111111111111111112',
-    symbol: 'SOL',
-    name: 'Wrapped SOL',
-    decimals: 9,
-    logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png',
-    verified: true,
-  },
-  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': {
-    address: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-    symbol: 'USDC',
-    name: 'USD Coin',
-    decimals: 6,
-    logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png',
-    verified: true,
-  },
-  'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': {
-    address: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
-    symbol: 'USDT',
-    name: 'USDT',
-    decimals: 6,
-    logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB/logo.svg',
-    verified: true,
-  },
-};
+export type { TokenMetadata };

@@ -47,7 +47,7 @@ const navigation: NavSection[] = [
     ],
   },
   {
-    title: 'DAMM v2',
+    title: 'DYN2',
     icon: '/damm-v2-icon.svg',
     items: [
       { name: 'Create Balanced Pool', href: '/damm-v2/create-balanced' },
@@ -58,34 +58,6 @@ const navigation: NavSection[] = [
       { name: 'Claim Fees', href: '/damm-v2/claim-fees' },
       { name: 'Close Position', href: '/damm-v2/close-position' },
     ],
-  },
-  {
-    title: 'DAMM v1',
-    icon: '/damm-v1-icon.svg',
-    items: [
-      { name: 'Create Pool', href: '/damm-v1/create-pool' },
-      { name: 'Lock Liquidity', href: '/damm-v1/lock-liquidity' },
-      { name: 'Create Stake2Earn', href: '/damm-v1/create-stake2earn' },
-      { name: 'Lock (Stake2Earn)', href: '/damm-v1/lock-stake2earn' },
-    ],
-  },
-  {
-    title: 'DBC',
-    icon: '/dbc-icon.svg',
-    items: [
-      { name: 'Create Config', href: '/dbc/create-config' },
-      { name: 'Create Pool', href: '/dbc/create-pool' },
-      { name: 'Swap', href: '/dbc/swap' },
-      { name: 'Claim Fees', href: '/dbc/claim-fees' },
-      { name: 'Migrate to DAMM v1', href: '/dbc/migrate-v1' },
-      { name: 'Migrate to DAMM v2', href: '/dbc/migrate-v2' },
-      { name: 'Transfer Creator', href: '/dbc/transfer-creator' },
-    ],
-  },
-  {
-    title: 'Alpha Vault',
-    icon: '/alpha-vault-icon.svg',
-    items: [{ name: 'Create Vault', href: '/alpha-vault/create' }],
   },
   {
     title: 'Settings',

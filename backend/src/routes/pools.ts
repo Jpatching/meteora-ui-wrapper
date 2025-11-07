@@ -195,6 +195,43 @@ router.post('/sync', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/pools/:address
+ * Get a single pool by address (searches all protocols in database)
+ */
+router.get('/:address', async (req: Request, res: Response) => {
+  const { address } = req.params;
+  const cacheKey = `pool:${address}`;
+
+  try {
+    // Try cache first
+    const cached = await getCached<any>(cacheKey);
+    if (cached) {
+      console.log(`✅ Serving pool ${address} from cache`);
+      return res.json({ success: true, data: cached, cached: true });
+    }
+
+    // Query database for pool (searches all protocols)
+    const pools = await getTopPools(undefined, 1, address);
+
+    if (!pools || pools.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Pool not found',
+        address
+      });
+    }
+
+    // Cache for 5 minutes
+    await setCached(cacheKey, pools[0], CACHE_TTL.POOL_DATA);
+    console.log(`✅ Found pool ${address} (${pools[0].protocol})`);
+    res.json({ success: true, data: pools[0], cached: false });
+  } catch (error: any) {
+    console.error(`❌ Error fetching pool ${address}:`, error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * POST /api/pools/refresh
  * Manually refresh pool cache (admin endpoint)
  */
