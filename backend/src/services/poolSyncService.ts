@@ -151,7 +151,7 @@ async function fetchAllDBCPools(): Promise<DBCPool[]> {
  * Upsert DLMM pool into database
  * NOW WITH TOKEN METADATA ENRICHMENT from Jupiter API!
  */
-async function upsertDLMMPool(pool: DLMMPool): Promise<void> {
+async function upsertDLMMPool(pool: DLMMPool, network: 'mainnet-beta' | 'devnet' = 'mainnet-beta'): Promise<void> {
   // Parse pool name for fallback
   const nameParts = (pool.name || '').split('-');
 
@@ -173,7 +173,15 @@ async function upsertDLMMPool(pool: DLMMPool): Promise<void> {
     current_price: (pool as any).current_price,
     reserve_x: (pool as any).reserve_x,
     reserve_y: (pool as any).reserve_y,
+    network, // Store network in metadata
   };
+
+  // First, ensure network column exists (migration)
+  try {
+    await db.query(`ALTER TABLE pools ADD COLUMN IF NOT EXISTS network VARCHAR(20) DEFAULT 'mainnet-beta'`);
+  } catch (e) {
+    // Column already exists
+  }
 
   await db.query(
     `INSERT INTO pools (
@@ -181,9 +189,9 @@ async function upsertDLMMPool(pool: DLMMPool): Promise<void> {
       token_a_mint, token_b_mint,
       token_a_symbol, token_b_symbol,
       tvl, volume_24h, fees_24h, apr,
-      metadata, last_synced_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
-    ON CONFLICT (pool_address)
+      metadata, network, last_synced_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
+    ON CONFLICT (pool_address, network)
     DO UPDATE SET
       pool_name = EXCLUDED.pool_name,
       token_a_symbol = EXCLUDED.token_a_symbol,
@@ -207,6 +215,7 @@ async function upsertDLMMPool(pool: DLMMPool): Promise<void> {
       pool.fees_24h || 0,
       pool.apr || 0,
       JSON.stringify(metadata),
+      network,
     ]
   );
 }
@@ -215,7 +224,7 @@ async function upsertDLMMPool(pool: DLMMPool): Promise<void> {
  * Upsert DAMM pool into database
  * NOW WITH TOKEN METADATA ENRICHMENT from Jupiter API!
  */
-async function upsertDAMMPool(pool: DAMMPool): Promise<void> {
+async function upsertDAMMPool(pool: DAMMPool, network: 'mainnet-beta' | 'devnet' = 'mainnet-beta'): Promise<void> {
   // Parse pool name for fallback
   const nameParts = (pool.pool_name || '').split('-');
 
@@ -243,6 +252,7 @@ async function upsertDAMMPool(pool: DAMMPool): Promise<void> {
     pool_type: pool.pool_type,
     tokens_verified: pool.tokens_verified,
     has_farm: pool.has_farm,
+    network, // Store network in metadata
   };
 
   await db.query(
@@ -251,9 +261,9 @@ async function upsertDAMMPool(pool: DAMMPool): Promise<void> {
       token_a_mint, token_b_mint,
       token_a_symbol, token_b_symbol,
       tvl, volume_24h, fees_24h, apr,
-      metadata, last_synced_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
-    ON CONFLICT (pool_address)
+      metadata, network, last_synced_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
+    ON CONFLICT (pool_address, network)
     DO UPDATE SET
       pool_name = EXCLUDED.pool_name,
       token_a_symbol = EXCLUDED.token_a_symbol,
@@ -277,6 +287,7 @@ async function upsertDAMMPool(pool: DAMMPool): Promise<void> {
       pool.fee24h || 0,
       pool.apr || 0,
       JSON.stringify(metadata),
+      network,
     ]
   );
 }
@@ -377,13 +388,25 @@ async function upsertDBCPool(pool: DBCPool): Promise<void> {
 /**
  * Sync all pools to database
  * This can take a while (100k+ pools) but runs in background
+ *
+ * IMPORTANT: Meteora APIs only serve MAINNET data!
+ * Devnet pools are fetched separately using SDKs (see devnetPoolService.ts)
  */
-export async function syncAllPools(): Promise<{ dlmm: number; damm: number; dammv1: number; dbc: number }> {
-  console.log('🔄 Starting full pool sync...');
+export async function syncAllPools(network: 'mainnet-beta' | 'devnet' = 'mainnet-beta'): Promise<{ dlmm: number; damm: number; dammv1: number; dbc: number }> {
+  console.log(`🔄 Starting full pool sync for ${network}...`);
   const startTime = Date.now();
 
+  // If devnet, use SDK-based sync
+  if (network === 'devnet') {
+    console.log('⚠️  Devnet pools must be added manually via /api/pools/devnet/add');
+    console.log('💡 Use syncDevnetPools() to sync known devnet pools');
+    const { syncDevnetPools } = await import('./devnetPoolService');
+    await syncDevnetPools();
+    return { dlmm: 0, damm: 0, dammv1: 0, dbc: 0 };
+  }
+
   try {
-    // Fetch all pools in parallel
+    // Fetch all pools in parallel (these are MAINNET pools from Meteora)
     const [dlmmPools, dammPools, dammv1Pools, dbcPools] = await Promise.all([
       fetchAllDLMMPools(),
       fetchAllDAMMPools(),
@@ -391,19 +414,19 @@ export async function syncAllPools(): Promise<{ dlmm: number; damm: number; damm
       fetchAllDBCPools(),
     ]);
 
-    // Batch insert DLMM pools
-    console.log(`💾 Syncing ${dlmmPools.length} DLMM pools to database...`);
+    // Batch insert DLMM pools (MAINNET)
+    console.log(`💾 Syncing ${dlmmPools.length} DLMM pools to database (mainnet-beta)...`);
     for (const pool of dlmmPools) {
-      await upsertDLMMPool(pool);
+      await upsertDLMMPool(pool, 'mainnet-beta');
     }
 
-    // Batch insert DAMM v2 pools
-    console.log(`💾 Syncing ${dammPools.length} DAMM v2 pools to database...`);
+    // Batch insert DAMM v2 pools (MAINNET)
+    console.log(`💾 Syncing ${dammPools.length} DAMM v2 pools to database (mainnet-beta)...`);
     let dammSuccess = 0;
     let dammErrors = 0;
     for (const pool of dammPools) {
       try {
-        await upsertDAMMPool(pool);
+        await upsertDAMMPool(pool, 'mainnet-beta');
         dammSuccess++;
       } catch (error: any) {
         dammErrors++;
@@ -493,7 +516,8 @@ export async function getPoolsByToken(tokenCA: string): Promise<any[]> {
 export async function getTopPools(
   protocol?: string,
   limit: number = 100,
-  poolAddress?: string
+  poolAddress?: string,
+  network?: 'mainnet-beta' | 'devnet'
 ): Promise<any[]> {
   let query = 'SELECT * FROM pools';
   const params: any[] = [];
@@ -509,6 +533,12 @@ export async function getTopPools(
   if (protocol) {
     conditions.push(`protocol = $${params.length + 1}`);
     params.push(protocol);
+  }
+
+  // Filter by network (if specified)
+  if (network) {
+    conditions.push(`network = $${params.length + 1}`);
+    params.push(network);
   }
 
   // Add WHERE clause if we have conditions

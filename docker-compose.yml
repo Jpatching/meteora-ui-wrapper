@@ -54,6 +54,13 @@ services:
       - ./backend:/app
       - /app/node_modules
     command: npm run dev
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    stdin_open: true
+    tty: true
 
 volumes:
   postgres-data:

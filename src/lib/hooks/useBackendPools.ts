@@ -142,8 +142,9 @@ function transformDBPoolToDAMM(pool: DBPool): BackendDAMMPool {
  * Transform backend pool types to full Pool type
  * Converts BackendDLMMPool or BackendDAMMPool to complete Pool interface
  * Missing properties (social links, audit) are set to undefined
+ * EXPORTED for use in useRelatedPools
  */
-function transformBackendPoolToPool(
+export function transformBackendPoolToPool(
   backendPool: BackendDLMMPool | BackendDAMMPool,
   protocol: 'dlmm' | 'damm-v2'
 ): Pool {
@@ -280,12 +281,12 @@ function transformBackendPoolToPool(
  * Queries PostgreSQL with 100k+ pools stored
  * 10-100x faster than fetching from Meteora API directly
  */
-export function useBackendDLMMPools() {
+export function useBackendDLMMPools(network: 'mainnet-beta' | 'devnet' = 'mainnet-beta') {
   return useQuery({
-    queryKey: ['backend-dlmm-pools'],
+    queryKey: ['backend-dlmm-pools', network],
     queryFn: async () => {
-      console.log('🚀 Fetching DLMM pools from backend database...');
-      const response = await fetch(`${BACKEND_URL}/api/pools/top?protocol=dlmm&limit=100`);
+      console.log(`🚀 Fetching DLMM pools from backend database (${network})...`);
+      const response = await fetch(`${BACKEND_URL}/api/pools/top?protocol=dlmm&limit=100&network=${network}`);
 
       if (!response.ok) {
         throw new Error(`Backend API error: ${response.status}`);
@@ -297,13 +298,14 @@ export function useBackendDLMMPools() {
       // Transform database format to frontend format
       const transformedPools = dbPools.map(transformDBPoolToDLMM);
 
-      console.log(`✅ Got ${transformedPools.length} DLMM pools from database (cached: ${result.cached})`);
+      console.log(`✅ Got ${transformedPools.length} DLMM pools from ${network} (cached: ${result.cached})`);
       return transformedPools;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes (renamed from cacheTime)
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
+    refetchOnMount: true, // Force refetch when network changes
   });
 }
 
@@ -311,12 +313,12 @@ export function useBackendDLMMPools() {
  * Fetch DAMM pools from backend DATABASE (cached in Redis for 5 min)
  * Queries PostgreSQL with all DAMM v2 pools stored
  */
-export function useBackendDAMMPools() {
+export function useBackendDAMMPools(network: 'mainnet-beta' | 'devnet' = 'mainnet-beta') {
   return useQuery({
-    queryKey: ['backend-damm-pools'],
+    queryKey: ['backend-damm-pools', network],
     queryFn: async () => {
-      console.log('🚀 Fetching DAMM pools from backend database...');
-      const response = await fetch(`${BACKEND_URL}/api/pools/top?protocol=damm-v2&limit=100`);
+      console.log(`🚀 Fetching DAMM v2 pools from backend database (${network})...`);
+      const response = await fetch(`${BACKEND_URL}/api/pools/top?protocol=damm-v2&limit=100&network=${network}`);
 
       if (!response.ok) {
         throw new Error(`Backend API error: ${response.status}`);
@@ -328,13 +330,14 @@ export function useBackendDAMMPools() {
       // Transform database format to frontend format
       const transformedPools = dbPools.map(transformDBPoolToDAMM);
 
-      console.log(`✅ Got ${transformedPools.length} DAMM pools from database (cached: ${result.cached})`);
+      console.log(`✅ Got ${transformedPools.length} DAMM v2 pools from ${network} (cached: ${result.cached})`);
       return transformedPools;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
+    refetchOnMount: true, // Force refetch when network changes
   });
 }
 
@@ -342,19 +345,19 @@ export function useBackendDAMMPools() {
  * Fetch a single pool by address (any protocol)
  * Used by pool detail pages
  */
-export function useBackendPool(address: string | null) {
+export function useBackendPool(address: string | null, network: 'mainnet-beta' | 'devnet' = 'mainnet-beta') {
   return useQuery({
-    queryKey: ['backend-pool', address],
+    queryKey: ['backend-pool', address, network],
     queryFn: async () => {
       if (!address) return null;
 
-      console.log(`🔍 Fetching pool ${address} from backend...`);
+      console.log(`🔍 Fetching pool ${address} from backend (${network})...`);
 
-      const response = await fetch(`${BACKEND_URL}/api/pools/${address}`);
+      const response = await fetch(`${BACKEND_URL}/api/pools/${address}?network=${network}`);
 
       if (!response.ok) {
         if (response.status === 404) {
-          console.warn(`⚠️ Pool ${address} not found in database`);
+          console.warn(`⚠️ Pool ${address} not found on ${network}`);
           return null;
         }
         throw new Error(`Backend API error: ${response.status}`);
@@ -363,7 +366,7 @@ export function useBackendPool(address: string | null) {
       const result = await response.json();
       const dbPool = result.data as DBPool;
 
-      console.log(`✅ Found pool ${address} (${dbPool.protocol}, cached: ${result.cached})`);
+      console.log(`✅ Found pool ${address} on ${network} (${dbPool.protocol}, cached: ${result.cached})`);
 
       // Transform based on protocol
       let backendPool: BackendDLMMPool | BackendDAMMPool;

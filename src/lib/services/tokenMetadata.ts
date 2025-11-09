@@ -20,21 +20,55 @@ const metadataCache = new Map<string, TokenMetadata>();
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
 
 /**
- * Resolve IPFS URLs to accessible HTTP URLs
- * Skips unreachable IPFS storage links
+ * Resolve IPFS URLs to accessible HTTP URLs with fallback gateways
+ * Prioritizes reliable public gateways over unreachable storage links
  */
 function resolveIPFSUrl(url: string | undefined): string | undefined {
   if (!url) return undefined;
 
+  // Extract IPFS CID from various formats
+  let cid: string | null = null;
+
   // Handle ipfs:// protocol
   if (url.startsWith('ipfs://')) {
-    return url.replace('ipfs://', 'https://ipfs.io/ipfs/');
+    cid = url.replace('ipfs://', '');
+  }
+  // Handle nftstorage.link URLs (extract CID before subdomain)
+  else if (url.includes('.ipfs.nftstorage.link')) {
+    const match = url.match(/https?:\/\/([a-zA-Z0-9]+)\.ipfs\.nftstorage\.link/);
+    if (match && match[1]) {
+      cid = match[1];
+      console.log(`📦 Converting unreachable nftstorage.link to public gateway: ${cid}`);
+    } else {
+      console.warn(`⚠️ Skipping malformed IPFS storage URL: ${url}`);
+      return undefined;
+    }
+  }
+  // Handle w3s.link URLs
+  else if (url.includes('.ipfs.w3s.link')) {
+    const match = url.match(/https?:\/\/([a-zA-Z0-9]+)\.ipfs\.w3s\.link/);
+    if (match && match[1]) {
+      cid = match[1];
+      console.log(`📦 Converting w3s.link to public gateway: ${cid}`);
+    }
+  }
+  // Handle cloudflare-ipfs.com URLs
+  else if (url.includes('cloudflare-ipfs.com')) {
+    return url; // Cloudflare gateway is reliable, keep as-is
+  }
+  // Handle ipfs.io URLs
+  else if (url.includes('ipfs.io')) {
+    return url; // Public gateway is reliable, keep as-is
+  }
+  // Already a regular HTTP(S) URL
+  else {
+    return url;
   }
 
-  // Skip unreachable nftstorage.link URLs (often fail with ERR_NAME_NOT_RESOLVED)
-  if (url.includes('.ipfs.nftstorage.link')) {
-    console.warn(`⚠️ Skipping unreachable IPFS storage URL: ${url}`);
-    return undefined;
+  // If we extracted a CID, use reliable public gateway
+  if (cid) {
+    // Use Cloudflare's IPFS gateway (fast and reliable)
+    return `https://cloudflare-ipfs.com/ipfs/${cid}`;
   }
 
   return url;

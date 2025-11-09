@@ -72,12 +72,25 @@ export class BinDataService {
     if (this.dlmmPool) return;
 
     try {
+      // First, verify the account exists
+      const accountInfo = await this.connection.getAccountInfo(this.poolAddress);
+      if (!accountInfo) {
+        throw new Error(`Pool account ${this.poolAddress.toString()} does not exist on ${this.network}`);
+      }
+
       this.dlmmPool = await DLMM.create(this.connection, this.poolAddress, {
         cluster: this.network,
+      }).catch((error: any) => {
+        // Handle discriminator errors gracefully
+        if (error.message?.includes('Invalid account discriminator')) {
+          throw new Error(`Invalid DLMM pool account at ${this.poolAddress.toString()}. This may not be a valid DLMM pool or the pool doesn't exist yet.`);
+        }
+        throw error;
       });
+
       console.log('[BinDataService] DLMM pool initialized:', this.poolAddress.toString());
-    } catch (error) {
-      console.error('[BinDataService] Failed to initialize DLMM pool:', error);
+    } catch (error: any) {
+      console.error('[BinDataService] Failed to initialize DLMM pool:', error.message);
       throw error;
     }
   }

@@ -46,3 +46,5 @@ next-env.d.ts
 # Backend
 backend/node_modules/
 backend/dist/
+contracts/metatools-vault-steel-archived/
+.playwright-mcp/

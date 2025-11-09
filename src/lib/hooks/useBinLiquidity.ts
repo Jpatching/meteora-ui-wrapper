@@ -41,15 +41,15 @@ export function useBinLiquidity(poolAddress: string | null) {
         // Get bin arrays with liquidity data
         const binArrays = await dlmmPool.getBinArrays();
 
-        const bins: BinLiquidity[] = [];
+        const result: BinLiquidity[] = [];
 
         // Process each bin array
         for (const binArray of binArrays) {
-          const bins = (binArray as any).bins || [];
-          for (const bin of bins) {
+          const binsInArray = (binArray as any).bins || [];
+          for (const bin of binsInArray) {
             // Only include bins with liquidity
             if (bin.xAmount > 0 || bin.yAmount > 0) {
-              bins.push({
+              result.push({
                 binId: bin.binId,
                 price: bin.price,
                 xAmount: bin.xAmount,
@@ -61,11 +61,11 @@ export function useBinLiquidity(poolAddress: string | null) {
         }
 
         // Sort by bin ID
-        bins.sort((a, b) => a.binId - b.binId);
+        result.sort((a, b) => a.binId - b.binId);
 
-        console.log(`✅ Fetched ${bins.length} bins with liquidity`);
+        console.log(`✅ Fetched ${result.length} bins with liquidity`);
 
-        return bins;
+        return result;
       } catch (error: any) {
         console.error('❌ Error fetching bin liquidity:', error);
         // Return empty array on error to prevent UI from breaking

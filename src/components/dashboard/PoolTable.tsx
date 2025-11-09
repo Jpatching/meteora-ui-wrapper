@@ -8,6 +8,7 @@
 import { Pool } from '@/lib/jupiter/types';
 import { formatUSD, formatNumber } from '@/lib/format/number';
 import { PoolMetadataDisplay } from './PoolMetadataDisplay';
+import { TokenIcon } from '@/components/ui/TokenIcon';
 
 export interface PoolTableProps {
   pools: Pool[];
@@ -35,8 +36,9 @@ export function PoolTable({ pools, onPoolClick, sortBy, onSortChange }: PoolTabl
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
+          suppressHydrationWarning
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" suppressHydrationWarning />
         </svg>
       </div>
     </th>
@@ -102,12 +104,12 @@ export function PoolTable({ pools, onPoolClick, sortBy, onSortChange }: PoolTabl
     <div className="overflow-x-auto">
       <table className="w-full table-fixed">
         <colgroup>
-          <col className="w-[35%]" /> {/* Pair */}
-          <col className="w-[13%]" /> {/* TVL */}
-          <col className="w-[15%]" /> {/* Volume */}
-          <col className="w-[13%]" /> {/* Fees */}
-          <col className="w-[12%]" /> {/* Fee/TV */}
-          <col className="w-[12%]" /> {/* 24h */}
+          <col style={{ width: '35%' }} />
+          <col style={{ width: '13%' }} />
+          <col style={{ width: '15%' }} />
+          <col style={{ width: '13%' }} />
+          <col style={{ width: '12%' }} />
+          <col style={{ width: '12%' }} />
         </colgroup>
         <thead>
           <tr className="text-[10px] text-foreground-muted/60 border-b border-border-light/30 uppercase tracking-wider">
@@ -144,44 +146,18 @@ export function PoolTable({ pools, onPoolClick, sortBy, onSortChange }: PoolTabl
                   <div className="flex items-center gap-2.5">
                     {/* Token Icons - Overlapping circles */}
                     <div className="flex items-center -space-x-2 flex-shrink-0">
-                      {pool.baseAsset.icon ? (
-                        <img
-                          src={pool.baseAsset.icon}
-                          alt={pool.baseAsset.symbol}
-                          className="w-8 h-8 rounded-full border-2 border-background"
-                          onError={(e) => {
-                            // Fallback to placeholder if image fails to load
-                            e.currentTarget.style.display = 'none';
-                            const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                            if (fallback) fallback.style.display = 'flex';
-                          }}
-                        />
-                      ) : null}
-                      <div
-                        className="w-8 h-8 rounded-full border-2 border-background bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-[10px] font-bold"
-                        style={{ display: pool.baseAsset.icon ? 'none' : 'flex' }}
-                      >
-                        {pool.baseAsset.symbol.charAt(0)}
-                      </div>
-
-                      {/* Quote Token Icon - use enriched data if available */}
-                      {pool.quoteAsset?.icon ? (
-                        <img
-                          src={pool.quoteAsset.icon}
-                          alt={pool.quoteAsset.symbol || quoteToken.symbol}
-                          className="w-8 h-8 rounded-full border-2 border-background"
-                          onError={(e) => {
-                            // Fallback to default quote token logo
-                            e.currentTarget.src = quoteToken.logo;
-                          }}
-                        />
-                      ) : (
-                        <img
-                          src={quoteToken.logo}
-                          alt={quoteToken.symbol}
-                          className="w-8 h-8 rounded-full border-2 border-background bg-background"
-                        />
-                      )}
+                      <TokenIcon
+                        src={pool.baseAsset.icon}
+                        symbol={pool.baseAsset.symbol}
+                        size="md"
+                        className="border-2 border-background"
+                      />
+                      <TokenIcon
+                        src={pool.quoteAsset?.icon || quoteToken.logo}
+                        symbol={pool.quoteAsset?.symbol || quoteToken.symbol}
+                        size="md"
+                        className="border-2 border-background"
+                      />
                     </div>
 
                     {/* Pool Info */}

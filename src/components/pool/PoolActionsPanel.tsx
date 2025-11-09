@@ -7,6 +7,7 @@
 
 import { useState } from 'react';
 import { AddLiquidityPanel } from '@/components/liquidity/AddLiquidityPanel';
+import { DAMMv2AddLiquidityPanel } from '@/components/liquidity/DAMMv2AddLiquidityPanel';
 import { RemoveLiquidityPanel } from '@/components/liquidity/RemoveLiquidityPanel';
 import { SwapPanel } from '@/components/swap/SwapPanel';
 import { ClaimFeesPanel } from '@/components/liquidity/ClaimFeesPanel';
@@ -46,25 +47,25 @@ export function PoolActionsPanel({
   ];
 
   return (
-    <div className="bg-background border border-border-light rounded-xl overflow-hidden">
-      {/* Tab Header */}
-      <div className="border-b border-border-light">
-        <div className="flex">
+    <div className="h-full flex flex-col bg-background">
+      {/* Tab Header - Clean, no outer border */}
+      <div className="border-b border-border-light bg-background-secondary/20">
+        <div className="grid grid-cols-4">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`
-                flex-1 px-4 py-3 text-sm font-medium transition-all relative
+                px-3 py-3 text-xs font-medium transition-all relative
                 ${activeTab === tab.id
-                  ? 'text-white bg-background-secondary'
-                  : 'text-gray-400 hover:text-gray-300 hover:bg-background-secondary/50'
+                  ? 'text-white bg-background-secondary/50'
+                  : 'text-gray-400 hover:text-gray-300 hover:bg-background-secondary/30'
                 }
               `}
             >
-              <span className="inline-flex items-center gap-2">
-                <span>{tab.icon}</span>
-                <span className="hidden sm:inline">{tab.label}</span>
+              <span className="flex flex-col items-center gap-1">
+                <span className="text-base">{tab.icon}</span>
+                <span className="text-[10px]">{tab.label.split(' ')[0]}</span>
               </span>
               {activeTab === tab.id && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
@@ -74,8 +75,8 @@ export function PoolActionsPanel({
         </div>
       </div>
 
-      {/* Tab Content */}
-      <div className="p-6">
+      {/* Tab Content - Scrollable */}
+      <div className="flex-1 overflow-y-auto p-4">
         {activeTab === 'add' && poolType === 'dlmm' && (
           <AddLiquidityPanel
             poolAddress={poolAddress}
@@ -89,7 +90,17 @@ export function PoolActionsPanel({
           />
         )}
 
-        {activeTab === 'add' && poolType !== 'dlmm' && (
+        {activeTab === 'add' && poolType === 'damm-v2' && (
+          <DAMMv2AddLiquidityPanel
+            poolAddress={poolAddress}
+            tokenXMint={tokenXMint}
+            tokenYMint={tokenYMint}
+            tokenXSymbol={tokenXSymbol}
+            tokenYSymbol={tokenYSymbol}
+          />
+        )}
+
+        {activeTab === 'add' && poolType !== 'dlmm' && poolType !== 'damm-v2' && (
           <div className="text-center py-12">
             <div className="text-6xl mb-4">🚧</div>
             <h3 className="text-lg font-semibold text-white mb-2">Coming Soon</h3>

@@ -546,6 +546,7 @@ export function useDAMMv2() {
 
   /**
    * Fetch all DAMM v2 positions for the connected wallet
+   * Note: This requires iterating through known pools since there's no global user positions query
    */
   const fetchUserPositions = async () => {
     if (!publicKey) {
@@ -555,22 +556,49 @@ export function useDAMMv2() {
     console.log('[DAMM v2] Fetching user positions...');
 
     try {
-      // DAMM v2 uses position NFTs - we need to find all positions owned by user
-      // This is a simplified implementation - in production, you'd query all position accounts
+      // Note: CP-AMM SDK doesn't have a global getPositionsByUser method
+      // We need to either:
+      // 1. Query known pool addresses and check each one
+      // 2. Use on-chain program queries to find all position accounts
+      // For now, return empty array and implement pool-specific position fetching
+      console.warn('[DAMM v2] Global position fetching not implemented - use pool-specific queries');
       const positions: any[] = [];
 
-      // Note: This is a placeholder implementation
-      // The actual implementation would need to:
-      // 1. Query all token accounts owned by the user
-      // 2. Filter for DAMM v2 position NFTs
-      // 3. For each position NFT, fetch the position data
+      console.log(`[DAMM v2] Found ${positions.length} positions`);
 
-      console.log('[DAMM v2] Position fetching not yet fully implemented');
-      console.log('[DAMM v2] Returning empty positions array');
+      // Transform to common position format
+      const userPositions = positions.map((pos: any) => {
+        // Extract position data from SDK response
+        const poolAddress = pos.poolState?.publicKey?.toString() || '';
+        const positionAddress = pos.publicKey?.toString() || '';
+        const nftMint = pos.nftMint?.toString() || '';
 
-      return positions;
+        return {
+          positionKey: positionAddress,
+          poolAddress,
+          nftMint,
+          baseMint: pos.poolState?.tokenMintA?.toString() || '',
+          quoteMint: pos.poolState?.tokenMintB?.toString() || '',
+          baseSymbol: 'Token A', // Would need token metadata lookup
+          quoteSymbol: 'Token B',
+          liquidityAmount: Number(pos.liquidity || 0),
+          unclaimedFeesA: Number(pos.feeOwedA || 0) / 1e9,
+          unclaimedFeesB: Number(pos.feeOwedB || 0) / 1e9,
+          lastUpdated: new Date(),
+        };
+      });
+
+      console.log(`[DAMM v2] Successfully parsed ${userPositions.length} positions`);
+      return userPositions;
     } catch (error: any) {
       console.error('[DAMM v2] Error fetching positions:', error);
+
+      // Return empty array if method not available (SDK version issue)
+      if (error.message?.includes('getPositionsByUser')) {
+        console.warn('[DAMM v2] SDK method not available - returning empty positions');
+        return [];
+      }
+
       throw new Error(error.message || 'Failed to fetch DAMM v2 positions');
     }
   };

@@ -1,0 +1,24 @@
+[
+  {
+    "protocol": "dlmm",
+    "poolAddress": "8BPMTaKEXhZ5UKkhLqaUDRFZt5emm9kjiUhSqS7ME2w1",
+    "name": "TESTA-TESTB",
+    "tokenA": {
+      "mint": "6YZM4EtP5RyYqgWQGCZ3aHWPhfynaZD4jUfHNAKsdDXt",
+      "symbol": "TESTA",
+      "decimals": 6
+    },
+    "tokenB": {
+      "mint": "FouihvJeod86c2c5h9puviuD6KrCfiEwxinr6YdxWXZ9",
+      "symbol": "TESTB",
+      "decimals": 6
+    },
+    "metadata": {
+      "binStep": 10,
+      "activeId": 0,
+      "feeBps": 30
+    },
+    "txId": "2JJz6cmbs6sonukEX8QZux5kxGteUsUhZfDxxGLXKwRo6vxZtLVcQ7jVTCPzALYoW93iMrEWCpkvBS3YyMaDKNuY",
+    "explorer": "https://explorer.solana.com/address/8BPMTaKEXhZ5UKkhLqaUDRFZt5emm9kjiUhSqS7ME2w1?cluster=devnet"
+  }
+]

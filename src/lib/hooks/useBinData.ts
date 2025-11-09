@@ -97,10 +97,19 @@ export function useBinData({
       setBinsAroundActive(bins);
 
       setIsLoading(false);
-    } catch (err) {
-      console.error('[useBinData] Error fetching bin data:', err);
+    } catch (err: any) {
+      // Don't spam console with errors for invalid pools
+      const errorMessage = err?.message || 'Unknown error';
+      if (!errorMessage.includes('Invalid DLMM pool account')) {
+        console.error('[useBinData] Error fetching bin data:', err);
+      }
       setError(err as Error);
       setIsLoading(false);
+      // Clear interval on error to prevent spam
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     }
   }, [enabled, binRange]);
 

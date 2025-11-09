@@ -4,12 +4,12 @@ A beautiful, dark-mode web interface for the Meteora protocols. Your comprehensi
 
 ## 📚 Documentation
 
-**[View Complete Documentation →](docs/README.md)**
-
-- **For AI Agents:** [CLAUDE.md](CLAUDE.md) - Complete development guidelines and patterns
-- **Architecture:** [docs/core/ARCHITECTURE.md](docs/core/ARCHITECTURE.md) - System design and technical details
-- **Development Guides:** [docs/guides/](docs/guides/) - Testing, analytics, and implementation guides
-- **Current Status:** [docs/current/](docs/current/) - Implementation summaries and known issues
+- **[CLAUDE.md](CLAUDE.md)** - AI development guidelines and architecture patterns
+- **[docs/guides/](docs/guides/)** - Testing guides and development documentation
+  - Devnet Testing Guide
+  - Interactive Bin Selection Guide
+  - User Token Acquisition Guide
+  - And more...
 
 ## Features
 
@@ -26,6 +26,11 @@ A beautiful, dark-mode web interface for the Meteora protocols. Your comprehensi
 - ⚡ **Atomic Transactions** - Single-transaction pool creation (3 → 1 tx, 66% fee reduction!)
 - 🚀 **Premium RPC** - Helius primary with automatic Alchemy fallback
 - 🛠️ **AI Development Tools** - 6 specialized agents + 4 slash commands + MCP server
+- 📊 **Interactive Bin Selection** - Meteora-style liquidity distribution visualization with:
+  - Real-time bin data from DLMM pools
+  - Click bins to adjust price range
+  - Clean slider interface
+  - One-click liquidity testing (devnet)
 
 ## Protocols Supported
 
@@ -180,6 +185,11 @@ User Form → React Hook → Meteora SDK → Build Transaction
   - Alchemy as automatic secondary fallback
   - Solana public RPC as tertiary fallback
   - Health checking and auto-switching
+- ✨ **INTERACTIVE BIN SELECTION** - Meteora-style price range interface
+  - Real-time liquidity distribution visualization
+  - Click bins to adjust range (smart proximity detection)
+  - Clean slider with min/max inputs
+  - One-click liquidity testing for devnet pools
 - 3-way fee distribution system (referral/buyback/treasury)
 - Platform fee: 0.0085 SOL (91.5% reduction from previous 0.1 SOL)
 - URL-based referral system with earnings tracking

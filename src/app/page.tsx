@@ -1,9 +1,16 @@
 /**
  * Discover Page
  * Charting.ag-inspired two-column split layout
+ *
+ * Note: This page uses dynamic data fetching that may include BigInt values
+ * which cannot be serialized during SSR. The 'use client' directive ensures
+ * this runs client-side only.
  */
 
 'use client';
+
+// Force dynamic rendering to avoid BigInt serialization issues during SSR
+export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -16,6 +23,7 @@ import { useAllPublicPools } from '@/lib/hooks/usePublicPools';
 import { useBackendDLMMPools, useBackendDAMMPools } from '@/lib/hooks/useBackendPools';
 import { Pool } from '@/lib/jupiter/types';
 import { enrichPoolsWithMetadata } from '@/lib/services/tokenMetadata';
+import { useNetwork } from '@/contexts/NetworkContext';
 
 type ProtocolFilter = 'all' | 'dlmm' | 'damm-v2';
 type TokenSortOption = 'volume' | 'liquidity' | 'holders' | 'txs' | 'marketCap';
@@ -24,6 +32,7 @@ type ViewMode = 'token' | 'pair';
 
 export default function DiscoverPage() {
   const router = useRouter();
+  const { network } = useNetwork();
   const [selectedPool, setSelectedPool] = useState<any | null>(null);
   const [protocolFilter, setProtocolFilter] = useState<ProtocolFilter>('all');
   const [tokenSortBy, setTokenSortBy] = useState<TokenSortOption>('volume');
@@ -46,8 +55,9 @@ export default function DiscoverPage() {
   });
 
   // Fetch Meteora pools from BACKEND (cached in Redis - FAST!)
-  const { data: dlmmPools = [], isLoading: isLoadingDLMM } = useBackendDLMMPools();
-  const { data: dammPools = [], isLoading: isLoadingDAMM } = useBackendDAMMPools();
+  // CRITICAL: Pass network parameter to ensure proper filtering
+  const { data: dlmmPools = [], isLoading: isLoadingDLMM } = useBackendDLMMPools(network);
+  const { data: dammPools = [], isLoading: isLoadingDAMM } = useBackendDAMMPools(network);
 
   // Combine Jupiter pools for TOKEN view (LEFT SIDE ONLY)
   const jupiterPools = useMemo(() => {
@@ -231,11 +241,13 @@ export default function DiscoverPage() {
 
   // No need to fetch pool details separately - Meteora API provides them!
 
-  // Aggregate Jupiter pools by token (for Token view - LEFT SIDE)
+  // Aggregate Meteora pools by token (for Token view - LEFT SIDE)
+  // Changed from Jupiter to Meteora for faster, cached data
   const aggregatedTokens = useMemo(() => {
     const tokenMap = new Map<string, TokenData>();
 
-    jupiterPools.forEach(pool => {
+    // Use displayPools (Meteora pools from backend) instead of Jupiter pools
+    displayPools.forEach(pool => {
       const tokenId = pool.baseAsset.id;
 
       if (!tokenMap.has(tokenId)) {
@@ -243,12 +255,12 @@ export default function DiscoverPage() {
           tokenAddress: tokenId,
           symbol: pool.baseAsset.symbol,
           name: pool.baseAsset.name,
-          icon: pool.baseAsset.icon,
+          icon: (pool.baseAsset as any).icon,
           totalVolume24h: 0,
           totalLiquidity: 0,
-          holders: pool.baseAsset.holderCount || 0,
+          holders: (pool.baseAsset as any).holderCount || 0,
           pools: [],
-          priceChange: pool.baseAsset.stats24h?.priceChange || 0,
+          priceChange: ((pool.baseAsset as any).stats24h?.priceChange as number) || 0,
         });
       }
 
@@ -263,9 +275,9 @@ export default function DiscoverPage() {
     // Sort by volume and take top 100
     const sorted = allTokens.sort((a, b) => b.totalVolume24h - a.totalVolume24h);
     const top100 = sorted.slice(0, 100);
-    console.log(`📊 Showing top 100 tokens out of ${allTokens.length} total`);
+    console.log(`📊 Showing top 100 tokens out of ${allTokens.length} total (from Meteora pools)`);
     return top100;
-  }, [jupiterPools]);
+  }, [displayPools]);
 
   // Apply filters and sorting to Meteora pools (RIGHT SIDE)
   const filteredPools = useMemo(() => {
@@ -375,12 +387,12 @@ export default function DiscoverPage() {
                           onClick={() => setShowTokenFilters(!showTokenFilters)}
                           className="flex items-center gap-2 px-3 py-1.5 bg-background-secondary border border-border-light rounded-lg text-xs text-foreground hover:border-foreground-muted transition-colors"
                         >
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" suppressHydrationWarning>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" suppressHydrationWarning />
                           </svg>
                           <span>Filter</span>
-                          <svg className={`w-3 h-3 transition-transform ${showTokenFilters ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          <svg className={`w-3 h-3 transition-transform ${showTokenFilters ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" suppressHydrationWarning>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" suppressHydrationWarning />
                           </svg>
                         </button>
 
@@ -434,8 +446,8 @@ export default function DiscoverPage() {
                               onClick={resetTokenFilters}
                               className="flex items-center justify-center gap-2 w-full px-3 py-2 text-xs text-foreground-muted hover:text-foreground transition-colors"
                             >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" suppressHydrationWarning>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" suppressHydrationWarning />
                               </svg>
                               Reset All
                             </button>
@@ -489,7 +501,15 @@ export default function DiscoverPage() {
                         // When clicking a token, navigate to its primary pool (highest volume)
                         const primaryPool = token.pools.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0))[0];
                         if (primaryPool) {
+                          console.log('📍 Navigating to pool:', {
+                            poolId: primaryPool.id,
+                            token: token.symbol,
+                            poolVolume: primaryPool.volume24h,
+                            totalPools: token.pools.length,
+                          });
                           router.push(`/pool/${primaryPool.id}`);
+                        } else {
+                          console.warn('⚠️ No pools found for token:', token.symbol);
                         }
                       }}
                     />

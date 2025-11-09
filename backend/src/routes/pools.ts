@@ -31,36 +31,31 @@ interface DAMMPool {
 
 /**
  * GET /api/pools/dlmm
- * Returns cached DLMM pools (refreshes every 5 min)
+ * Returns cached DLMM pools from database (network-aware)
+ * Query params: ?limit=100&network=devnet
  */
 router.get('/dlmm', async (req: Request, res: Response) => {
   const limit = parseInt(req.query.limit as string) || 100;
-  const cacheKey = cacheKeys.poolList('dlmm');
+  const network = (req.query.network as 'mainnet-beta' | 'devnet') || 'mainnet-beta';
+  const cacheKey = cacheKeys.poolList('dlmm', network);
 
   try {
     // Try to get from cache
-    const cached = await getCached<MeteoraPool[]>(cacheKey);
+    const cached = await getCached<any[]>(cacheKey);
     if (cached) {
-      console.log(`✅ Serving ${cached.length} DLMM pools from cache`);
-      return res.json({ success: true, data: cached, cached: true });
+      console.log(`✅ Serving ${cached.length} DLMM pools (${network}) from cache`);
+      return res.json({ success: true, data: cached, cached: true, network });
     }
 
-    // Cache miss - fetch from Meteora API
-    console.log(`🌊 Fetching DLMM pools from Meteora API (limit: ${limit})...`);
-    const response = await fetch(`https://dlmm-api.meteora.ag/pair/all_with_pagination?page=1&limit=${limit}`);
-
-    if (!response.ok) {
-      throw new Error(`Meteora API error: ${response.status}`);
-    }
-
-    const data = await response.json() as any;
-    const pools = data.pairs || [];
+    // Cache miss - fetch from database with network filter
+    console.log(`🔍 Fetching DLMM pools from database (${network}, limit: ${limit})...`);
+    const pools = await getTopPools('dlmm', limit, undefined, network);
 
     // Cache for 5 minutes
     await setCached(cacheKey, pools, CACHE_TTL.POOL_DATA);
-    console.log(`✅ Cached ${pools.length} DLMM pools`);
+    console.log(`✅ Cached ${pools.length} DLMM pools (${network})`);
 
-    res.json({ success: true, data: pools, cached: false });
+    res.json({ success: true, data: pools, cached: false, network });
   } catch (error: any) {
     console.error('❌ Error fetching DLMM pools:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -69,37 +64,33 @@ router.get('/dlmm', async (req: Request, res: Response) => {
 
 /**
  * GET /api/pools/damm
- * Returns cached DAMM v2 pools (refreshes every 5 min)
+ * Returns cached DAMM v2 pools from database (network-aware)
+ * Query params: ?limit=100&network=devnet
  */
 router.get('/damm', async (req: Request, res: Response) => {
-  const cacheKey = cacheKeys.poolList('damm');
+  const limit = parseInt(req.query.limit as string) || 100;
+  const network = (req.query.network as 'mainnet-beta' | 'devnet') || 'mainnet-beta';
+  const cacheKey = cacheKeys.poolList('damm-v2', network);
 
   try {
     // Try to get from cache
-    const cached = await getCached<DAMMPool[]>(cacheKey);
+    const cached = await getCached<any[]>(cacheKey);
     if (cached) {
-      console.log(`✅ Serving ${cached.length} DAMM pools from cache`);
-      return res.json({ success: true, data: cached, cached: true });
+      console.log(`✅ Serving ${cached.length} DAMM v2 pools (${network}) from cache`);
+      return res.json({ success: true, data: cached, cached: true, network });
     }
 
-    // Cache miss - fetch from Meteora API
-    console.log(`🌊 Fetching DAMM v2 pools from Meteora API...`);
-    const response = await fetch('https://dammv2-api.meteora.ag/pools');
-
-    if (!response.ok) {
-      throw new Error(`Meteora API error: ${response.status}`);
-    }
-
-    const result = await response.json() as any;
-    const pools = result.data || [];
+    // Cache miss - fetch from database with network filter
+    console.log(`🔍 Fetching DAMM v2 pools from database (${network}, limit: ${limit})...`);
+    const pools = await getTopPools('damm-v2', limit, undefined, network);
 
     // Cache for 5 minutes
     await setCached(cacheKey, pools, CACHE_TTL.POOL_DATA);
-    console.log(`✅ Cached ${pools.length} DAMM pools`);
+    console.log(`✅ Cached ${pools.length} DAMM v2 pools (${network})`);
 
-    res.json({ success: true, data: pools, cached: false });
+    res.json({ success: true, data: pools, cached: false, network });
   } catch (error: any) {
-    console.error('❌ Error fetching DAMM pools:', error);
+    console.error('❌ Error fetching DAMM v2 pools:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -139,29 +130,31 @@ router.get('/search/:tokenCA', async (req: Request, res: Response) => {
 /**
  * GET /api/pools/top
  * Get top pools by TVL (for dashboard)
+ * Query params: ?protocol=dlmm&limit=100&network=devnet
  */
 router.get('/top', async (req: Request, res: Response) => {
   const protocol = req.query.protocol as string | undefined;
   const limit = parseInt(req.query.limit as string) || 100;
-  const cacheKey = protocol ? `pools:top:${protocol}:${limit}` : `pools:top:all:${limit}`;
+  const network = (req.query.network as 'mainnet-beta' | 'devnet') || 'mainnet-beta';
+  const cacheKey = `pools:top:${protocol || 'all'}:${limit}:${network}`;
 
   try {
     // Try cache first
     const cached = await getCached<any[]>(cacheKey);
     if (cached) {
-      console.log(`✅ Serving top ${limit} ${protocol || 'all'} pools from cache`);
-      return res.json({ success: true, data: cached, cached: true });
+      console.log(`✅ Serving top ${limit} ${protocol || 'all'} pools (${network}) from cache`);
+      return res.json({ success: true, data: cached, cached: true, network });
     }
 
-    // Query database
-    console.log(`🔍 Fetching top ${limit} ${protocol || 'all'} pools from database...`);
-    const pools = await getTopPools(protocol, limit);
+    // Query database with network filter
+    console.log(`🔍 Fetching top ${limit} ${protocol || 'all'} pools from ${network}...`);
+    const pools = await getTopPools(protocol, limit, undefined, network);
 
     // Cache for 5 minutes
     await setCached(cacheKey, pools, CACHE_TTL.POOL_DATA);
-    console.log(`✅ Found ${pools.length} pools`);
+    console.log(`✅ Found ${pools.length} pools on ${network}`);
 
-    res.json({ success: true, data: pools, cached: false });
+    res.json({ success: true, data: pools, cached: false, network });
   } catch (error: any) {
     console.error('❌ Error fetching top pools:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -180,10 +173,19 @@ router.post('/sync', async (req: Request, res: Response) => {
 
     // Run sync (this takes time)
     syncAllPools()
-      .then((result) => {
+      .then(async (result) => {
         console.log('✅ Background sync complete:', result);
-        // Clear all pool caches after sync
-        redis.del(cacheKeys.poolList('dlmm'), cacheKeys.poolList('damm'));
+        // Clear all pool caches after sync (all networks)
+        try {
+          await redis.del(
+            cacheKeys.poolList('dlmm', 'mainnet-beta'),
+            cacheKeys.poolList('dlmm', 'devnet'),
+            cacheKeys.poolList('damm-v2', 'mainnet-beta'),
+            cacheKeys.poolList('damm-v2', 'devnet')
+          );
+        } catch (redisError) {
+          console.error('⚠️ Redis cache clear error (non-fatal):', redisError);
+        }
       })
       .catch((error) => {
         console.error('❌ Background sync failed:', error);
@@ -197,34 +199,37 @@ router.post('/sync', async (req: Request, res: Response) => {
 /**
  * GET /api/pools/:address
  * Get a single pool by address (searches all protocols in database)
+ * Query params: ?network=devnet
  */
 router.get('/:address', async (req: Request, res: Response) => {
   const { address } = req.params;
-  const cacheKey = `pool:${address}`;
+  const network = (req.query.network as 'mainnet-beta' | 'devnet') || 'mainnet-beta';
+  const cacheKey = `pool:${address}:${network}`;
 
   try {
     // Try cache first
     const cached = await getCached<any>(cacheKey);
     if (cached) {
-      console.log(`✅ Serving pool ${address} from cache`);
-      return res.json({ success: true, data: cached, cached: true });
+      console.log(`✅ Serving pool ${address} (${network}) from cache`);
+      return res.json({ success: true, data: cached, cached: true, network });
     }
 
-    // Query database for pool (searches all protocols)
-    const pools = await getTopPools(undefined, 1, address);
+    // Query database for pool on specific network
+    const pools = await getTopPools(undefined, 1, address, network);
 
     if (!pools || pools.length === 0) {
       return res.status(404).json({
         success: false,
-        error: 'Pool not found',
-        address
+        error: `Pool not found on ${network}`,
+        address,
+        network
       });
     }
 
     // Cache for 5 minutes
     await setCached(cacheKey, pools[0], CACHE_TTL.POOL_DATA);
-    console.log(`✅ Found pool ${address} (${pools[0].protocol})`);
-    res.json({ success: true, data: pools[0], cached: false });
+    console.log(`✅ Found pool ${address} on ${network} (${pools[0].protocol})`);
+    res.json({ success: true, data: pools[0], cached: false, network });
   } catch (error: any) {
     console.error(`❌ Error fetching pool ${address}:`, error);
     res.status(500).json({ success: false, error: error.message });
@@ -237,13 +242,153 @@ router.get('/:address', async (req: Request, res: Response) => {
  */
 router.post('/refresh', async (req: Request, res: Response) => {
   try {
-    // Delete all pool caches
-    await redis.del(cacheKeys.poolList('dlmm'), cacheKeys.poolList('damm'));
-    console.log('✅ Pool cache cleared');
+    // Delete all pool caches (all networks)
+    await redis.del(
+      cacheKeys.poolList('dlmm', 'mainnet-beta'),
+      cacheKeys.poolList('dlmm', 'devnet'),
+      cacheKeys.poolList('damm-v2', 'mainnet-beta'),
+      cacheKeys.poolList('damm-v2', 'devnet')
+    );
+    console.log('✅ Pool cache cleared (all networks)');
 
     res.json({ success: true, message: 'Pool cache will refresh on next request' });
   } catch (error: any) {
     console.error('❌ Error refreshing cache:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/pools/validate/:address
+ * Validate a pool address and detect its type using Meteora SDKs
+ */
+router.get('/validate/:address', async (req: Request, res: Response) => {
+  const { address } = req.params;
+
+  try {
+    const { detectPoolType } = await import('../services/poolValidator');
+    const poolType = await detectPoolType(address);
+
+    if (poolType) {
+      res.json({
+        success: true,
+        valid: true,
+        poolType,
+        address,
+      });
+    } else {
+      res.json({
+        success: true,
+        valid: false,
+        poolType: null,
+        address,
+        message: 'Not a valid DLMM or DAMM v2 pool',
+      });
+    }
+  } catch (error: any) {
+    console.error(`❌ Error validating pool ${address}:`, error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/pools/devnet/add
+ * Add a devnet pool to track (fetch from on-chain and store in database)
+ * Body: { address: string, protocol: 'dlmm' | 'damm-v2', name?: string }
+ */
+router.post('/devnet/add', async (req: Request, res: Response) => {
+  const { address, protocol, name } = req.body;
+
+  if (!address || !protocol) {
+    return res.status(400).json({
+      success: false,
+      error: 'Missing required fields: address, protocol',
+    });
+  }
+
+  if (protocol !== 'dlmm' && protocol !== 'damm-v2') {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid protocol. Must be "dlmm" or "damm-v2"',
+    });
+  }
+
+  try {
+    const { addDevnetPool } = await import('../services/devnetPoolService');
+    const success = await addDevnetPool(address, protocol, name);
+
+    if (success) {
+      res.json({
+        success: true,
+        message: `Devnet pool ${address} added successfully`,
+        address,
+        protocol,
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch or store devnet pool',
+      });
+    }
+  } catch (error: any) {
+    console.error(`❌ Error adding devnet pool ${address}:`, error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/pools/devnet/sync
+ * Sync all known devnet pools
+ */
+router.post('/devnet/sync', async (req: Request, res: Response) => {
+  try {
+    const { syncDevnetPools } = await import('../services/devnetPoolService');
+    const result = await syncDevnetPools();
+
+    res.json({
+      success: true,
+      message: 'Devnet pool sync complete',
+      synced: result.synced,
+      failed: result.failed,
+    });
+  } catch (error: any) {
+    console.error('❌ Error syncing devnet pools:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/pools/devnet/:address
+ * Fetch a devnet pool directly from on-chain (no caching)
+ * Query params: ?protocol=dlmm
+ */
+router.get('/devnet/:address', async (req: Request, res: Response) => {
+  const { address } = req.params;
+  const protocol = req.query.protocol as 'dlmm' | 'damm-v2';
+
+  if (!protocol) {
+    return res.status(400).json({
+      success: false,
+      error: 'Missing protocol query parameter (?protocol=dlmm or ?protocol=damm-v2)',
+    });
+  }
+
+  try {
+    const { getDevnetPool } = await import('../services/devnetPoolService');
+    const pool = await getDevnetPool(address, protocol);
+
+    if (pool) {
+      res.json({ success: true, data: pool, network: 'devnet' });
+    } else {
+      res.status(404).json({
+        success: false,
+        error: 'Pool not found on devnet or failed to fetch',
+        address,
+        protocol,
+      });
+    }
+  } catch (error: any) {
+    console.error(`❌ Error fetching devnet pool ${address}:`, error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

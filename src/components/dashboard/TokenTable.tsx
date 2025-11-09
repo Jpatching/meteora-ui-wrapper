@@ -6,6 +6,7 @@
 'use client';
 
 import { formatUSD, formatNumber } from '@/lib/format/number';
+import { TokenIcon } from '@/components/ui/TokenIcon';
 
 export interface TokenData {
   tokenAddress: string;
@@ -80,13 +81,11 @@ export function TokenTable({ tokens, onTokenClick, sortBy, onSortChange }: Token
                 {/* Token Column */}
                 <td className="py-3 px-4">
                   <div className="flex items-center gap-3">
-                    {token.icon && (
-                      <img
-                        src={token.icon}
-                        alt={token.symbol}
-                        className="w-8 h-8 rounded-full"
-                      />
-                    )}
+                    <TokenIcon
+                      src={token.icon}
+                      symbol={token.symbol}
+                      size="md"
+                    />
                     <div>
                       <div className="font-semibold text-foreground">
                         {token.symbol}

@@ -9,6 +9,7 @@ import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { useNetwork } from '@/contexts/NetworkContext';
 import DLMM from '@meteora-ag/dlmm';
 import { PublicKey } from '@solana/web3.js';
+import { rpcLimiter } from '@/lib/utils/rpcRateLimiter';
 
 export interface UserPosition {
   address: string;
@@ -41,14 +42,26 @@ export function useUserPositions() {
       if (!publicKey) return [];
 
       try {
-        // Use SDK method to get all positions for user
-        const positionsMap = await DLMM.getAllLbPairPositionsByUser(
-          connection,
-          publicKey,
-          {
-            cluster: network as 'mainnet-beta' | 'devnet' | 'localhost',
+        // Use SDK method to get all positions for user with RPC rate limiting
+        const cacheKey = `dlmm-positions-${publicKey.toBase58()}-${network}`;
+        const positionsMap = await rpcLimiter.execute(
+          () => DLMM.getAllLbPairPositionsByUser(
+            connection,
+            publicKey,
+            {
+              cluster: network as 'mainnet-beta' | 'devnet' | 'localhost',
+            }
+          ),
+          cacheKey
+        ).catch(error => {
+          console.error('DLMM SDK Error:', error);
+          // Return empty map on discriminator errors (SDK version mismatch)
+          if (error.message?.includes('Invalid account discriminator')) {
+            console.warn('⚠️ DLMM SDK version mismatch - skipping positions. Please update @meteora-ag/dlmm to latest version.');
+            return new Map();
           }
-        );
+          throw error;
+        });
 
         const positions: UserPosition[] = [];
 
@@ -106,8 +119,10 @@ export function useUserPositions() {
       }
     },
     enabled: !!publicKey,
-    staleTime: 30000, // 30 seconds
-    refetchInterval: 60000, // Refetch every 60 seconds
+    staleTime: 60000, // 60 seconds - longer cache for cost savings
+    refetchInterval: false, // Manual refresh only to avoid RPC spam
+    refetchOnWindowFocus: false, // Don't refetch on tab focus
+    retry: 2, // Only retry twice on failure
   });
 }
 

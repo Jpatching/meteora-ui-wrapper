@@ -145,6 +145,14 @@ export function TradingChart({
       }
       volumeSeriesRef.current = null;
     }
+    if (binHistogramSeriesRef.current) {
+      try {
+        chart.removeSeries(binHistogramSeriesRef.current);
+      } catch (e) {
+        console.warn('[TradingChart] Bin histogram series already removed:', e);
+      }
+      binHistogramSeriesRef.current = null;
+    }
 
     // Add new series based on chart type
     try {
@@ -180,6 +188,21 @@ export function TradingChart({
           priceScaleId: '',
           scaleMargins: {
             top: 0.8,
+            bottom: 0,
+          },
+        });
+      }
+
+      // Add bin liquidity histogram for DLMM pools (background layer)
+      if (showBinHistogram && binData && binData.length > 0) {
+        binHistogramSeriesRef.current = chart.addHistogramSeries({
+          color: 'rgba(139, 92, 246, 0.2)', // Purple with transparency
+          priceFormat: {
+            type: 'volume',
+          },
+          priceScaleId: 'bin-liquidity',
+          scaleMargins: {
+            top: 0.9,
             bottom: 0,
           },
         });
@@ -227,6 +250,21 @@ export function TradingChart({
       }
     }
 
+    // Update bin histogram data (liquidity distribution)
+    // NOTE: Histogram data requires unique time values or will cause ordering errors
+    // For bin visualization, we don't use histogram overlay on the main chart
+    // Instead, bins are shown in the separate LiquidityDistributionPanel
+    if (binHistogramSeriesRef.current && showBinHistogram && binData && binData.length > 0) {
+      try {
+        // DISABLED: Bin histogram overlay causes data ordering conflicts
+        // Bins are better visualized in dedicated LiquidityDistributionPanel
+        // binHistogramSeriesRef.current.setData([]);
+        console.log('[TradingChart] Bin visualization handled by LiquidityDistributionPanel');
+      } catch (error) {
+        console.error('[TradingChart] Error with bin histogram:', error);
+      }
+    }
+
     // Fit content
     try {
       chart.timeScale().fitContent();
@@ -252,8 +290,16 @@ export function TradingChart({
         }
         volumeSeriesRef.current = null;
       }
+      if (binHistogramSeriesRef.current) {
+        try {
+          chart.removeSeries(binHistogramSeriesRef.current);
+        } catch (e) {
+          // Chart might already be disposed
+        }
+        binHistogramSeriesRef.current = null;
+      }
     };
-  }, [data, chartType, showVolume]);
+  }, [data, chartType, showVolume, showBinHistogram, binData]);
 
   // Fullscreen toggle
   const toggleFullscreen = () => {

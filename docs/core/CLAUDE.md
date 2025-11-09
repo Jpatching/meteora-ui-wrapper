@@ -304,3 +304,7 @@ The API routes should import and call functions from meteora-invent. You may nee
 6. **Show transaction links** to Solscan/SolanaFM after success
 7. **Handle errors gracefully** with clear messages
 - don't start docker or npm start for frontedn as i want to have these running in terminal - just give me commands if you must
+- before committing we need to verify it works
+- enure root is clean and clear and not redudant docs or files
+- https://docs.meteora.ag/developer-guide/guides/dlmm/typescript-sdk/sdk-functions DLMM
+- DAMMV2(DYN2) https://docs.meteora.ag/developer-guide/guides/damm-v2/typescript-sdk/sdk-functions

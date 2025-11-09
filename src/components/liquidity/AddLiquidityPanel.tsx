@@ -2,12 +2,16 @@
 
 import { useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
+import { PublicKey } from '@solana/web3.js';
 import { Button } from '@/components/ui';
 import { StrategySelector, StrategyType } from './StrategySelector';
 import { RatioControl, RatioType } from './RatioControl';
 import { PriceRangePicker } from './PriceRangePicker';
+import { DevnetFaucet, QuickLiquidityTester } from '@/components/devnet';
 import { useDLMM } from '@/lib/meteora/useDLMM';
 import { useTokenBalance, useSOLBalance } from '@/lib/hooks/useTokenBalance';
+import { useVaultIntegration } from '@/lib/hooks/useVaultIntegration';
+import { Protocol, Strategy as VaultStrategy } from '@/lib/vault/metatools-vault';
 import { useNetwork } from '@/contexts/NetworkContext';
 import toast from 'react-hot-toast';
 import BN from 'bn.js';
@@ -36,6 +40,7 @@ export function AddLiquidityPanel({
   const { publicKey, connected } = useWallet();
   const { network } = useNetwork();
   const { initializePositionAndAddLiquidityByStrategy } = useDLMM();
+  const { openPosition } = useVaultIntegration();
 
   // Fetch token balances
   const { data: tokenXBalance } = useTokenBalance(tokenXMint);
@@ -46,9 +51,13 @@ export function AddLiquidityPanel({
   const [strategy, setStrategy] = useState<StrategyType>('curve');
   const [ratio, setRatio] = useState<RatioType>('one-side');
 
-  // Price range state
-  const [minPrice, setMinPrice] = useState(currentPrice * 0.5); // 50% below current
-  const [maxPrice, setMaxPrice] = useState(currentPrice * 2); // 100% above current
+  // Price range state - handle case where currentPrice is 0 or NaN (no liquidity pool)
+  const safeCurrentPrice = Number(currentPrice) > 0 ? Number(currentPrice) : 1; // Default to 1:1 if no price
+
+  // For empty pools, minPrice MUST be >= pool's initial price
+  // Set default range starting at current price (not below it)
+  const [minPrice, setMinPrice] = useState(safeCurrentPrice); // Start at current price
+  const [maxPrice, setMaxPrice] = useState(safeCurrentPrice * 2); // 100% above current
 
   // Amount state
   const [tokenXAmount, setTokenXAmount] = useState('');
@@ -61,6 +70,10 @@ export function AddLiquidityPanel({
   const tokenXPercentage = ratio === 'one-side' ? 100 : 50;
   const tokenYPercentage = ratio === 'one-side' ? 0 : 50;
 
+  // Check if price range includes current price (important for empty pools)
+  const priceRangeIncludesActive = minPrice <= safeCurrentPrice && maxPrice >= safeCurrentPrice;
+  const showPriceWarning = !priceRangeIncludesActive;
+
   const handleStrategyChange = (newStrategy: StrategyType) => {
     setStrategy(newStrategy);
 
@@ -69,21 +82,24 @@ export function AddLiquidityPanel({
     const binStepDecimal = binStep / 10000; // Convert basis points to decimal
 
     if (newStrategy === 'spot') {
-      // Narrow range for spot: ±10 bins around current price
-      const minPriceCalc = currentPrice * Math.pow(1 + binStepDecimal, -10);
-      const maxPriceCalc = currentPrice * Math.pow(1 + binStepDecimal, 10);
+      // Narrow range for spot: Current price to +20 bins above
+      // (Never go below current price for empty pools)
+      const minPriceCalc = safeCurrentPrice;
+      const maxPriceCalc = safeCurrentPrice * Math.pow(1 + binStepDecimal, 20);
       setMinPrice(minPriceCalc);
       setMaxPrice(maxPriceCalc);
     } else if (newStrategy === 'curve') {
-      // Wide range for curve: ±100 bins for full price curve
-      const minPriceCalc = currentPrice * Math.pow(1 + binStepDecimal, -100);
-      const maxPriceCalc = currentPrice * Math.pow(1 + binStepDecimal, 100);
+      // Wide range for curve: Current price to +100 bins above
+      // (Never go below current price for empty pools)
+      const minPriceCalc = safeCurrentPrice;
+      const maxPriceCalc = safeCurrentPrice * Math.pow(1 + binStepDecimal, 100);
       setMinPrice(minPriceCalc);
       setMaxPrice(maxPriceCalc);
     } else if (newStrategy === 'bidAsk') {
-      // Balanced range for bid-ask: ±50 bins
-      const minPriceCalc = currentPrice * Math.pow(1 + binStepDecimal, -50);
-      const maxPriceCalc = currentPrice * Math.pow(1 + binStepDecimal, 50);
+      // Balanced range for bid-ask: Current price to +50 bins
+      // (Never go below current price for empty pools)
+      const minPriceCalc = safeCurrentPrice;
+      const maxPriceCalc = safeCurrentPrice * Math.pow(1 + binStepDecimal, 50);
       setMinPrice(minPriceCalc);
       setMaxPrice(maxPriceCalc);
     }
@@ -145,10 +161,26 @@ export function AddLiquidityPanel({
     }
 
     setLoading(true);
-    const loadingToast = toast.loading('Adding liquidity...');
+    const loadingToast = toast.loading('Processing transaction...');
 
     try {
-      // Call the DLMM SDK add liquidity function
+      // TODO: Vault integration temporarily disabled - add back after vault is initialized on devnet
+      // const tvlInLamports = BigInt(Math.floor(parseFloat(tokenXAmount) * 1e9));
+      // const vaultStrategy = strategy === 'spot' ? VaultStrategy.Spot :
+      //                      strategy === 'curve' ? VaultStrategy.Curve :
+      //                      VaultStrategy.BidAsk;
+      // const vaultResult = await openPosition({
+      //   pool: new PublicKey(poolAddress),
+      //   baseMint: new PublicKey(tokenXMint),
+      //   quoteMint: new PublicKey(tokenYMint),
+      //   initialTvl: tvlInLamports,
+      //   protocol: Protocol.DLMM,
+      //   strategy: vaultStrategy,
+      // });
+
+      // Add liquidity directly to Meteora pool (no vault fees for now)
+      toast.loading('Adding liquidity to pool...', { id: loadingToast });
+
       const result = await initializePositionAndAddLiquidityByStrategy({
         poolAddress,
         strategy: strategy === 'spot' ? 'spot' : strategy === 'curve' ? 'curve' : 'bid-ask',
@@ -161,14 +193,14 @@ export function AddLiquidityPanel({
       if (result.success) {
         toast.success(
           <div>
-            <p>Liquidity added successfully!</p>
+            <p className="font-semibold mb-1">Liquidity added successfully!</p>
             <a
               href={`https://solscan.io/tx/${result.signature}?cluster=${network}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary underline text-xs"
+              className="block text-primary underline text-xs mt-2"
             >
-              View on Solscan →
+              View transaction on Solscan →
             </a>
           </div>,
           { id: loadingToast, duration: 8000 }
@@ -196,111 +228,70 @@ export function AddLiquidityPanel({
 
   // Calculate current bin ID from currentPrice and binStep
   const calculateActiveBinId = () => {
-    if (!currentPrice || !binStep) return null;
+    if (!safeCurrentPrice || safeCurrentPrice <= 0 || !binStep) return null;
     // Formula: binId = floor(log(price) / log(1 + binStep/10000))
     const basisPointsDecimal = binStep / 10000;
-    return Math.floor(Math.log(currentPrice) / Math.log(1 + basisPointsDecimal));
+    const calculated = Math.floor(Math.log(safeCurrentPrice) / Math.log(1 + basisPointsDecimal));
+    return isFinite(calculated) && !isNaN(calculated) ? calculated : 0;
   };
 
   const activeBinId = calculateActiveBinId();
 
   return (
-    <div className="space-y-6">
-      {/* Pool Info Header */}
-      <div className="p-4 rounded-lg bg-gray-800/50 border border-gray-700">
-        <h3 className="text-sm font-semibold text-white mb-3">Pool Information</h3>
-        <div className="grid grid-cols-2 gap-3 text-xs">
-          <div>
-            <span className="text-gray-400 block mb-1">Pool Address</span>
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-white truncate">{poolAddress.slice(0, 8)}...{poolAddress.slice(-6)}</span>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(poolAddress);
-                  toast.success('Address copied!', { duration: 2000 });
-                }}
-                className="text-primary hover:text-primary/80 transition-colors"
-                title="Copy address"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-              </button>
-            </div>
-          </div>
-          <div>
-            <span className="text-gray-400 block mb-1">Token Pair</span>
-            <span className="font-semibold text-white">{tokenXSymbol} / {tokenYSymbol}</span>
-          </div>
-          <div>
-            <span className="text-gray-400 block mb-1">Bin Step</span>
-            <span className="font-semibold text-primary">{binStep} bps</span>
-          </div>
-          {baseFee !== undefined && (
-            <div>
-              <span className="text-gray-400 block mb-1">Base Fee</span>
-              <span className="font-semibold text-warning">{baseFee.toFixed(2)}%</span>
-            </div>
-          )}
-          <div>
-            <span className="text-gray-400 block mb-1">Current Price</span>
-            <span className="font-semibold text-white">${currentPrice.toFixed(8)}</span>
-          </div>
-          {activeBinId !== null && (
-            <div>
-              <span className="text-gray-400 block mb-1">Active Bin ID</span>
-              <span className="font-semibold text-success">{activeBinId}</span>
-            </div>
-          )}
-          <div>
-            <span className="text-gray-400 block mb-1">Network</span>
-            <span className="font-semibold text-white capitalize">{network}</span>
-          </div>
-        </div>
+    <div className="space-y-4">
+      {/* Strategy Selector - Tile */}
+      <div className="bg-background-secondary/30 border border-border-light rounded-lg p-4">
+        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Strategy</h3>
+        <StrategySelector
+          selected={strategy}
+          onChange={handleStrategyChange}
+          disabled={loading}
+        />
       </div>
 
-      {/* Strategy Selector */}
-      <StrategySelector
-        selected={strategy}
-        onChange={handleStrategyChange}
-        disabled={loading}
-      />
+      {/* Ratio Control - Tile */}
+      <div className="bg-background-secondary/30 border border-border-light rounded-lg p-4">
+        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Ratio</h3>
+        <RatioControl
+          selected={ratio}
+          onChange={handleRatioChange}
+          tokenXSymbol={tokenXSymbol}
+          tokenYSymbol={tokenYSymbol}
+          tokenXPercentage={tokenXPercentage}
+          tokenYPercentage={tokenYPercentage}
+          disabled={loading}
+        />
+      </div>
 
-      {/* Ratio Control */}
-      <RatioControl
-        selected={ratio}
-        onChange={handleRatioChange}
-        tokenXSymbol={tokenXSymbol}
-        tokenYSymbol={tokenYSymbol}
-        tokenXPercentage={tokenXPercentage}
-        tokenYPercentage={tokenYPercentage}
-        disabled={loading}
-      />
+      {/* Price Range Picker - Tile */}
+      <div className="bg-background-secondary/30 border border-border-light rounded-lg p-4">
+        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Price Range</h3>
+        <PriceRangePicker
+          currentPrice={safeCurrentPrice}
+          minPrice={minPrice}
+          maxPrice={maxPrice}
+          onMinPriceChange={setMinPrice}
+          onMaxPriceChange={setMaxPrice}
+          tokenXSymbol={tokenXSymbol}
+          tokenYSymbol={tokenYSymbol}
+          disabled={loading}
+          poolAddress={poolAddress}
+          binStep={binStep}
+        />
+      </div>
 
-      {/* Price Range Picker */}
-      <PriceRangePicker
-        currentPrice={currentPrice}
-        minPrice={minPrice}
-        maxPrice={maxPrice}
-        onMinPriceChange={setMinPrice}
-        onMaxPriceChange={setMaxPrice}
-        tokenXSymbol={tokenXSymbol}
-        tokenYSymbol={tokenYSymbol}
-        disabled={loading}
-        poolAddress={poolAddress}
-      />
-
-      {/* Amount Inputs */}
-      <div className="space-y-3">
-        <label className="block text-sm font-medium text-gray-300">
-          Deposit Amount
-        </label>
+      {/* Deposit Amount - Tile */}
+      <div className="bg-background-secondary/30 border border-border-light rounded-lg p-4">
+        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Amount</h3>
 
         {/* Token X Amount */}
-        <div>
-          <label className="block text-xs text-gray-400 mb-1.5">
-            {tokenXSymbol} Amount
-          </label>
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-medium text-gray-300">{tokenXSymbol}</label>
+            <span className="text-xs text-gray-500">
+              Balance: {tokenXBalance ? tokenXBalance.uiAmount.toFixed(4) : '0.00'}
+            </span>
+          </div>
           <div className="relative">
             <input
               type="number"
@@ -310,7 +301,7 @@ export function AddLiquidityPanel({
               placeholder="0.00"
               step="0.01"
               min="0"
-              className="w-full px-4 py-3 pr-20 rounded-lg bg-gray-800 border border-gray-700 text-white text-sm focus:border-primary focus:outline-none disabled:opacity-50"
+              className="w-full px-3 py-2.5 pr-16 rounded-lg bg-background border border-border-light text-white text-sm font-mono focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50 transition-all"
             />
             <button
               onClick={() => {
@@ -319,22 +310,22 @@ export function AddLiquidityPanel({
                 }
               }}
               disabled={loading || !tokenXBalance}
-              className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 rounded text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               MAX
             </button>
           </div>
-          <span className="block text-xs text-gray-500 mt-1">
-            Balance: {tokenXBalance ? tokenXBalance.uiAmount.toFixed(4) : '0.00'} {tokenXSymbol}
-          </span>
         </div>
 
-        {/* Token Y Amount (only if 50:50) */}
+        {/* Token Y Amount - Only for 50:50 */}
         {ratio === '50-50' && (
-          <div>
-            <label className="block text-xs text-gray-400 mb-1.5">
-              {tokenYSymbol} Amount
-            </label>
+          <div className="space-y-1.5 mt-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-gray-300">{tokenYSymbol}</label>
+              <span className="text-xs text-gray-500">
+                Balance: {tokenYBalance ? tokenYBalance.uiAmount.toFixed(4) : '0.00'}
+              </span>
+            </div>
             <div className="relative">
               <input
                 type="number"
@@ -344,7 +335,7 @@ export function AddLiquidityPanel({
                 placeholder="0.00"
                 step="0.01"
                 min="0"
-                className="w-full px-4 py-3 pr-20 rounded-lg bg-gray-800 border border-gray-700 text-white text-sm focus:border-primary focus:outline-none disabled:opacity-50"
+                className="w-full px-3 py-2.5 pr-16 rounded-lg bg-background border border-border-light text-white text-sm font-mono focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50 transition-all"
               />
               <button
                 onClick={() => {
@@ -353,48 +344,68 @@ export function AddLiquidityPanel({
                   }
                 }}
                 disabled={loading || !tokenYBalance}
-                className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 rounded text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 MAX
               </button>
             </div>
-            <span className="block text-xs text-gray-500 mt-1">
-              Balance: {tokenYBalance ? tokenYBalance.uiAmount.toFixed(4) : '0.00'} {tokenYSymbol}
-            </span>
           </div>
         )}
       </div>
 
-      {/* Pool Info */}
-      <div className="grid grid-cols-2 gap-2">
-        <div className="flex items-center justify-between px-4 py-2 rounded-lg bg-gray-800/30 border border-gray-700">
-          <span className="text-xs text-gray-400">Bin Step</span>
-          <span className="text-sm font-semibold text-primary">{binStep}</span>
-        </div>
-        <div className="flex items-center justify-between px-4 py-2 rounded-lg bg-gray-800/30 border border-gray-700">
-          <span className="text-xs text-gray-400">Slippage</span>
-          <span className="text-sm font-semibold text-white">1.0%</span>
-        </div>
-      </div>
-
-      {/* Add Liquidity Button */}
+      {/* Add Liquidity Button - Outside tile, prominent */}
       <Button
         onClick={handleAddLiquidity}
         disabled={!connected || loading || !tokenXAmount}
         variant="primary"
         size="lg"
         loading={loading}
-        className="w-full"
+        className="w-full shadow-lg shadow-primary/20"
+        title={!connected ? 'Connect wallet first' : 'Liquidity will be deposited according to your selected strategy and price range'}
       >
         {!connected ? 'Connect Wallet' : 'Add Liquidity'}
       </Button>
 
-      {/* Info Banner */}
-      <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-        <p className="text-xs text-blue-300">
-          <strong>Note:</strong> Liquidity will be deposited according to your selected strategy and price range. Fees earned will be automatically compounded.
-        </p>
-      </div>
+      {/* Quick Liquidity Tester - Devnet Only */}
+      {network === 'devnet' && (
+        <details className="group" open>
+          <summary className="cursor-pointer px-3 py-2 rounded-lg bg-gradient-to-r from-purple-500/10 to-blue-500/10 hover:from-purple-500/20 hover:to-blue-500/20 transition-colors border border-purple-500/30">
+            <span className="text-xs font-semibold text-white">🧪 Quick Test: Add Liquidity & See Bins</span>
+          </summary>
+          <div className="mt-2 bg-background-secondary/30 border border-border-light rounded-lg p-3">
+            <QuickLiquidityTester
+              poolAddress={poolAddress}
+              tokenXMint={tokenXMint}
+              tokenYMint={tokenYMint}
+              tokenXSymbol={tokenXSymbol}
+              tokenYSymbol={tokenYSymbol}
+              currentPrice={safeCurrentPrice}
+              binStep={binStep}
+              onLiquidityAdded={() => {
+                // Callback to refresh bin data - will be handled by react-query refetch
+                console.log('[AddLiquidity] Liquidity added - bins will refresh automatically');
+              }}
+            />
+          </div>
+        </details>
+      )}
+
+      {/* Devnet Faucet - Collapsible */}
+      {network === 'devnet' && (
+        <details className="group">
+          <summary className="cursor-pointer px-3 py-2 rounded-lg bg-background-secondary/30 hover:bg-background-secondary/50 transition-colors border border-border-light">
+            <span className="text-xs font-semibold text-gray-300">💧 Need test tokens?</span>
+          </summary>
+          <div className="mt-2 bg-background-secondary/30 border border-border-light rounded-lg p-3">
+            <DevnetFaucet
+              tokenXMint={tokenXMint}
+              tokenYMint={tokenYMint}
+              tokenXSymbol={tokenXSymbol}
+              tokenYSymbol={tokenYSymbol}
+            />
+          </div>
+        </details>
+      )}
     </div>
   );
 }

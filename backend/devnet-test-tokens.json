@@ -1,0 +1,20 @@
+{
+  "network": "devnet",
+  "tokens": {
+    "TESTA": {
+      "mint": "9taVtZFf2ZCPfCXiPi4ksdJtsfXXE4D5a927igJ845PR",
+      "symbol": "TESTA",
+      "decimals": 6,
+      "supply": 1000000,
+      "owner": "BYnoVgMLftH28ERdnrWjeGmZvQwAmDm9CqCPiGNRBTHu"
+    },
+    "TESTB": {
+      "mint": "B3CSTPKeMZRKKYRtuVwLdzL2ib3tfHewGeR9XKdKbg3m",
+      "symbol": "TESTB",
+      "decimals": 6,
+      "supply": 1000000,
+      "owner": "BYnoVgMLftH28ERdnrWjeGmZvQwAmDm9CqCPiGNRBTHu"
+    }
+  },
+  "note": "Test tokens created on devnet. Use these to create pools via Meteora UI or SDK."
+}

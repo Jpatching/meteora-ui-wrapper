@@ -16,7 +16,7 @@ export function MainLayout({ children, searchTerm, onSearchChange }: MainLayoutP
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header searchTerm={searchTerm} onSearchChange={onSearchChange} />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-hidden flex flex-col">{children}</main>
       </div>
     </div>
   );

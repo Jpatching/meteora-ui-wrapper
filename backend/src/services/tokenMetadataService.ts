@@ -203,7 +203,12 @@ export async function getTokenMetadata(address: string): Promise<TokenMetadata |
     verified: false,
   };
   await setCached(cacheKey, fallback, UNKNOWN_TOKEN_TTL);
-  console.warn(`⚠️ Token ${address} not found in any source`);
+
+  // Only log if DEBUG mode is enabled to reduce log noise
+  // Many pump.fun and low-liquidity tokens won't be in Jupiter/SolanaFM
+  if (process.env.DEBUG_TOKEN_FETCH === 'true') {
+    console.warn(`⚠️ Token ${address} not found in any source`);
+  }
 
   return null;
 }

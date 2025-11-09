@@ -26,8 +26,9 @@ export const CACHE_TTL = {
 
 // Cache key generators
 export const cacheKeys = {
-  pool: (poolId: string) => `pool:${poolId}`,
-  poolList: (protocol?: string) => protocol ? `pools:${protocol}` : 'pools:all',
+  pool: (poolId: string, network: string = 'mainnet-beta') => `pool:${poolId}:${network}`,
+  poolList: (protocol?: string, network: string = 'mainnet-beta') =>
+    protocol ? `pools:${protocol}:${network}` : `pools:all:${network}`,
   tokenPrice: (mint: string) => `price:${mint}`,
   userSession: (wallet: string) => `session:${wallet}`,
   userStats: (wallet: string) => `stats:${wallet}`,

@@ -16,7 +16,19 @@ interface NetworkContextType {
 const NetworkContext = createContext<NetworkContextType | undefined>(undefined);
 
 export function NetworkProvider({ children }: { children: ReactNode }) {
-  const [network, setNetworkState] = useState<NetworkType>('devnet');
+  // Initialize network from localStorage immediately (not in useEffect)
+  // This prevents race conditions where queries fire before localStorage is read
+  const [network, setNetworkState] = useState<NetworkType>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('meteora-network') as NetworkType;
+      if (saved && ['devnet', 'mainnet-beta'].includes(saved)) {
+        console.log(`[Network] Loaded from localStorage: ${saved}`);
+        return saved;
+      }
+    }
+    console.log('[Network] No saved network, defaulting to mainnet-beta');
+    return 'mainnet-beta'; // Default to mainnet, not devnet
+  });
   const [currentRpcUrl, setCurrentRpcUrl] = useState<string>('');
 
   // Test RPC health by trying to get recent blockhash
@@ -125,6 +137,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   }, [network, getRpcUrl, testRpcHealth, getFallbackUrls]);
 
   const setNetwork = useCallback((newNetwork: NetworkType) => {
+    console.log(`[Network] Switching to ${newNetwork}`);
     setNetworkState(newNetwork);
     // Store in localStorage for persistence
     if (typeof window !== 'undefined') {
@@ -132,13 +145,8 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Load from localStorage on mount (client-side only)
-  useEffect(() => {
-    const saved = localStorage.getItem('meteora-network') as NetworkType;
-    if (saved && ['localnet', 'devnet', 'mainnet-beta'].includes(saved)) {
-      setNetworkState(saved);
-    }
-  }, []);
+  // Note: Network is now initialized in useState, no need for useEffect
+  // This was moved to prevent race conditions with React Query
 
   return (
     <NetworkContext.Provider

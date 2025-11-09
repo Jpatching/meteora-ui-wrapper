@@ -1598,8 +1598,8 @@ export function useDLMM() {
       const activePrice = Math.pow(1 + binStep / 10000, activeBinId);
 
       console.log('[DLMM] Pool metadata:');
-      console.log(`  - Token X: ${dlmmPool.tokenX.publicKey.toBase58()} (${dlmmPool.tokenX.symbol})`);
-      console.log(`  - Token Y: ${dlmmPool.tokenY.publicKey.toBase58()} (${dlmmPool.tokenY.symbol})`);
+      console.log(`  - Token X: ${dlmmPool.tokenX.publicKey.toBase58()}`);
+      console.log(`  - Token Y: ${dlmmPool.tokenY.publicKey.toBase58()}`);
       console.log(`  - Active Bin ID: ${activeBinId}`);
       console.log(`  - Bin Step: ${binStep}`);
       console.log(`  - Active Price: ${activePrice}`);
@@ -1712,18 +1712,17 @@ export function useDLMM() {
           // For single-sided deposits on empty pools, use seedLiquiditySingleBin
           console.log('[DLMM] Single-sided deposit on empty pool - using seedLiquiditySingleBin');
 
-          // Use the active price or minPrice (whichever makes sense for the deposit token)
-          let seedPrice: number;
-          if (isDepositingTokenX) {
-            // Token X provides liquidity above current price
-            // Seed at the minPrice if it's above active, otherwise at active
-            seedPrice = params.minPrice >= activePrice ? params.minPrice : activePrice;
-            console.log(`[DLMM] Token X deposit: seeding at price ${seedPrice}`);
-          } else {
-            // Token Y provides liquidity below current price
-            // Seed at the maxPrice if it's below active, otherwise at active
-            seedPrice = params.maxPrice <= activePrice ? params.maxPrice : activePrice;
-            console.log(`[DLMM] Token Y deposit: seeding at price ${seedPrice}`);
+          // IMPORTANT: For empty pools, MUST seed at the active price (active bin)
+          // You cannot seed outside the active bin on an empty pool
+          const seedPrice = activePrice;
+
+          console.log(`[DLMM] Empty pool seeding - MUST use active price: ${seedPrice}`);
+          console.log(`[DLMM] User requested range: [${params.minPrice}, ${params.maxPrice}]`);
+          console.log(`[DLMM] Active price: ${activePrice} (bin ${activeBinId})`);
+
+          if (params.minPrice > activePrice || params.maxPrice < activePrice) {
+            console.warn('[DLMM] WARNING: User price range does not include active price!');
+            console.warn('[DLMM] For empty pools, seeding at active price regardless of range.');
           }
 
           console.log(`[DLMM] Calling seedLiquiditySingleBin with:`);
@@ -1758,12 +1757,24 @@ export function useDLMM() {
           // Build transaction from instructions
           const tx = new Transaction().add(...seedResponse.instructions);
 
-          console.log('[DLMM] Transaction built, sending with position keypair signer...');
+          // Get recent blockhash
+          const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+          tx.recentBlockhash = blockhash;
+          tx.lastValidBlockHeight = lastValidBlockHeight;
+          tx.feePayer = publicKey;
 
-          // Pass position keypair as a signer to wallet adapter's sendTransaction
-          const signature = await sendTransaction(tx, connection, {
-            signers: [positionKeypair],
-          });
+          console.log('[DLMM] Transaction built with blockhash:', blockhash);
+          console.log('[DLMM] Fee payer:', publicKey.toString());
+          console.log('[DLMM] Position signer:', positionKeypair.publicKey.toString());
+
+          // Sign with position keypair first
+          tx.partialSign(positionKeypair);
+
+          console.log('[DLMM] Position keypair signed, sending for wallet signature...');
+
+          // Wallet signs and sends (it will merge signatures)
+          // Don't serialize yet - let wallet adapter handle it
+          const signature = await sendTransaction(tx, connection);
 
           console.log('[DLMM] Transaction sent, waiting for confirmation...');
           await confirmTransactionWithRetry(connection, signature);
@@ -1811,23 +1822,30 @@ export function useDLMM() {
             new BN(0)                      // lockReleasePoint
           );
 
-          if (!seedResponse || !seedResponse.groupedTransactions) {
+          if (!seedResponse || !('groupedTransactions' in seedResponse)) {
             throw new Error('seedLiquidity returned no transactions');
           }
 
-          console.log(`[DLMM] Created ${seedResponse.groupedTransactions.length} grouped transactions`);
+          const transactions = (seedResponse as any).groupedTransactions;
+          console.log(`[DLMM] Created ${transactions.length} grouped transactions`);
 
           // Execute all transactions sequentially
           // Note: seedLiquidity returns grouped transactions that may need signing with position keypair
           const signatures: string[] = [];
-          for (let i = 0; i < seedResponse.groupedTransactions.length; i++) {
-            const txGroup = seedResponse.groupedTransactions[i];
-            console.log(`[DLMM] Sending transaction group ${i + 1}/${seedResponse.groupedTransactions.length}...`);
+          for (let i = 0; i < transactions.length; i++) {
+            const txGroup = transactions[i];
+            console.log(`[DLMM] Sending transaction group ${i + 1}/${transactions.length}...`);
 
-            // Pass position keypair as signer
-            const sig = await sendTransaction(txGroup.tx, connection, {
-              signers: [positionKeypair],
-            });
+            // Get recent blockhash
+            const { blockhash } = await connection.getLatestBlockhash('confirmed');
+            txGroup.tx.recentBlockhash = blockhash;
+            txGroup.tx.feePayer = publicKey;
+
+            // Partially sign with position keypair
+            txGroup.tx.partialSign(positionKeypair);
+
+            // Send (wallet will add its signature)
+            const sig = await sendTransaction(txGroup.tx, connection);
             signatures.push(sig);
 
             await confirmTransactionWithRetry(connection, sig);
@@ -1847,11 +1865,20 @@ export function useDLMM() {
       console.log('[DLMM] Pool has liquidity - using standard add liquidity');
       const addLiquidityTx = await dlmmPool.initializePositionAndAddLiquidityByStrategy(liquidityParams);
 
+      // Get recent blockhash
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+      addLiquidityTx.recentBlockhash = blockhash;
+      addLiquidityTx.lastValidBlockHeight = lastValidBlockHeight;
+      addLiquidityTx.feePayer = publicKey;
+
+      console.log('[DLMM] Transaction built with blockhash:', blockhash);
+
+      // Partially sign with position keypair
+      addLiquidityTx.partialSign(positionKeypair);
+
       // Send transaction with position keypair as signer
       console.log('[DLMM] Sending add liquidity transaction...');
-      const signature = await sendTransaction(addLiquidityTx, connection, {
-        signers: [positionKeypair],
-      });
+      const signature = await sendTransaction(addLiquidityTx, connection);
 
       // Confirm transaction
       await confirmTransactionWithRetry(connection, signature);
@@ -1865,7 +1892,26 @@ export function useDLMM() {
       };
     } catch (error: any) {
       console.error('[DLMM] Error adding liquidity:', error);
-      throw new Error(error.message || 'Failed to add liquidity');
+      console.error('[DLMM] Error details:', {
+        message: error.message,
+        code: error.code,
+        logs: error.logs,
+        stack: error.stack?.slice(0, 500),
+      });
+
+      // Provide more helpful error messages
+      let errorMessage = 'Failed to add liquidity';
+      if (error.message?.includes('insufficient funds')) {
+        errorMessage = 'Insufficient SOL for transaction fees';
+      } else if (error.message?.includes('insufficient')) {
+        errorMessage = 'Insufficient token balance';
+      } else if (error.message?.includes('User rejected')) {
+        errorMessage = 'Transaction rejected by user';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      throw new Error(errorMessage);
     }
   };
 

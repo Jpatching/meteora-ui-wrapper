@@ -78,8 +78,15 @@ router.post('/create', async (req: Request, res: Response) => {
 
       // Generate position keypair
       const positionKeypair = Keypair.generate();
+      console.log(`📍 Position pubkey: ${positionKeypair.publicKey.toBase58()}`);
 
       // Create position and add liquidity transaction
+      console.log(`🔨 Creating add liquidity transaction...`);
+      console.log(`   Token A amount: ${tokenAAmount}`);
+      console.log(`   Token B amount: ${tokenBAmount}`);
+      console.log(`   Active bin: ${dlmmPool.lbPair.activeId}`);
+      console.log(`   Strategy: ${strategy} (type ${strategyType})`);
+
       const addLiquidityTx = await dlmmPool.initializePositionAndAddLiquidityByStrategy({
         positionPubKey: positionKeypair.publicKey,
         user: userPubkey,
@@ -92,7 +99,12 @@ router.post('/create', async (req: Request, res: Response) => {
         },
       });
 
-      console.log(`✅ DLMM position initialized successfully`);
+      console.log(`✅ DLMM transaction created`);
+      console.log(`   Instructions: ${addLiquidityTx.instructions.length}`);
+
+      // IMPORTANT: Sign with position keypair before sending to frontend
+      addLiquidityTx.partialSign(positionKeypair);
+      console.log(`✅ Position keypair signed`);
 
       // Serialize transaction for frontend to sign
       const serializedTx = addLiquidityTx.serialize({
