@@ -1592,27 +1592,266 @@ export function useDLMM() {
         strategyType = 2; // BidAsk
       }
 
+      // Get pool metadata for diagnostics
+      const activeBinId = dlmmPool.lbPair.activeId;
+      const binStep = dlmmPool.lbPair.binStep;
+      const activePrice = Math.pow(1 + binStep / 10000, activeBinId);
+
+      console.log('[DLMM] Pool metadata:');
+      console.log(`  - Token X: ${dlmmPool.tokenX.publicKey.toBase58()} (${dlmmPool.tokenX.symbol})`);
+      console.log(`  - Token Y: ${dlmmPool.tokenY.publicKey.toBase58()} (${dlmmPool.tokenY.symbol})`);
+      console.log(`  - Active Bin ID: ${activeBinId}`);
+      console.log(`  - Bin Step: ${binStep}`);
+      console.log(`  - Active Price: ${activePrice}`);
+      console.log(`  - Depositing Token: ${tokenMintPubkey.toBase58()}`);
+
+      // Calculate bin IDs from price range
+      const maxBinId = dlmmPool.getBinIdFromPrice(params.maxPrice, true);
+      const minBinId = dlmmPool.getBinIdFromPrice(params.minPrice, false);
+
+      console.log('[DLMM] Price range to bin IDs:');
+      console.log(`  - Min Price: ${params.minPrice} -> Bin ID: ${minBinId}`);
+      console.log(`  - Max Price: ${params.maxPrice} -> Bin ID: ${maxBinId}`);
+      console.log(`  - Active Bin ID: ${activeBinId}`);
+      console.log(`  - Bin range includes active? ${minBinId <= activeBinId && activeBinId <= maxBinId}`);
+
+      // Determine which token is being deposited
+      const isDepositingTokenX = tokenMintPubkey.equals(dlmmPool.tokenX.publicKey);
+      const isDepositingTokenY = tokenMintPubkey.equals(dlmmPool.tokenY.publicKey);
+
+      console.log('[DLMM] Deposit token analysis:');
+      console.log(`  - Is Token X? ${isDepositingTokenX}`);
+      console.log(`  - Is Token Y? ${isDepositingTokenY}`);
+      console.log(`  - Amount: ${params.amount} (${amountBN.toString()} lamports)`);
+
+      // Generate position keypair (needed for signing)
+      const positionKeypair = Keypair.generate();
+
       // Create liquidity parameters
       const liquidityParams = {
-        positionPubKey: Keypair.generate().publicKey,
+        positionPubKey: positionKeypair.publicKey,
         user: publicKey,
-        totalXAmount: tokenMintPubkey.equals(dlmmPool.tokenX.publicKey) ? amountBN : new BN(0),
-        totalYAmount: tokenMintPubkey.equals(dlmmPool.tokenY.publicKey) ? amountBN : new BN(0),
+        totalXAmount: isDepositingTokenX ? amountBN : new BN(0),
+        totalYAmount: isDepositingTokenY ? amountBN : new BN(0),
         strategy: {
-          maxBinId: dlmmPool.getBinIdFromPrice(params.maxPrice, true),
-          minBinId: dlmmPool.getBinIdFromPrice(params.minPrice, false),
+          maxBinId,
+          minBinId,
           strategyType,
         },
       };
 
-      console.log('[DLMM] Liquidity params:', liquidityParams);
+      console.log('[DLMM] Liquidity params:', {
+        ...liquidityParams,
+        totalXAmount: liquidityParams.totalXAmount.toString(),
+        totalYAmount: liquidityParams.totalYAmount.toString(),
+      });
 
-      // Create add liquidity transaction
+      // Validate bin range configuration
+      if (minBinId > maxBinId) {
+        throw new Error(
+          `Invalid bin range: minBinId (${minBinId}) > maxBinId (${maxBinId}). ` +
+          `This means minPrice (${params.minPrice}) is higher than maxPrice (${params.maxPrice}).`
+        );
+      }
+
+      // Check if the bin range includes the active bin
+      const includesActiveBin = minBinId <= activeBinId && activeBinId <= maxBinId;
+
+      // Validate price range for single-sided deposits
+      // NOTE: For empty pools using seedLiquidity, the range MUST include the active bin
+      if (isDepositingTokenX && !isDepositingTokenY) {
+        console.log('[DLMM] Single-sided Token X deposit detected');
+        if (maxBinId < activeBinId) {
+          throw new Error(
+            `Invalid range for Token X deposit: Your price range (${params.minPrice}-${params.maxPrice}, bins ${minBinId}-${maxBinId}) ` +
+            `is entirely below the active price (${activePrice.toFixed(6)}, bin ${activeBinId}). ` +
+            `Token X requires the range to include or exceed the active bin.`
+          );
+        }
+      } else if (isDepositingTokenY && !isDepositingTokenX) {
+        console.log('[DLMM] Single-sided Token Y deposit detected');
+        if (minBinId > activeBinId) {
+          throw new Error(
+            `Invalid range for Token Y deposit: Your price range (${params.minPrice}-${params.maxPrice}, bins ${minBinId}-${maxBinId}) ` +
+            `is entirely above the active price (${activePrice.toFixed(6)}, bin ${activeBinId}). ` +
+            `Token Y requires the range to include or be below the active bin.`
+          );
+        }
+      }
+
+      if (!includesActiveBin) {
+        console.warn(
+          `[DLMM] Warning: Price range [${params.minPrice}, ${params.maxPrice}] (bins ${minBinId}-${maxBinId}) ` +
+          `does not include active bin ${activeBinId}. For empty pools, seedLiquidity requires the active bin to be included.`
+        );
+      }
+
+      // Check if pool is empty (first LP)
+      const binArrays = await dlmmPool.getBinArrays();
+      const isEmptyPool = binArrays.length === 0;
+
+      if (isEmptyPool) {
+        // Get pool's initial/active price
+        const activeBinId = dlmmPool.lbPair.activeId;
+        const binStep = dlmmPool.lbPair.binStep;
+        const activePrice = Math.pow(1 + binStep / 10000, activeBinId);
+
+        console.log(`[DLMM] Pool is empty - active price: ${activePrice} (binId: ${activeBinId})`);
+
+        // Calculate total seed amount (must be BN in lamports)
+        const totalSeedAmount = liquidityParams.totalXAmount.gt(new BN(0))
+          ? liquidityParams.totalXAmount
+          : liquidityParams.totalYAmount;
+
+        // Check if this is a single-sided deposit
+        const isSingleSided =
+          (isDepositingTokenX && !isDepositingTokenY) ||
+          (isDepositingTokenY && !isDepositingTokenX);
+
+        if (isSingleSided) {
+          // For single-sided deposits on empty pools, use seedLiquiditySingleBin
+          console.log('[DLMM] Single-sided deposit on empty pool - using seedLiquiditySingleBin');
+
+          // Use the active price or minPrice (whichever makes sense for the deposit token)
+          let seedPrice: number;
+          if (isDepositingTokenX) {
+            // Token X provides liquidity above current price
+            // Seed at the minPrice if it's above active, otherwise at active
+            seedPrice = params.minPrice >= activePrice ? params.minPrice : activePrice;
+            console.log(`[DLMM] Token X deposit: seeding at price ${seedPrice}`);
+          } else {
+            // Token Y provides liquidity below current price
+            // Seed at the maxPrice if it's below active, otherwise at active
+            seedPrice = params.maxPrice <= activePrice ? params.maxPrice : activePrice;
+            console.log(`[DLMM] Token Y deposit: seeding at price ${seedPrice}`);
+          }
+
+          console.log(`[DLMM] Calling seedLiquiditySingleBin with:`);
+          console.log(`  - price: ${seedPrice}`);
+          console.log(`  - seedAmount: ${totalSeedAmount.toString()} lamports`);
+          console.log(`  - base: ${positionKeypair.publicKey.toString()}`);
+
+          // Call seedLiquiditySingleBin with correct parameter order
+          console.log('[DLMM] Calling seedLiquiditySingleBin SDK function...');
+
+          const seedResponse = await dlmmPool.seedLiquiditySingleBin(
+            publicKey,                      // payer
+            positionKeypair.publicKey,      // base (position derivation key)
+            totalSeedAmount,                // seedAmount (BN in lamports)
+            seedPrice,                      // price to seed at
+            false,                          // roundingUp
+            publicKey,                      // positionOwner
+            publicKey,                      // feeOwner
+            publicKey,                      // operator
+            new BN(0),                      // lockReleasePoint (0 = no lock)
+            false                           // shouldSeedPositionOwner
+          );
+
+          console.log('[DLMM] seedLiquiditySingleBin response:', seedResponse);
+
+          if (!seedResponse || !seedResponse.instructions || seedResponse.instructions.length === 0) {
+            throw new Error('seedLiquiditySingleBin returned no instructions');
+          }
+
+          console.log(`[DLMM] Created ${seedResponse.instructions.length} instructions`);
+
+          // Build transaction from instructions
+          const tx = new Transaction().add(...seedResponse.instructions);
+
+          console.log('[DLMM] Transaction built, sending with position keypair signer...');
+
+          // Pass position keypair as a signer to wallet adapter's sendTransaction
+          const signature = await sendTransaction(tx, connection, {
+            signers: [positionKeypair],
+          });
+
+          console.log('[DLMM] Transaction sent, waiting for confirmation...');
+          await confirmTransactionWithRetry(connection, signature);
+
+          console.log('[DLMM] Seed single bin completed! Signature:', signature);
+
+          return {
+            success: true,
+            signature,
+            positionAddress: positionKeypair.publicKey.toString(),
+            totalTransactions: 1,
+          };
+
+        } else {
+          // For dual-sided deposits (both tokens) on empty pools, use seedLiquidity
+          console.log('[DLMM] Dual-sided deposit on empty pool - using seedLiquidity');
+
+          // Validate price range
+          if (params.minPrice >= params.maxPrice) {
+            throw new Error(
+              `Price range error: minPrice (${params.minPrice}) must be < maxPrice (${params.maxPrice})`
+            );
+          }
+
+          // For dual-sided deposits, the range should include the active price
+          if (params.maxPrice < activePrice || params.minPrice > activePrice) {
+            throw new Error(
+              `Price range error: Your range [${params.minPrice}, ${params.maxPrice}] does not include ` +
+              `the active price ${activePrice.toFixed(6)}. For dual-sided deposits, include the active price.`
+            );
+          }
+
+          console.log(`[DLMM] Calling seedLiquidity with range ${params.minPrice} - ${params.maxPrice}`);
+
+          const seedResponse = await dlmmPool.seedLiquidity(
+            publicKey,                     // owner
+            totalSeedAmount,               // seedAmount
+            0,                             // curvature (0 = most concentrated)
+            params.minPrice,               // minPrice
+            params.maxPrice,               // maxPrice
+            positionKeypair.publicKey,     // base
+            publicKey,                     // payer
+            publicKey,                     // feeOwner
+            publicKey,                     // operator
+            new BN(0)                      // lockReleasePoint
+          );
+
+          if (!seedResponse || !seedResponse.groupedTransactions) {
+            throw new Error('seedLiquidity returned no transactions');
+          }
+
+          console.log(`[DLMM] Created ${seedResponse.groupedTransactions.length} grouped transactions`);
+
+          // Execute all transactions sequentially
+          // Note: seedLiquidity returns grouped transactions that may need signing with position keypair
+          const signatures: string[] = [];
+          for (let i = 0; i < seedResponse.groupedTransactions.length; i++) {
+            const txGroup = seedResponse.groupedTransactions[i];
+            console.log(`[DLMM] Sending transaction group ${i + 1}/${seedResponse.groupedTransactions.length}...`);
+
+            // Pass position keypair as signer
+            const sig = await sendTransaction(txGroup.tx, connection, {
+              signers: [positionKeypair],
+            });
+            signatures.push(sig);
+
+            await confirmTransactionWithRetry(connection, sig);
+            console.log(`[DLMM] Transaction ${i + 1} confirmed: ${sig}`);
+          }
+
+          return {
+            success: true,
+            signature: signatures[0],
+            positionAddress: positionKeypair.publicKey.toString(),
+            totalTransactions: signatures.length,
+          };
+        }
+      }
+
+      // Normal flow for pools with existing liquidity
+      console.log('[DLMM] Pool has liquidity - using standard add liquidity');
       const addLiquidityTx = await dlmmPool.initializePositionAndAddLiquidityByStrategy(liquidityParams);
 
-      // Send transaction
+      // Send transaction with position keypair as signer
       console.log('[DLMM] Sending add liquidity transaction...');
-      const signature = await sendTransaction(addLiquidityTx, connection);
+      const signature = await sendTransaction(addLiquidityTx, connection, {
+        signers: [positionKeypair],
+      });
 
       // Confirm transaction
       await confirmTransactionWithRetry(connection, signature);
@@ -1622,7 +1861,7 @@ export function useDLMM() {
       return {
         success: true,
         signature,
-        positionAddress: liquidityParams.positionPubKey.toString(),
+        positionAddress: positionKeypair.publicKey.toString(),
       };
     } catch (error: any) {
       console.error('[DLMM] Error adding liquidity:', error);
