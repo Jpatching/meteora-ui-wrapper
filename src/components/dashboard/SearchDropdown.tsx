@@ -173,34 +173,26 @@ export function SearchDropdown({
                         className="px-4 py-3 hover:bg-background-hover cursor-pointer transition-colors"
                       >
                         <div className="flex items-center gap-3">
-                          {/* Pool pair icons - using Jupiter CDN */}
+                          {/* Pool pair icons - using Jupiter CDN (same as discover page) */}
                           <div className="flex items-center -space-x-2">
                             <img
-                              src={`https://img.fotofolio.xyz/?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsolana-labs%2Ftoken-list%2Fmain%2Fassets%2Fmainnet%2F${pool.token_a_mint}%2Flogo.png`}
+                              src={`https://cache.jup.ag/static/cdn/strict/${pool.token_a_mint}`}
                               alt={pool.token_a_symbol}
-                              className="w-8 h-8 rounded-full border-2 border-[#1a1b1e] bg-gray-800"
+                              className="w-10 h-10 rounded-full border-2 border-[#1a1b1e]"
                               onError={(e) => {
-                                // Fallback to letter avatar if image fails
-                                e.currentTarget.style.display = 'none';
-                                e.currentTarget.nextElementSibling!.classList.remove('hidden');
+                                // Fallback to default token icon
+                                (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%238b5cf6"/><text x="50" y="50" font-size="50" text-anchor="middle" dy=".3em" fill="white">' + pool.token_a_symbol.charAt(0) + '</text></svg>';
                               }}
                             />
-                            <div className="hidden w-8 h-8 rounded-full bg-primary/20 border-2 border-[#1a1b1e] flex items-center justify-center text-xs font-bold text-primary">
-                              {pool.token_a_symbol.charAt(0)}
-                            </div>
                             <img
-                              src={`https://img.fotofolio.xyz/?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsolana-labs%2Ftoken-list%2Fmain%2Fassets%2Fmainnet%2F${pool.token_b_mint}%2Flogo.png`}
+                              src={`https://cache.jup.ag/static/cdn/strict/${pool.token_b_mint}`}
                               alt={pool.token_b_symbol}
-                              className="w-8 h-8 rounded-full border-2 border-[#1a1b1e] bg-gray-800"
+                              className="w-10 h-10 rounded-full border-2 border-[#1a1b1e]"
                               onError={(e) => {
-                                // Fallback to letter avatar if image fails
-                                e.currentTarget.style.display = 'none';
-                                e.currentTarget.nextElementSibling!.classList.remove('hidden');
+                                // Fallback to default token icon
+                                (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%233b82f6"/><text x="50" y="50" font-size="50" text-anchor="middle" dy=".3em" fill="white">' + pool.token_b_symbol.charAt(0) + '</text></svg>';
                               }}
                             />
-                            <div className="hidden w-8 h-8 rounded-full bg-secondary/20 border-2 border-[#1a1b1e] flex items-center justify-center text-xs font-bold text-secondary">
-                              {pool.token_b_symbol.charAt(0)}
-                            </div>
                           </div>
 
                           <div className="flex-1 min-w-0">

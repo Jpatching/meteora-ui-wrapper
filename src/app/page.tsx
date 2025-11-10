@@ -479,18 +479,54 @@ export default function DiscoverPage() {
     setMaxMarketCap('');
   };
 
-  // Search tokens by search term
+  // Search tokens by search term - search ALL tokens from Jupiter, not just top 100
   const searchedTokens = useMemo(() => {
     if (!searchTerm || searchTerm.length < 2) return [];
 
     const lowerSearch = searchTerm.toLowerCase();
-    return aggregatedTokens
-      .filter(token =>
-        token.symbol.toLowerCase().includes(lowerSearch) ||
-        token.name.toLowerCase().includes(lowerSearch)
-      )
-      .slice(0, 3); // Top 3 matching tokens
-  }, [aggregatedTokens, searchTerm]);
+
+    // Create a map of unique tokens from ALL Jupiter pools (not just top 100)
+    const tokenMap = new Map<string, TokenData>();
+
+    jupiterPools.forEach(pool => {
+      const tokenId = pool.baseAsset.id;
+      const tokenSymbol = pool.baseAsset.symbol.toLowerCase();
+      const tokenName = pool.baseAsset.name?.toLowerCase() || '';
+
+      // Only include if it matches search
+      if (!tokenSymbol.includes(lowerSearch) && !tokenName.includes(lowerSearch)) {
+        return;
+      }
+
+      if (!tokenMap.has(tokenId)) {
+        const createdAt = tokenCreationTimestamps.get(tokenId) || Date.now();
+        tokenMap.set(tokenId, {
+          id: tokenId,
+          symbol: pool.baseAsset.symbol,
+          name: pool.baseAsset.name || pool.baseAsset.symbol,
+          icon: pool.baseAsset.icon,
+          totalVolume24h: 0,
+          totalLiquidity: 0,
+          pools: [],
+          marketCap: (pool.baseAsset as any).marketCap,
+          createdAt,
+          organicScore: (pool.baseAsset as any).organicScore,
+          audit: (pool.baseAsset as any).audit,
+        });
+      }
+
+      const token = tokenMap.get(tokenId)!;
+      token.totalVolume24h += pool.volume24h || 0;
+      token.totalLiquidity += pool.baseAsset.liquidity || 0;
+      token.pools.push(pool);
+    });
+
+    // Get all matching tokens, sort by volume, take top 3
+    const matches = Array.from(tokenMap.values());
+    return matches
+      .sort((a, b) => b.totalVolume24h - a.totalVolume24h)
+      .slice(0, 3);
+  }, [jupiterPools, searchTerm, tokenCreationTimestamps]);
 
   return (
     <MainLayout
