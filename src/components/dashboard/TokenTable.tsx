@@ -199,7 +199,12 @@ export function TokenTable({ tokens, onTokenClick, sortBy, onSortChange }: Token
                 <div className={token.audit?.freezeAuthorityDisabled === true ? 'text-success' : 'text-warning'}>
                   {token.audit?.freezeAuthorityDisabled === true ? 'No' : 'Yes'}
                 </div>
-                <div className="text-white">
+                <div className={
+                  !token.organicScore ? 'text-error' :
+                  token.organicScore >= 70 ? 'text-success' :
+                  token.organicScore >= 40 ? 'text-warning' :
+                  'text-error'
+                }>
                   {token.organicScore ? Math.round(token.organicScore) : '0'}
                 </div>
               </div>
