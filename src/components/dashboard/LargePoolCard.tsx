@@ -20,6 +20,19 @@ export function LargePoolCard({ pool, isSelected = false, onClick }: LargePoolCa
   const priceChange = baseAsset.stats24h?.priceChange || 0;
   const isPositive = priceChange >= 0;
 
+  const getOrganicScoreTooltip = (score?: number) => {
+    if (!score || score === 0) {
+      return 'New/unproven token - No organic trading activity yet. Trade with caution!';
+    }
+    if (score >= 70) {
+      return 'High organic score - Strong genuine trading activity. Generally safer.';
+    }
+    if (score >= 40) {
+      return 'Medium organic score - Moderate trading activity. Do your research.';
+    }
+    return 'Low organic score - Limited or suspicious activity. High risk!';
+  };
+
   // Determine protocol badge
   const getProtocolBadge = () => {
     if (pool.baseAsset.launchpad === 'met-dbc') return 'DBC';
@@ -146,12 +159,16 @@ export function LargePoolCard({ pool, isSelected = false, onClick }: LargePoolCa
         </div>
         <div>
           <div className="text-foreground-muted text-xs mb-0.5">Score</div>
-          <div className={
-            !baseAsset.organicScore ? 'font-bold text-error' :
-            baseAsset.organicScore >= 70 ? 'font-bold text-success' :
-            baseAsset.organicScore >= 40 ? 'font-bold text-warning' :
-            'font-bold text-error'
-          }>
+          <div
+            className={
+              !baseAsset.organicScore ? 'font-bold text-error' :
+              baseAsset.organicScore >= 70 ? 'font-bold text-success' :
+              baseAsset.organicScore >= 40 ? 'font-bold text-warning' :
+              'font-bold text-error'
+            }
+            title={getOrganicScoreTooltip(baseAsset.organicScore)}
+            style={{ cursor: 'help' }}
+          >
             {baseAsset.organicScore ? Math.round(baseAsset.organicScore) : '0'}
           </div>
         </div>
