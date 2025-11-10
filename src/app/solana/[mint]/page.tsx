@@ -37,23 +37,59 @@ export default function TokenPage({ params }: TokenPageProps) {
   // Get pool address from query parameter (optional)
   const poolAddressParam = searchParams.get('pool');
 
-  // Fetch ALL Jupiter pools (same as dashboard)
-  const { data: jupiterData, isLoading: isLoadingAllPools } = useAllPublicPools({
-    timeframe: '24h',
-    refetchInterval: false,
-  });
+  // State for token pools fetched from backend
+  const [tokenPools, setTokenPools] = useState<any[]>([]);
+  const [isLoadingTokenPools, setIsLoadingTokenPools] = useState(true);
 
-  // Combine all pools from Jupiter response
-  const allJupiterPools = useMemo(() => {
-    return [
-      ...(jupiterData?.recent?.pools || []),
-      ...(jupiterData?.aboutToGraduate?.pools || []),
-      ...(jupiterData?.graduated?.pools || []),
-    ];
-  }, [jupiterData]);
+  // Fetch pools for this token from backend API (searches by token mint)
+  useEffect(() => {
+    const fetchTokenPools = async () => {
+      setIsLoadingTokenPools(true);
+      try {
+        const response = await fetch(
+          `https://alsk-production.up.railway.app/api/pools/search?q=${mint}&network=${network}&limit=100`
+        );
+        const data = await response.json();
 
-  // Filter pools for this specific token
-  const tokenPools = allJupiterPools.filter((pool: any) => pool.baseAsset.id === mint);
+        if (data.success && data.data.length > 0) {
+          console.log(`✅ Found ${data.data.length} pools for token ${mint}`);
+
+          // Transform backend pools to our Pool format
+          const pools = data.data.map((pool: any) => ({
+            id: pool.pool_address,
+            type: pool.protocol === 'dlmm' ? 'dlmm' : 'damm-v2',
+            baseAsset: {
+              id: pool.token_x_mint,
+              symbol: pool.token_x_symbol || 'UNKNOWN',
+              name: pool.token_x_name || 'Unknown Token',
+              icon: pool.token_x_logo || '',
+              liquidity: pool.token_x_reserve || 0,
+              usdPrice: pool.token_x_price || 0,
+            },
+            quoteAsset: pool.token_y_mint ? {
+              id: pool.token_y_mint,
+              symbol: pool.token_y_symbol || 'UNKNOWN',
+              icon: pool.token_y_logo || '',
+            } : null,
+            volume24h: pool.volume_24h || 0,
+            tvl: pool.tvl || 0,
+          }));
+
+          setTokenPools(pools);
+        } else {
+          console.log(`⚠️ No pools found for token ${mint}`);
+          setTokenPools([]);
+        }
+      } catch (error) {
+        console.error('Failed to fetch token pools:', error);
+        setTokenPools([]);
+      } finally {
+        setIsLoadingTokenPools(false);
+      }
+    };
+
+    fetchTokenPools();
+  }, [mint, network]);
 
   // Determine which pool to use
   const primaryPool = tokenPools.length > 0
@@ -65,7 +101,7 @@ export default function TokenPage({ params }: TokenPageProps) {
   // Fetch pool from unified backend endpoint with network filtering (only if pool exists)
   const { data: rawPool, isLoading: isLoadingPool, error } = useBackendPool(poolAddress, network);
 
-  const isLoading = isLoadingAllPools || isLoadingPool;
+  const isLoading = isLoadingTokenPools || isLoadingPool;
 
   // State for enriched pool with token metadata
   const [pool, setPool] = useState<Pool | null>(null);
