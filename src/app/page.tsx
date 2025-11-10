@@ -41,7 +41,8 @@ export default function DiscoverPage() {
   const [showChartModal, setShowChartModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState(''); // Unified search for both tokens and pools
   const [showTokenFilters, setShowTokenFilters] = useState(false); // Toggle for filter dropdown
-  const [timePeriod, setTimePeriod] = useState<'1H' | '2H' | '4H' | '8H' | '24H'>('1H'); // Time period filter
+  const [timePeriod, setTimePeriod] = useState<'1H' | '2H' | '4H' | '8H' | '24H'>('1H'); // Token time period filter
+  const [poolTimePeriod, setPoolTimePeriod] = useState<'1H' | '2H' | '4H' | '8H' | '24H'>('24H'); // Pool time period filter (UI only - backend shows 24h data)
   const [minLiquidity, setMinLiquidity] = useState<string>('');
   const [maxLiquidity, setMaxLiquidity] = useState<string>('');
   const [minMarketCap, setMinMarketCap] = useState<string>('');
@@ -741,21 +742,41 @@ export default function DiscoverPage() {
                 {/* Pool Filter Bar */}
                 <div className="px-4 py-2 border-b border-border-light">
                   <div className="flex flex-col gap-2">
-                    {/* Protocol Filters Row */}
-                    <div className="flex items-center gap-1">
-                      {(['all', 'dlmm', 'damm-v2'] as ProtocolFilter[]).map((filter) => (
-                        <button
-                          key={filter}
-                          onClick={() => setProtocolFilter(filter)}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                            protocolFilter === filter
-                              ? 'bg-background-tertiary text-foreground border border-border-light'
-                              : 'text-foreground-muted hover:text-foreground'
-                          }`}
-                        >
-                          {filter === 'all' ? 'All' : filter === 'damm-v2' ? 'DYN2' : filter.toUpperCase()}
-                        </button>
-                      ))}
+                    {/* Protocol Filters Row + Time Period Filters */}
+                    <div className="flex items-center gap-2">
+                      {/* Protocol Filter Buttons */}
+                      <div className="flex items-center gap-1">
+                        {(['all', 'dlmm', 'damm-v2'] as ProtocolFilter[]).map((filter) => (
+                          <button
+                            key={filter}
+                            onClick={() => setProtocolFilter(filter)}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                              protocolFilter === filter
+                                ? 'bg-background-tertiary text-foreground border border-border-light'
+                                : 'text-foreground-muted hover:text-foreground'
+                            }`}
+                          >
+                            {filter === 'all' ? 'All' : filter === 'damm-v2' ? 'DYN2' : filter.toUpperCase()}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Time Period Filters */}
+                      <div className="flex items-center gap-1">
+                        {(['1H', '2H', '4H', '8H', '24H'] as const).map((period) => (
+                          <button
+                            key={period}
+                            onClick={() => setPoolTimePeriod(period)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                              poolTimePeriod === period
+                                ? 'bg-background-tertiary text-foreground border border-border-light'
+                                : 'text-foreground-muted hover:text-foreground border border-transparent'
+                            }`}
+                          >
+                            {period}
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
                     {/* Sort and Pool Count Row */}
