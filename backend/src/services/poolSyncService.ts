@@ -101,28 +101,62 @@ async function fetchAllDLMMPools(): Promise<DLMMPool[]> {
 }
 
 /**
- * Fetch TOP DAMM v2 pools sorted by TVL
- * API returns 233k+ pools total, but we only want active ones with real TVL
+ * Fetch ALL DAMM v2 pools with pagination
+ * API returns 258k+ pools total, we filter for TVL > 0
  */
 async function fetchAllDAMMPools(): Promise<DAMMPool[]> {
-  console.log('🌊 Fetching TOP DAMM v2 pools from Meteora API (sorted by TVL)...');
+  console.log('🌊 Fetching ALL DAMM v2 pools from Meteora API...');
 
   try {
-    // CRITICAL: Use order_by=tvl to get pools with actual liquidity!
-    // Without this, API returns oldest/inactive pools first
-    const response = await fetch('https://dammv2-api.meteora.ag/pools?limit=1000&order_by=tvl&order=desc');
-    if (!response.ok) {
-      throw new Error(`DAMM API error: ${response.status}`);
+    let allPools: DAMMPool[] = [];
+    let currentPage = 1;
+    const limit = 50; // Fetch 50 per page (API default)
+
+    // Fetch first page to get total
+    const firstResponse = await fetch(`https://dammv2-api.meteora.ag/pools?page=${currentPage}&limit=${limit}`);
+    if (!firstResponse.ok) {
+      throw new Error(`DAMM API error: ${firstResponse.status}`);
     }
 
-    const result = await response.json() as any;
-    const pools = result.data || [];
+    const firstResult = await firstResponse.json() as any;
+    const totalPages = firstResult.pages || 1;
+    const totalPools = firstResult.total || 0;
 
-    // Filter out pools with very low TVL (likely abandoned)
-    const activePools = pools.filter((p: any) => p.tvl > 1); // At least $1 TVL
+    console.log(`📊 Total DAMM v2 pools: ${totalPools} (${totalPages} pages)`);
+    console.log(`🔄 Fetching pools with TVL > 0 only...`);
 
-    console.log(`✅ Fetched ${pools.length} DAMM v2 pools, ${activePools.length} active (TVL > $1)`);
-    return activePools;
+    // Add first page pools
+    if (firstResult.data) {
+      const activePools = firstResult.data.filter((p: any) => p.tvl > 0);
+      allPools.push(...activePools);
+    }
+
+    // Fetch remaining pages in parallel batches of 10
+    const batchSize = 10;
+    for (let batchStart = 2; batchStart <= totalPages; batchStart += batchSize) {
+      const batchEnd = Math.min(batchStart + batchSize - 1, totalPages);
+      const promises = [];
+
+      for (let page = batchStart; page <= batchEnd; page++) {
+        promises.push(
+          fetch(`https://dammv2-api.meteora.ag/pools?page=${page}&limit=${limit}`)
+            .then(r => r.json())
+            .then((result: any) => result.data || [])
+            .catch(() => [])
+        );
+      }
+
+      const batchResults = await Promise.all(promises);
+      for (const pools of batchResults) {
+        const activePools = pools.filter((p: any) => p.tvl > 0);
+        allPools.push(...activePools);
+      }
+
+      console.log(`   Fetched pages ${batchStart}-${batchEnd} (${allPools.length} active pools so far)`);
+    }
+
+    console.log(`✅ Fetched ${allPools.length} active DAMM v2 pools (TVL > 0) from ${totalPools} total`);
+    return allPools;
   } catch (error: any) {
     console.error('❌ Error fetching DAMM pools:', error.message);
     return [];
