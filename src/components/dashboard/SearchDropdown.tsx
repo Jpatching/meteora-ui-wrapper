@@ -25,7 +25,7 @@ interface SearchDropdownProps {
   onClose: () => void;
   onTokenClick?: (token: Token) => void;
   onPoolClick?: (pool: Pool) => void;
-  searchInputRef?: React.RefObject<HTMLDivElement>; // Reference to position dropdown
+  searchInputRef?: React.RefObject<HTMLDivElement | null>; // Reference to position dropdown
 }
 
 export function SearchDropdown({
