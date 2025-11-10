@@ -1,6 +1,7 @@
 /**
  * Token List Panel - Left panel showing all tokens
  * Displays tokens from all pools with aggregated metrics
+ * Styled to match charting.ag layout
  */
 
 'use client';
@@ -8,7 +9,7 @@
 import { useState, useMemo } from 'react';
 import { Pool } from '@/lib/jupiter/types';
 import { useRouter } from 'next/navigation';
-import { Badge } from '../ui';
+import toast from 'react-hot-toast';
 
 interface TokenListPanelProps {
   pools: Pool[];
@@ -25,15 +26,26 @@ interface TokenMetrics {
   price: number;
   priceChange24h: number;
   volume24h: number;
-  tvl: number;
+  mcap: number;
+  liquidity: number;
   holders: number;
-  poolCount: number; // Number of pools with this token
+  txCount: number;
+  poolCount: number;
+  twitter?: string;
+  createdAt: string;
+  organicScore?: number;
+  audit?: {
+    mintAuthorityDisabled: boolean;
+    freezeAuthorityDisabled: boolean;
+    topHoldersPercentage: number;
+    devBalancePercentage?: number;
+  };
 }
 
 export function TokenListPanel({ pools, isLoading }: TokenListPanelProps) {
   const router = useRouter();
   const [timeframe, setTimeframe] = useState<TimeFrame>('24H');
-  const [sortBy, setSortBy] = useState<'volume' | 'tvl' | 'price' | 'holders'>('volume');
+  const [sortBy, setSortBy] = useState<'volume' | 'mcap' | 'price' | 'holders'>('volume');
 
   // Aggregate tokens from all pools
   const tokens = useMemo(() => {
@@ -46,10 +58,17 @@ export function TokenListPanel({ pools, isLoading }: TokenListPanelProps) {
       if (existing) {
         // Aggregate metrics
         existing.volume24h += pool.volume24h || 0;
-        existing.tvl += pool.baseAsset.liquidity || 0;
+        existing.liquidity += pool.baseAsset.liquidity || 0;
         existing.poolCount += 1;
+        // Update tx count
+        const buys = pool.baseAsset.stats24h?.numBuys || 0;
+        const sells = pool.baseAsset.stats24h?.numSells || 0;
+        existing.txCount = buys + sells;
       } else {
         // Create new token entry
+        const buys = token.stats24h?.numBuys || 0;
+        const sells = token.stats24h?.numSells || 0;
+
         tokenMap.set(token.id, {
           address: token.id,
           symbol: token.symbol,
@@ -58,9 +77,15 @@ export function TokenListPanel({ pools, isLoading }: TokenListPanelProps) {
           price: token.usdPrice || 0,
           priceChange24h: token.stats24h?.priceChange || 0,
           volume24h: pool.volume24h || 0,
-          tvl: token.liquidity || 0,
+          mcap: token.mcap || 0,
+          liquidity: token.liquidity || 0,
           holders: token.holderCount || 0,
+          txCount: buys + sells,
           poolCount: 1,
+          twitter: token.twitter,
+          createdAt: pool.createdAt,
+          organicScore: token.organicScore,
+          audit: token.audit,
         });
       }
     });
@@ -74,8 +99,8 @@ export function TokenListPanel({ pools, isLoading }: TokenListPanelProps) {
       switch (sortBy) {
         case 'volume':
           return b.volume24h - a.volume24h;
-        case 'tvl':
-          return b.tvl - a.tvl;
+        case 'mcap':
+          return b.mcap - a.mcap;
         case 'price':
           return b.priceChange24h - a.priceChange24h;
         case 'holders':
@@ -90,6 +115,39 @@ export function TokenListPanel({ pools, isLoading }: TokenListPanelProps) {
     if (num >= 1_000_000) return `$${(num / 1_000_000).toFixed(2)}M`;
     if (num >= 1_000) return `$${(num / 1_000).toFixed(2)}K`;
     return `$${num.toFixed(2)}`;
+  };
+
+  const formatCount = (num: number) => {
+    if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
+    if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
+    return num.toString();
+  };
+
+  const getTokenAge = (createdAt: string) => {
+    const now = new Date();
+    const created = new Date(createdAt);
+    const diffMs = now.getTime() - created.getTime();
+
+    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (days > 0) {
+      const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      return `${days}d ${hours}h`;
+    }
+
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    if (hours > 0) {
+      const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      return `${hours}h ${minutes}m`;
+    }
+
+    const minutes = Math.floor(diffMs / (1000 * 60));
+    return `${minutes}m`;
+  };
+
+  const handleCopyAddress = (address: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(address);
+    toast.success('Address copied!');
   };
 
   const handleTokenClick = (token: TokenMetrics) => {
@@ -130,7 +188,7 @@ export function TokenListPanel({ pools, isLoading }: TokenListPanelProps) {
           className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:border-primary focus:outline-none"
         >
           <option value="volume">Volume</option>
-          <option value="tvl">TVL</option>
+          <option value="mcap">Market Cap</option>
           <option value="price">Price Change</option>
           <option value="holders">Holders</option>
         </select>
@@ -148,72 +206,139 @@ export function TokenListPanel({ pools, isLoading }: TokenListPanelProps) {
             No tokens found
           </div>
         ) : (
-          <div className="divide-y divide-border-light">
+          <div className="divide-y divide-gray-800/50">
             {sortedTokens.map((token) => (
               <button
                 key={token.address}
                 onClick={() => handleTokenClick(token)}
-                className="w-full p-4 hover:bg-gray-800/50 transition-colors text-left"
+                className="w-full p-3 hover:bg-gray-800/30 transition-colors text-left"
               >
-                {/* Token Header */}
-                <div className="flex items-center gap-3 mb-2">
+                {/* Token Header Row */}
+                <div className="flex items-start gap-2 mb-2">
+                  {/* Token Icon */}
                   {token.icon ? (
                     <img
                       src={token.icon}
                       alt={token.symbol}
-                      className="w-8 h-8 rounded-full"
+                      className="w-10 h-10 rounded-full flex-shrink-0"
                     />
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-xs font-bold text-white">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
                       {token.symbol.slice(0, 2)}
                     </div>
                   )}
 
+                  {/* Token Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-white text-sm truncate">
-                        {token.symbol}
-                      </h3>
-                      <Badge variant="info" className="text-[10px] px-1.5 py-0.5">
-                        {token.poolCount} {token.poolCount === 1 ? 'pool' : 'pools'}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-gray-400 truncate">{token.name}</p>
-                  </div>
+                    {/* Token Name */}
+                    <h3 className="font-bold text-white text-base mb-0.5">
+                      {token.symbol}
+                    </h3>
 
-                  {/* Price Change */}
-                  <div className="text-right">
-                    <div className={`text-sm font-semibold ${
-                      token.priceChange24h >= 0 ? 'text-success' : 'text-error'
-                    }`}>
-                      {token.priceChange24h >= 0 ? '+' : ''}
-                      {typeof token.priceChange24h === 'number' ? token.priceChange24h.toFixed(2) : '0.00'}%
+                    {/* Contract Address with Copy */}
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-xs text-gray-400 font-mono">
+                        {token.address.slice(0, 3)}...{token.address.slice(-4)}
+                      </span>
+                      <button
+                        onClick={(e) => handleCopyAddress(token.address, e)}
+                        className="text-gray-400 hover:text-primary transition-colors"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      </button>
                     </div>
-                    <div className="text-xs text-gray-400">
-                      ${typeof token.price === 'number' ? token.price.toFixed(6) : '0.000000'}
+
+                    {/* Token Age & Social Links */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500">
+                        {getTokenAge(token.createdAt)}
+                      </span>
+                      <span className="text-gray-700">|</span>
+                      {token.twitter && (
+                        <a
+                          href={`https://x.com/${token.twitter.replace('@', '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-gray-400 hover:text-primary transition-colors"
+                        >
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                          </svg>
+                        </a>
+                      )}
+                      <a
+                        href={`https://solscan.io/token/${token.address}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-gray-400 hover:text-primary transition-colors"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </a>
                     </div>
                   </div>
                 </div>
 
-                {/* Metrics */}
-                <div className="grid grid-cols-3 gap-2 text-xs">
+                {/* Metrics Grid - Row 1: Main Stats */}
+                <div className="grid grid-cols-5 gap-x-2 gap-y-1 text-[10px] mb-2">
                   <div>
-                    <span className="text-gray-400">Vol: </span>
-                    <span className="text-white font-medium">
-                      {formatNumber(token.volume24h)}
-                    </span>
+                    <div className="text-gray-500 mb-0.5">Vol</div>
+                    <div className="text-white font-medium">{formatNumber(token.volume24h)}</div>
                   </div>
                   <div>
-                    <span className="text-gray-400">TVL: </span>
-                    <span className="text-white font-medium">
-                      {formatNumber(token.tvl)}
-                    </span>
+                    <div className="text-gray-500 mb-0.5">Market Cap</div>
+                    <div className="text-white font-medium">{formatNumber(token.mcap)}</div>
                   </div>
                   <div>
-                    <span className="text-gray-400">Holders: </span>
-                    <span className="text-white font-medium">
-                      {token.holders.toLocaleString()}
-                    </span>
+                    <div className="text-gray-500 mb-0.5">Liquidity</div>
+                    <div className="text-white font-medium">{formatNumber(token.liquidity)}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500 mb-0.5">Holder</div>
+                    <div className="text-white font-medium">{formatCount(token.holders)}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500 mb-0.5">TXs</div>
+                    <div className="text-white font-medium">{formatCount(token.txCount)}</div>
+                  </div>
+                </div>
+
+                {/* Metrics Grid - Row 2: Security/Risk */}
+                <div className="grid grid-cols-5 gap-x-2 gap-y-1 text-[10px]">
+                  <div>
+                    <div className="text-gray-500 mb-0.5">Top 10</div>
+                    <div className="text-white font-medium">
+                      {token.audit?.topHoldersPercentage?.toFixed(2) || '0.00'}%
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500 mb-0.5">Dev H</div>
+                    <div className="text-white font-medium">
+                      {token.audit?.devBalancePercentage?.toFixed(0) || '0'}%
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500 mb-0.5">Mint</div>
+                    <div className={token.audit?.mintAuthorityDisabled ? 'text-success font-medium' : 'text-warning font-medium'}>
+                      {token.audit?.mintAuthorityDisabled ? 'No' : 'Yes'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500 mb-0.5">Freeze</div>
+                    <div className={token.audit?.freezeAuthorityDisabled ? 'text-success font-medium' : 'text-warning font-medium'}>
+                      {token.audit?.freezeAuthorityDisabled ? 'No' : 'Yes'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500 mb-0.5">Score</div>
+                    <div className="text-white font-medium">
+                      {token.organicScore || '0'}
+                    </div>
                   </div>
                 </div>
               </button>
