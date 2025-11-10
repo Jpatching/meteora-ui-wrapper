@@ -5,6 +5,7 @@
 
 'use client';
 
+import { useState } from 'react';
 import { Pool } from '@/lib/jupiter/types';
 import { formatUSD, formatNumber } from '@/lib/format/number';
 import { formatTimeAgo } from '@/lib/format/date';
@@ -19,6 +20,7 @@ export function LargePoolCard({ pool, isSelected = false, onClick }: LargePoolCa
   const { baseAsset } = pool;
   const priceChange = baseAsset.stats24h?.priceChange || 0;
   const isPositive = priceChange >= 0;
+  const [showScoreHover, setShowScoreHover] = useState(false);
 
   // Determine protocol badge
   const getProtocolBadge = () => {
@@ -147,18 +149,27 @@ export function LargePoolCard({ pool, isSelected = false, onClick }: LargePoolCa
         <div>
           <div className="text-foreground-muted text-xs mb-0.5">Score</div>
           <div
-            className={
+            className={`relative ${
               !baseAsset.organicScore ? 'font-bold text-error' :
               baseAsset.organicScore >= 70 ? 'font-bold text-success' :
               baseAsset.organicScore >= 40 ? 'font-bold text-warning' :
               'font-bold text-error'
-            }
-            {...(!baseAsset.organicScore && {
-              title: 'New token - No organic trading activity yet due to age',
-              style: { cursor: 'help' }
-            })}
+            }`}
+            onMouseEnter={() => !baseAsset.organicScore && setShowScoreHover(true)}
+            onMouseLeave={() => setShowScoreHover(false)}
           >
             {baseAsset.organicScore ? Math.round(baseAsset.organicScore) : '0'}
+
+            {/* Hover info box for score 0 */}
+            {!baseAsset.organicScore && showScoreHover && (
+              <div className="absolute left-0 bottom-full mb-2 w-48 px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-50">
+                <div className="text-xs text-gray-300 font-normal">
+                  New token - No organic trading activity yet due to age
+                </div>
+                {/* Arrow */}
+                <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-transparent border-t-4 border-t-gray-700"></div>
+              </div>
+            )}
           </div>
         </div>
       </div>

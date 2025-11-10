@@ -46,6 +46,7 @@ export function TokenListPanel({ pools, isLoading }: TokenListPanelProps) {
   const router = useRouter();
   const [timeframe, setTimeframe] = useState<TimeFrame>('24H');
   const [sortBy, setSortBy] = useState<'volume' | 'mcap' | 'price' | 'holders'>('volume');
+  const [hoveredScoreIndex, setHoveredScoreIndex] = useState<number | null>(null);
 
 
   // Aggregate tokens from all pools
@@ -208,7 +209,7 @@ export function TokenListPanel({ pools, isLoading }: TokenListPanelProps) {
           </div>
         ) : (
           <div className="divide-y divide-gray-800/50">
-            {sortedTokens.map((token) => (
+            {sortedTokens.map((token, index) => (
               <button
                 key={token.address}
                 onClick={() => handleTokenClick(token)}
@@ -339,18 +340,27 @@ export function TokenListPanel({ pools, isLoading }: TokenListPanelProps) {
                         {token.audit?.freezeAuthorityDisabled === true ? 'No' : 'Yes'}
                       </div>
                       <div
-                        className={
+                        className={`relative ${
                           !token.organicScore ? 'text-error' :
                           token.organicScore >= 70 ? 'text-success' :
                           token.organicScore >= 40 ? 'text-warning' :
                           'text-error'
-                        }
-                        {...(!token.organicScore && {
-                          title: 'New token - No organic trading activity yet due to age',
-                          style: { cursor: 'help' }
-                        })}
+                        }`}
+                        onMouseEnter={() => !token.organicScore && setHoveredScoreIndex(index)}
+                        onMouseLeave={() => setHoveredScoreIndex(null)}
                       >
                         {token.organicScore ? Math.round(token.organicScore) : '0'}
+
+                        {/* Hover info box for score 0 */}
+                        {!token.organicScore && hoveredScoreIndex === index && (
+                          <div className="absolute left-0 bottom-full mb-2 w-48 px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-50">
+                            <div className="text-xs text-gray-300 font-normal">
+                              New token - No organic trading activity yet due to age
+                            </div>
+                            {/* Arrow */}
+                            <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-transparent border-t-4 border-t-gray-700"></div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
