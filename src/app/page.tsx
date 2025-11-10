@@ -267,7 +267,7 @@ export default function DiscoverPage() {
           pools: [],
           priceChange: ((pool.baseAsset as any).stats24h?.priceChange as number) || 0,
           twitter: (pool.baseAsset as any).twitter,
-          createdAt: pool.createdAt,
+          createdAt: (pool.baseAsset as any).firstPool?.createdAt || pool.createdAt,
           organicScore: (pool.baseAsset as any).organicScore,
           audit: (pool.baseAsset as any).audit,
         });
