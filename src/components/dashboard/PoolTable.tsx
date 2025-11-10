@@ -142,31 +142,31 @@ export function PoolTable({ pools, onPoolClick, sortBy, onSortChange }: PoolTabl
                 className="border-b border-border-light/20 hover:bg-background-secondary/30 cursor-pointer transition-colors"
               >
                 {/* Pair Column - Charting.ag exact style */}
-                <td className="py-2 px-2">
-                  <div className="flex items-center gap-2.5">
-                    {/* Token Icons - Overlapping circles */}
-                    <div className="flex items-center -space-x-2 flex-shrink-0">
+                <td className="py-4 px-2">
+                  <div className="flex items-center gap-3">
+                    {/* Token Icons - Overlapping circles - LARGER */}
+                    <div className="flex items-center -space-x-2.5 flex-shrink-0">
                       <TokenIcon
                         src={pool.baseAsset.icon}
                         symbol={pool.baseAsset.symbol}
-                        size="md"
+                        size="lg"
                         className="border-2 border-background"
                       />
                       <TokenIcon
                         src={pool.quoteAsset?.icon || quoteToken.logo}
                         symbol={pool.quoteAsset?.symbol || quoteToken.symbol}
-                        size="md"
+                        size="lg"
                         className="border-2 border-background"
                       />
                     </div>
 
                     {/* Pool Info */}
                     <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-bold uppercase ${protocol.color}`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${protocol.color}`}>
                           {protocol.label}
                         </span>
-                        <span className="font-semibold text-[13px] text-foreground/90 truncate">
+                        <span className="font-semibold text-sm text-foreground/90 truncate">
                           {pool.baseAsset.symbol}-{pool.quoteAsset?.symbol || quoteToken.symbol}
                         </span>
                       </div>
@@ -178,38 +178,38 @@ export function PoolTable({ pools, onPoolClick, sortBy, onSortChange }: PoolTabl
                 </td>
 
                 {/* TVL Column */}
-                <td className="py-2 px-2 text-right">
-                  <div className="font-medium text-xs font-mono text-foreground-muted/80">
+                <td className="py-4 px-2 text-right">
+                  <div className="font-medium text-sm font-mono text-foreground-muted/80">
                     {formatCompact(tvl)}
                   </div>
                 </td>
 
                 {/* Volume Column */}
-                <td className="py-2 px-2 text-right">
-                  <div className="font-medium text-xs font-mono text-foreground-muted/80">
+                <td className="py-4 px-2 text-right">
+                  <div className="font-medium text-sm font-mono text-foreground-muted/80">
                     {formatCompact(volume24h)}
                   </div>
                 </td>
 
                 {/* Fees Column */}
-                <td className="py-2 px-2 text-right">
-                  <div className="font-medium text-xs font-mono text-foreground-muted/80">
+                <td className="py-4 px-2 text-right">
+                  <div className="font-medium text-sm font-mono text-foreground-muted/80">
                     {formatCompact(estimatedFees)}
                   </div>
                 </td>
 
                 {/* Fee/TV Ratio Column */}
-                <td className="py-2 px-2 text-right">
-                  <div className={`font-medium text-xs ${feeTVRatio > 0.1 ? 'text-emerald-400/80' : 'text-foreground-muted/60'}`}>
+                <td className="py-4 px-2 text-right">
+                  <div className={`font-medium text-sm ${feeTVRatio > 0.1 ? 'text-emerald-400/80' : 'text-foreground-muted/60'}`}>
                     {feeTVRatio.toFixed(2)}%
                   </div>
                 </td>
 
                 {/* 24h Change Column with arrow */}
-                <td className="py-2 px-2 text-right">
-                  <div className={`font-medium text-[13px] flex items-center justify-end gap-0.5 ${isPositive ? 'text-emerald-400/80' : 'text-red-400/80'}`}>
+                <td className="py-4 px-2 text-right">
+                  <div className={`font-medium text-sm flex items-center justify-end gap-1 ${isPositive ? 'text-emerald-400/80' : 'text-red-400/80'}`}>
                     <span>{isPositive ? '+' : ''}{priceChange.toFixed(2)}%</span>
-                    <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                       {isPositive ? (
                         <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
                       ) : (
