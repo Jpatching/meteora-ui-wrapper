@@ -714,7 +714,10 @@ export default function DiscoverPage() {
                         // Get primary pool (highest volume)
                         const primaryPool = token.pools.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0))[0];
                         if (primaryPool) {
-                          router.push(`/solana/${token.tokenAddress}?pool=${primaryPool.id}`);
+                          // Jupiter pools use 'id' field for pool address
+                          const poolAddress = primaryPool.id || primaryPool.poolAddress || primaryPool.address;
+                          console.log('Token click - Pool:', { poolAddress, primaryPool });
+                          router.push(`/solana/${token.tokenAddress}?pool=${poolAddress}`);
                         }
                       }}
                     />
