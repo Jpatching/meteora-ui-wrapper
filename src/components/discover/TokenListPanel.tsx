@@ -329,7 +329,8 @@ export function TokenListPanel({ pools, isLoading }: TokenListPanelProps) {
                           : '0.00%'}
                       </div>
                       <div className={
-                        token.audit?.devBalancePercentage !== undefined && token.audit.devBalancePercentage < 10
+                        (token.audit?.devBalancePercentage !== undefined && token.audit.devBalancePercentage < 10) ||
+                        token.audit?.devBalancePercentage === 0
                           ? 'text-success'
                           : 'text-white'
                       }>
