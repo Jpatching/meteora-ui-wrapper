@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { formatCurrency, formatNumber } from '@/lib/utils';
+import { TokenIcon } from '@/components/ui/TokenIcon';
 
 interface Token {
   symbol: string;
@@ -115,13 +116,11 @@ export function SearchDropdown({
                       className="px-4 py-3 hover:bg-background-hover cursor-pointer transition-colors"
                     >
                       <div className="flex items-center gap-3">
-                        {token.icon ? (
-                          <img src={token.icon} alt={token.symbol} className="w-10 h-10 rounded-full" />
-                        ) : (
-                          <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
-                            {token.symbol.charAt(0)}
-                          </div>
-                        )}
+                        <TokenIcon
+                          src={token.icon}
+                          symbol={token.symbol}
+                          size="lg"
+                        />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="font-medium text-foreground">{token.symbol}</span>
@@ -173,25 +172,19 @@ export function SearchDropdown({
                         className="px-4 py-3 hover:bg-background-hover cursor-pointer transition-colors"
                       >
                         <div className="flex items-center gap-3">
-                          {/* Pool pair icons - using Jupiter CDN (same as discover page) */}
+                          {/* Pool pair icons - using TokenIcon component (same as discover page) */}
                           <div className="flex items-center -space-x-2">
-                            <img
+                            <TokenIcon
                               src={`https://cache.jup.ag/static/cdn/strict/${pool.token_a_mint}`}
-                              alt={pool.token_a_symbol}
-                              className="w-10 h-10 rounded-full border-2 border-[#1a1b1e]"
-                              onError={(e) => {
-                                // Fallback to default token icon
-                                (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%238b5cf6"/><text x="50" y="50" font-size="50" text-anchor="middle" dy=".3em" fill="white">' + pool.token_a_symbol.charAt(0) + '</text></svg>';
-                              }}
+                              symbol={pool.token_a_symbol}
+                              size="lg"
+                              className="border-2 border-[#1a1b1e]"
                             />
-                            <img
+                            <TokenIcon
                               src={`https://cache.jup.ag/static/cdn/strict/${pool.token_b_mint}`}
-                              alt={pool.token_b_symbol}
-                              className="w-10 h-10 rounded-full border-2 border-[#1a1b1e]"
-                              onError={(e) => {
-                                // Fallback to default token icon
-                                (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%233b82f6"/><text x="50" y="50" font-size="50" text-anchor="middle" dy=".3em" fill="white">' + pool.token_b_symbol.charAt(0) + '</text></svg>';
-                              }}
+                              symbol={pool.token_b_symbol}
+                              size="lg"
+                              className="border-2 border-[#1a1b1e]"
                             />
                           </div>
 
