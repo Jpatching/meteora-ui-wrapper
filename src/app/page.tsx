@@ -389,33 +389,8 @@ export default function DiscoverPage() {
   }, [jupiterPools, tokenCreationTimestamps]);
 
   // Apply filters and sorting to Meteora pools (RIGHT SIDE)
+  // Note: Search is completely separate - it only shows in the dropdown, not here
   const filteredPools = useMemo(() => {
-    // If user is searching, show search results instead of discover pools
-    if (searchTerm && searchTerm.length >= 2 && searchResults.length > 0) {
-      console.log(`🔍 Showing ${searchResults.length} search results for "${searchTerm}"`);
-      // Transform search results to Pool format (simplified for search dropdown)
-      return searchResults.map(pool => ({
-        id: pool.pool_address,
-        type: pool.protocol as 'dlmm' | 'damm-v2' | 'damm-v1',
-        volume24h: parseFloat(pool.volume_24h) || 0,
-        baseAsset: {
-          id: pool.token_a_mint,
-          symbol: pool.token_a_symbol,
-          name: pool.token_a_symbol,
-          liquidity: parseFloat(pool.tvl) || 0,
-        },
-        quoteAsset: {
-          id: pool.token_b_mint,
-          symbol: pool.token_b_symbol,
-          name: pool.token_b_symbol,
-        },
-        meteoraData: {
-          baseFeePercentage: pool.metadata?.base_fee_percentage || pool.metadata?.base_fee?.toString() || '0.25',
-          poolType: pool.protocol as 'dlmm' | 'damm-v2',
-        },
-      } as any)) as Pool[];
-    }
-
     let filtered = displayPools;
 
     // Debug: Log pool counts by type
@@ -446,7 +421,7 @@ export default function DiscoverPage() {
     });
 
     return filtered;
-  }, [displayPools, protocolFilter, poolSortBy, dlmmPools.length, dammPools.length, searchTerm, searchResults]);
+  }, [displayPools, protocolFilter, poolSortBy, dlmmPools.length, dammPools.length]);
 
   // Apply filters and sorting to tokens
   const filteredTokens = useMemo(() => {
@@ -666,12 +641,7 @@ export default function DiscoverPage() {
                     </div>
                   ) : (
                     <TokenTable
-                      tokens={filteredTokens.filter(token =>
-                        searchTerm
-                          ? token.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            token.name.toLowerCase().includes(searchTerm.toLowerCase())
-                          : true
-                      )}
+                      tokens={filteredTokens}
                       sortBy={tokenSortBy}
                       onSortChange={setTokenSortBy}
                       onTokenClick={(token) => {
