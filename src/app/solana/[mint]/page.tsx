@@ -179,8 +179,10 @@ export default function TokenPage({ params }: TokenPageProps) {
   const hasMeteoraPool = !!pool;
 
   // If no Meteora pool exists, create a minimal pool object for chart display
-  const chartPool = pool || (tokenInfo ? {
+  const chartPool: Pool | null = pool || (tokenInfo ? {
     id: mint, // Use token mint as pool ID
+    chain: 'solana',
+    dex: 'Unknown',
     type: 'unknown' as any,
     baseAsset: {
       id: tokenInfo.address,
@@ -197,7 +199,10 @@ export default function TokenPage({ params }: TokenPageProps) {
     },
     volume24h: 0,
     tvl: 0,
-  } : null);
+    createdAt: Date.now(),
+    bondingCurve: null,
+    raydiumFields: null,
+  } as Pool : null);
 
   if (!displayToken || !chartPool) {
     return null; // Should never happen, but TypeScript safety
