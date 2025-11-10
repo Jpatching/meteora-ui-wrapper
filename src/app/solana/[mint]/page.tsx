@@ -181,11 +181,32 @@ export default function TokenPage({ params }: TokenPageProps) {
     );
   }
 
-  // Derive display data from either pool or tokenInfo
+  // Derive display data - ALWAYS show chart, create minimal pool if needed
   const displayToken = pool?.baseAsset || tokenInfo;
-  const hasPool = !!pool;
+  const hasMeteoraPool = !!pool;
 
-  if (!displayToken) {
+  // If no Meteora pool exists, create a minimal pool object for chart display
+  const chartPool = pool || (tokenInfo ? {
+    id: mint, // Use token mint as pool ID
+    type: 'unknown' as any,
+    baseAsset: {
+      id: tokenInfo.address,
+      symbol: tokenInfo.symbol,
+      name: tokenInfo.name,
+      icon: tokenInfo.icon,
+      usdPrice: 0,
+      liquidity: 0,
+    },
+    quoteAsset: {
+      id: 'So11111111111111111111111111111111111111112', // SOL
+      symbol: 'SOL',
+      icon: '',
+    },
+    volume24h: 0,
+    tvl: 0,
+  } : null);
+
+  if (!displayToken || !chartPool) {
     return null; // Should never happen, but TypeScript safety
   }
 
@@ -234,9 +255,9 @@ export default function TokenPage({ params }: TokenPageProps) {
                     </div>
                   </>
                 )}
-                {!hasPool && (
+                {!hasMeteoraPool && (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-yellow-400">⚠️ No Pools Yet</span>
+                    <span className="text-xs text-yellow-400">⚠️ No Meteora Pools Yet</span>
                   </div>
                 )}
               </div>
@@ -357,101 +378,102 @@ export default function TokenPage({ params }: TokenPageProps) {
           </div>
         </div>
 
-        {/* Main Content: 3-Column Layout - Charting.ag Style */}
+        {/* Main Content: 3-Column Layout - ALWAYS show chart */}
         <div className="flex flex-1 overflow-hidden min-h-0">
-          {hasPool ? (
-            <>
-              {/* Left Sidebar (280px) - Related Pools List */}
-              <div className="w-[280px] flex-shrink-0 border-r border-border-light overflow-hidden">
-                <PoolListSidebar currentPool={pool} network={network} />
-              </div>
-
-              {/* Center: Chart (dominates) + Collapsed Active Positions (flex-1) */}
-              <div className="flex-1 flex flex-col overflow-hidden min-h-0 bg-background">
-                {/* Chart - Slightly reduced from charting.ag to give Active Positions more space */}
-                <div className="flex-[3] overflow-hidden min-h-0">
-                  <ChartDetailsPanel pool={pool!} />
-                </div>
-
-                {/* Active Positions - Clean Tile Format (charting.ag style) */}
-                <div className="flex-[1] min-h-[180px] max-h-[280px] flex-shrink-0 border-t border-border-light overflow-hidden">
-                  <UserPositionsPanel
-                    poolAddress={pool!.id}
-                    poolType={pool!.type}
-                    tokenXSymbol={pool!.baseAsset.symbol}
-                    tokenYSymbol={pool!.quoteAsset?.symbol || 'USDC'}
-                  />
-                </div>
-              </div>
-
-              {/* Right Sidebar (400px) - Pool Actions + Liquidity Distribution */}
-              <div className="w-[400px] flex-shrink-0 border-l border-border-light overflow-y-auto bg-background">
-                {/* Pool Actions Panel - Top Half */}
-                <div className="flex-shrink-0">
-                  <PoolActionsPanel
-                    poolAddress={pool!.id}
-                    tokenXMint={pool!.baseAsset.id}
-                    tokenYMint={pool!.quoteAsset?.id || ''}
-                    tokenXSymbol={pool!.baseAsset.symbol}
-                    tokenYSymbol={pool!.quoteAsset?.symbol || 'USDC'}
-                    currentPrice={pool!.baseAsset.usdPrice || 0}
-                    binStep={(pool as any).binStep || 20}
-                    baseFee={(pool as any).baseFee || 0.2}
-                    poolType={pool!.type}
-                  />
-                </div>
-
-                {/* Liquidity Distribution - Bottom Half (Scrollable) */}
-                <div className="flex-shrink-0 mt-2">
-                  <LiquidityDistributionPanel pool={pool!} />
-                </div>
-              </div>
-            </>
-          ) : (
-            /* No Pool - Show simplified chart view with Create Pool CTA */
-            <div className="flex-1 flex items-center justify-center bg-background">
-              <div className="text-center max-w-2xl px-8">
-                <div className="text-6xl mb-6">📊</div>
-                <h2 className="text-2xl font-bold text-white mb-3">Token Chart Coming Soon</h2>
-                <p className="text-text-secondary mb-8">
-                  This token doesn't have any liquidity pools yet. Create the first pool to enable trading and charting!
+          {/* Left Sidebar (280px) - Related Pools List or Create Pool CTA */}
+          <div className="w-[280px] flex-shrink-0 border-r border-border-light overflow-hidden">
+            {hasMeteoraPool ? (
+              <PoolListSidebar currentPool={pool} network={network} />
+            ) : (
+              <div className="p-4 flex flex-col h-full">
+                <h3 className="text-sm font-semibold text-white mb-3">No Meteora Pools Yet</h3>
+                <p className="text-xs text-text-secondary mb-4">
+                  Be the first to create a liquidity pool for {displayToken.symbol}!
                 </p>
-
-                <div className="bg-background-secondary border border-border-light rounded-lg p-6 mb-8">
-                  <div className="flex items-center gap-3 mb-4">
-                    {displayToken.icon && (
-                      <img src={displayToken.icon} alt={displayToken.symbol} className="w-12 h-12 rounded-full" />
-                    )}
-                    <div className="text-left">
-                      <h3 className="text-lg font-bold text-white">{displayToken.symbol}</h3>
-                      <p className="text-sm text-text-secondary">{displayToken.name}</p>
-                    </div>
-                  </div>
-                  <div className="bg-background-tertiary px-4 py-3 rounded text-left">
-                    <p className="text-xs text-foreground-muted mb-1">Token Address:</p>
-                    <code className="text-xs text-foreground font-mono break-all">{displayToken.address || displayToken.id}</code>
-                  </div>
-                </div>
-
-                <div className="flex gap-4 justify-center">
+                <div className="flex flex-col gap-2">
                   <Link
                     href={`/dlmm/create-pool?tokenMint=${mint}`}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/80 transition-colors font-medium"
+                    className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/80 transition-colors text-sm text-center"
                   >
-                    <span>🚀</span>
-                    Create DLMM Pool
+                    🚀 Create DLMM Pool
                   </Link>
                   <Link
                     href={`/damm-v2/create-balanced?tokenMint=${mint}`}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-secondary text-white rounded-lg hover:bg-secondary/80 transition-colors font-medium"
+                    className="px-4 py-2 bg-secondary text-white rounded-lg hover:bg-secondary/80 transition-colors text-sm text-center"
                   >
-                    <span>⚡</span>
-                    Create DAMM Pool
+                    ⚡ Create DAMM Pool
                   </Link>
                 </div>
               </div>
+            )}
+          </div>
+
+          {/* Center: Chart (dominates) + Positions (if pool exists) */}
+          <div className="flex-1 flex flex-col overflow-hidden min-h-0 bg-background">
+            {/* Chart - Always shown */}
+            <div className={hasMeteoraPool ? "flex-[3] overflow-hidden min-h-0" : "flex-1 overflow-hidden min-h-0"}>
+              <ChartDetailsPanel pool={chartPool} />
             </div>
-          )}
+
+            {/* Active Positions - Only if Meteora pool exists */}
+            {hasMeteoraPool && pool && (
+              <div className="flex-[1] min-h-[180px] max-h-[280px] flex-shrink-0 border-t border-border-light overflow-hidden">
+                <UserPositionsPanel
+                  poolAddress={pool.id}
+                  poolType={pool.type}
+                  tokenXSymbol={pool.baseAsset.symbol}
+                  tokenYSymbol={pool.quoteAsset?.symbol || 'USDC'}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Right Sidebar (400px) - Pool Actions or Create Pool Info */}
+          <div className="w-[400px] flex-shrink-0 border-l border-border-light overflow-y-auto bg-background">
+            {hasMeteoraPool && pool ? (
+              <>
+                {/* Pool Actions Panel */}
+                <div className="flex-shrink-0">
+                  <PoolActionsPanel
+                    poolAddress={pool.id}
+                    tokenXMint={pool.baseAsset.id}
+                    tokenYMint={pool.quoteAsset?.id || ''}
+                    tokenXSymbol={pool.baseAsset.symbol}
+                    tokenYSymbol={pool.quoteAsset?.symbol || 'USDC'}
+                    currentPrice={pool.baseAsset.usdPrice || 0}
+                    binStep={(pool as any).binStep || 20}
+                    baseFee={(pool as any).baseFee || 0.2}
+                    poolType={pool.type}
+                  />
+                </div>
+
+                {/* Liquidity Distribution */}
+                <div className="flex-shrink-0 mt-2">
+                  <LiquidityDistributionPanel pool={pool} />
+                </div>
+              </>
+            ) : (
+              /* No Meteora Pool - Show info card */
+              <div className="p-6 flex flex-col gap-4">
+                <div className="bg-background-secondary border border-border-light rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-white mb-2">📊 Chart Available</h3>
+                  <p className="text-xs text-text-secondary mb-3">
+                    You're viewing live price data for {displayToken.symbol}. No Meteora pools exist yet.
+                  </p>
+                  <div className="text-xs text-foreground-muted">
+                    Token: <code className="bg-background-tertiary px-2 py-1 rounded text-[10px]">{mint.slice(0,8)}...{mint.slice(-6)}</code>
+                  </div>
+                </div>
+
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-yellow-400 mb-2">🎯 Sniper Opportunity</h4>
+                  <p className="text-xs text-text-secondary">
+                    Create the first pool and be early! Meteora pools offer concentrated liquidity and better capital efficiency.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </MainLayout>
