@@ -47,6 +47,8 @@ export default function DiscoverPage() {
   const [maxMarketCap, setMaxMarketCap] = useState<string>('');
   const [enrichedPools, setEnrichedPools] = useState<Pool[]>([]);
   const [isEnriching, setIsEnriching] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [tokenCreationTimestamps, setTokenCreationTimestamps] = useState<Map<string, number>>(new Map());
 
   // Fetch Jupiter pools for TOKEN aggregation (LEFT SIDE)
@@ -254,6 +256,39 @@ export default function DiscoverPage() {
 
   // No need to fetch pool details separately - Meteora API provides them!
 
+  // Search pools from database when user types (searches ALL pools, not just top 100)
+  useEffect(() => {
+    const searchPools = async () => {
+      if (!searchTerm || searchTerm.length < 2) {
+        setSearchResults([]);
+        setIsSearching(false);
+        return;
+      }
+
+      setIsSearching(true);
+      try {
+        const response = await fetch(
+          `https://alsk-production.up.railway.app/api/pools/search?q=${encodeURIComponent(searchTerm)}&network=${network}&limit=100`
+        );
+        const data = await response.json();
+
+        if (data.success) {
+          console.log(`🔍 Found ${data.data.length} pools matching "${searchTerm}"`);
+          setSearchResults(data.data);
+        }
+      } catch (error) {
+        console.error('Failed to search pools:', error);
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    // Debounce search
+    const timeoutId = setTimeout(searchPools, 300);
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, network]);
+
   // Fetch actual token creation timestamps from backend (blockchain data cached in PostgreSQL/Redis)
   useEffect(() => {
     const fetchTokenCreationTimestamps = async () => {
@@ -355,6 +390,32 @@ export default function DiscoverPage() {
 
   // Apply filters and sorting to Meteora pools (RIGHT SIDE)
   const filteredPools = useMemo(() => {
+    // If user is searching, show search results instead of discover pools
+    if (searchTerm && searchTerm.length >= 2 && searchResults.length > 0) {
+      console.log(`🔍 Showing ${searchResults.length} search results for "${searchTerm}"`);
+      // Transform search results to Pool format
+      return searchResults.map(pool => ({
+        id: pool.pool_address,
+        type: pool.protocol as 'dlmm' | 'damm-v2' | 'damm-v1',
+        volume24h: parseFloat(pool.volume_24h) || 0,
+        baseAsset: {
+          id: pool.token_a_mint,
+          symbol: pool.token_a_symbol,
+          name: pool.token_a_symbol,
+          liquidity: parseFloat(pool.tvl) || 0,
+        },
+        quoteAsset: {
+          id: pool.token_b_mint,
+          symbol: pool.token_b_symbol,
+          name: pool.token_b_symbol,
+        },
+        meteoraData: {
+          baseFeePercentage: pool.metadata?.base_fee_percentage || pool.metadata?.base_fee?.toString() || '0.25',
+          poolType: pool.protocol as 'dlmm' | 'damm-v2',
+        },
+      })) as Pool[];
+    }
+
     let filtered = displayPools;
 
     // Debug: Log pool counts by type
@@ -385,7 +446,7 @@ export default function DiscoverPage() {
     });
 
     return filtered;
-  }, [displayPools, protocolFilter, poolSortBy, dlmmPools.length, dammPools.length]);
+  }, [displayPools, protocolFilter, poolSortBy, dlmmPools.length, dammPools.length, searchTerm, searchResults]);
 
   // Apply filters and sorting to tokens
   const filteredTokens = useMemo(() => {
@@ -654,12 +715,7 @@ export default function DiscoverPage() {
                     </div>
                   ) : (
                     <PoolTable
-                      pools={filteredPools.filter(pool =>
-                        searchTerm
-                          ? pool.baseAsset.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            pool.baseAsset.name.toLowerCase().includes(searchTerm.toLowerCase())
-                          : true
-                      ) as any}
+                      pools={filteredPools as any}
                       sortBy={poolSortBy}
                       onSortChange={setPoolSortBy}
                       onPoolClick={(pool) => {
