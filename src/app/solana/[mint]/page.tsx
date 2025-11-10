@@ -180,27 +180,34 @@ export default function TokenPage({ params }: TokenPageProps) {
 
   // If no Meteora pool exists, create a minimal pool object for chart display
   const chartPool: Pool | null = pool || (tokenInfo ? {
-    id: mint, // Use token mint as pool ID
+    id: mint,
     chain: 'solana',
     dex: 'Unknown',
-    type: 'unknown' as any,
+    type: 'unknown',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    bondingCurve: undefined,
+    volume24h: 0,
+    isUnreliable: false,
     baseAsset: {
       id: tokenInfo.address,
       symbol: tokenInfo.symbol,
       name: tokenInfo.name,
       icon: tokenInfo.icon,
+      decimals: tokenInfo.decimals || 9,
+      tokenProgram: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
       usdPrice: 0,
       liquidity: 0,
     },
     quoteAsset: {
-      id: 'So11111111111111111111111111111111111111112', // SOL
+      id: 'So11111111111111111111111111111111111111112',
       symbol: 'SOL',
+      name: 'Solana',
       icon: '',
+      decimals: 9,
+      tokenProgram: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
     },
-    volume24h: 0,
     tvl: 0,
-    createdAt: Date.now(),
-    bondingCurve: null,
     raydiumFields: null,
   } as Pool : null);
 
