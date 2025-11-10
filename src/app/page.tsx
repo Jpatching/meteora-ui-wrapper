@@ -41,6 +41,7 @@ export default function DiscoverPage() {
   const [showChartModal, setShowChartModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState(''); // Unified search for both tokens and pools
   const [showTokenFilters, setShowTokenFilters] = useState(false); // Toggle for filter dropdown
+  const [timePeriod, setTimePeriod] = useState<'1H' | '2H' | '4H' | '8H' | '24H'>('24H'); // Time period filter
   const [minLiquidity, setMinLiquidity] = useState<string>('');
   const [maxLiquidity, setMaxLiquidity] = useState<string>('');
   const [minMarketCap, setMinMarketCap] = useState<string>('');
@@ -53,8 +54,11 @@ export default function DiscoverPage() {
   const [tokenCreationTimestamps, setTokenCreationTimestamps] = useState<Map<string, number>>(new Map());
 
   // Fetch Jupiter pools for TOKEN aggregation (LEFT SIDE)
+  // Map UI time periods to Jupiter API timeframes: 1H→1h, 2H→1h, 4H→6h, 8H→6h, 24H→24h
+  const jupiterTimeframe = timePeriod === '24H' ? '24h' : timePeriod === '8H' || timePeriod === '4H' ? '6h' : '1h';
+
   const { data: jupiterData, isLoading: isLoadingJupiter, error: jupiterError } = useAllPublicPools({
-    timeframe: '24h',
+    timeframe: jupiterTimeframe,
     refetchInterval: false, // Disabled - manual refresh only
   });
 
@@ -575,11 +579,28 @@ export default function DiscoverPage() {
                 {/* Token Filter Bar - Match pools header height with 2 rows */}
                 <div className="px-4 py-2 border-b border-border-light">
                   <div className="flex flex-col gap-2">
-                    {/* First Row - Token label (matches pools protocol filter row height) */}
-                    <div className="flex items-center gap-1">
+                    {/* First Row - Token label + Time Period Filters (matches pools protocol filter row height) */}
+                    <div className="flex items-center gap-2">
                       <button className="px-3 py-1.5 rounded-lg text-sm font-medium bg-background-tertiary text-foreground border border-border-light cursor-default">
                         Tokens
                       </button>
+
+                      {/* Time Period Filters - Charting.ag style */}
+                      <div className="flex items-center gap-1">
+                        {(['1H', '2H', '4H', '8H', '24H'] as const).map((period) => (
+                          <button
+                            key={period}
+                            onClick={() => setTimePeriod(period)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                              timePeriod === period
+                                ? 'bg-background-tertiary text-foreground border border-border-light'
+                                : 'text-foreground-muted hover:text-foreground border border-transparent'
+                            }`}
+                          >
+                            {period}
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
                     {/* Second Row - Sort, Filter, and Count (matches pools sort row) */}
