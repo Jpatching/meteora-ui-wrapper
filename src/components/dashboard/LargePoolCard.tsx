@@ -147,7 +147,7 @@ export function LargePoolCard({ pool, isSelected = false, onClick }: LargePoolCa
         <div>
           <div className="text-foreground-muted text-xs mb-0.5">Score</div>
           <div className="font-bold text-success">
-            {baseAsset.organicScore || '89'}
+            {baseAsset.organicScore ? Math.round(baseAsset.organicScore) : '0'}
           </div>
         </div>
       </div>

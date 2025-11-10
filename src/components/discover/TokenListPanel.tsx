@@ -338,7 +338,7 @@ export function TokenListPanel({ pools, isLoading }: TokenListPanelProps) {
                         {token.audit?.freezeAuthorityDisabled === true ? 'No' : 'Yes'}
                       </div>
                       <div className="text-white">
-                        {token.organicScore || '0'}
+                        {token.organicScore ? Math.round(token.organicScore) : '0'}
                       </div>
                     </div>
                   </div>

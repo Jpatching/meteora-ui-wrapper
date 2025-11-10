@@ -200,7 +200,7 @@ export function TokenTable({ tokens, onTokenClick, sortBy, onSortChange }: Token
                   {token.audit?.freezeAuthorityDisabled === true ? 'No' : 'Yes'}
                 </div>
                 <div className="text-white">
-                  {token.organicScore || '0'}
+                  {token.organicScore ? Math.round(token.organicScore) : '0'}
                 </div>
               </div>
             </div>
