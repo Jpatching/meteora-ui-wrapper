@@ -428,49 +428,27 @@ export default function TokenPage({ params }: TokenPageProps) {
             )}
           </div>
 
-          {/* Right Sidebar (400px) - Pool Actions or Create Pool Info */}
+          {/* Right Sidebar (400px) - Always show trading panel */}
           <div className="w-[400px] flex-shrink-0 border-l border-border-light overflow-y-auto bg-background">
-            {hasMeteoraPool && pool ? (
-              <>
-                {/* Pool Actions Panel */}
-                <div className="flex-shrink-0">
-                  <PoolActionsPanel
-                    poolAddress={pool.id}
-                    tokenXMint={pool.baseAsset.id}
-                    tokenYMint={pool.quoteAsset?.id || ''}
-                    tokenXSymbol={pool.baseAsset.symbol}
-                    tokenYSymbol={pool.quoteAsset?.symbol || 'USDC'}
-                    currentPrice={pool.baseAsset.usdPrice || 0}
-                    binStep={(pool as any).binStep || 20}
-                    baseFee={(pool as any).baseFee || 0.2}
-                    poolType={pool.type}
-                  />
-                </div>
+            {/* Pool Actions Panel - Always shown */}
+            <div className="flex-shrink-0">
+              <PoolActionsPanel
+                poolAddress={pool?.id || mint}
+                tokenXMint={displayToken.id || displayToken.address}
+                tokenYMint={pool?.quoteAsset?.id || 'So11111111111111111111111111111111111111112'}
+                tokenXSymbol={displayToken.symbol}
+                tokenYSymbol={pool?.quoteAsset?.symbol || 'SOL'}
+                currentPrice={displayToken.usdPrice || 0}
+                binStep={(pool as any)?.binStep || 20}
+                baseFee={(pool as any)?.baseFee || 0.2}
+                poolType={pool?.type || 'unknown'}
+              />
+            </div>
 
-                {/* Liquidity Distribution */}
-                <div className="flex-shrink-0 mt-2">
-                  <LiquidityDistributionPanel pool={pool} />
-                </div>
-              </>
-            ) : (
-              /* No Meteora Pool - Show info card */
-              <div className="p-6 flex flex-col gap-4">
-                <div className="bg-background-secondary border border-border-light rounded-lg p-4">
-                  <h3 className="text-sm font-semibold text-white mb-2">📊 Chart Available</h3>
-                  <p className="text-xs text-text-secondary mb-3">
-                    You're viewing live price data for {displayToken.symbol}. No Meteora pools exist yet.
-                  </p>
-                  <div className="text-xs text-foreground-muted">
-                    Token: <code className="bg-background-tertiary px-2 py-1 rounded text-[10px]">{mint.slice(0,8)}...{mint.slice(-6)}</code>
-                  </div>
-                </div>
-
-                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
-                  <h4 className="text-sm font-semibold text-yellow-400 mb-2">🎯 Sniper Opportunity</h4>
-                  <p className="text-xs text-text-secondary">
-                    Create the first pool and be early! Meteora pools offer concentrated liquidity and better capital efficiency.
-                  </p>
-                </div>
+            {/* Liquidity Distribution - Only if Meteora pool exists */}
+            {hasMeteoraPool && pool && (
+              <div className="flex-shrink-0 mt-2">
+                <LiquidityDistributionPanel pool={pool} />
               </div>
             )}
           </div>
