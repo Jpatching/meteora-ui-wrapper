@@ -657,22 +657,23 @@ export default function DiscoverPage() {
                             </button>
                           </div>
                         )}
-                      </div>
+                        </div>
 
-                      {/* Sort Dropdown */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-foreground-muted text-xs">Sort:</span>
-                        <select
-                          value={tokenSortBy}
-                          onChange={(e) => setTokenSortBy(e.target.value as TokenSortOption)}
-                          className="bg-background-secondary border border-border-light rounded-lg px-2 py-1 text-foreground text-xs focus:outline-none focus:border-foreground-muted cursor-pointer"
-                        >
-                          <option value="volume">Volume</option>
-                          <option value="liquidity">Liquidity</option>
-                          <option value="marketCap">Market Cap</option>
-                          <option value="holders">Holders</option>
-                          <option value="txs">Transactions</option>
-                        </select>
+                        {/* Sort Dropdown */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-foreground-muted text-xs">Sort:</span>
+                          <select
+                            value={tokenSortBy}
+                            onChange={(e) => setTokenSortBy(e.target.value as TokenSortOption)}
+                            className="bg-background-secondary border border-border-light rounded-lg px-2 py-1 text-foreground text-xs focus:outline-none focus:border-foreground-muted cursor-pointer"
+                          >
+                            <option value="volume">Volume</option>
+                            <option value="liquidity">Liquidity</option>
+                            <option value="marketCap">Market Cap</option>
+                            <option value="holders">Holders</option>
+                            <option value="txs">Transactions</option>
+                          </select>
+                        </div>
                       </div>
                     </div>
                   </div>
