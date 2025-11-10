@@ -195,15 +195,15 @@ export default function DiscoverPage() {
     // Combine all Meteora pools
     const combined = [...dlmmTransformed, ...dammTransformed];
 
-    // Sort by liquidity (TVL) and take top 100
+    // Sort by 24h volume (like charting.ag) and take top 100
     const sorted = combined.sort((a, b) => {
-      const liquidityA = a.baseAsset?.liquidity || 0;
-      const liquidityB = b.baseAsset?.liquidity || 0;
-      return liquidityB - liquidityA;
+      const volumeA = a.volume24h || 0;
+      const volumeB = b.volume24h || 0;
+      return volumeB - volumeA;
     });
 
     const top100 = sorted.slice(0, 100);
-    console.log(`📊 Showing top 100 pools out of ${combined.length} total`);
+    console.log(`📊 Showing top 100 pools out of ${combined.length} total (sorted by 24h volume)`);
     return top100;
   }, [dlmmPools, dammPools]);
 
