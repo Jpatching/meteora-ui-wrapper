@@ -57,8 +57,20 @@ export default function DiscoverPage() {
 
   // Fetch Meteora pools from BACKEND (cached in Redis - FAST!)
   // CRITICAL: Pass network parameter to ensure proper filtering
-  const { data: dlmmPools = [], isLoading: isLoadingDLMM } = useBackendDLMMPools(network);
-  const { data: dammPools = [], isLoading: isLoadingDAMM } = useBackendDAMMPools(network);
+  const { data: dlmmPools = [], isLoading: isLoadingDLMM, error: dlmmError } = useBackendDLMMPools(network);
+  const { data: dammPools = [], isLoading: isLoadingDAMM, error: dammError } = useBackendDAMMPools(network);
+
+  // Debug: Log backend pool fetch status
+  console.log('🔍 DLMM Pools Status:', {
+    count: dlmmPools.length,
+    isLoading: isLoadingDLMM,
+    error: dlmmError?.message
+  });
+  console.log('🔍 DAMM Pools Status:', {
+    count: dammPools.length,
+    isLoading: isLoadingDAMM,
+    error: dammError?.message
+  });
 
   // Combine Jupiter pools for TOKEN view (LEFT SIDE ONLY)
   const jupiterPools = useMemo(() => {
