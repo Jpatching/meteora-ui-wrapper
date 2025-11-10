@@ -116,56 +116,49 @@ export default function TokenPage({ params }: TokenPageProps) {
 
   const isLoading = isLoadingTokenPools || isLoadingPool;
 
-  // State for enriched pool with token metadata
+  // State for pool and token info
   const [pool, setPool] = useState<Pool | null>(null);
   const [tokenInfo, setTokenInfo] = useState<any>(null);
-  const [enriching, setEnriching] = useState(false);
 
-  // Fetch token metadata from Jupiter (for tokens without pools)
+  // Handle pool selection and enrichment
   useEffect(() => {
-    if (!rawPool && !isLoadingAllPools && mint) {
-      // Token has no pools, fetch metadata from Jupiter token list
-      fetch(`https://tokens.jup.ag/token/${mint}`)
-        .then(res => res.json())
-        .then(data => {
-          setTokenInfo({
-            address: mint,
-            symbol: data.symbol || 'UNKNOWN',
-            name: data.name || 'Unknown Token',
-            icon: data.logoURI || '',
-            decimals: data.decimals || 9,
+    if (!isLoadingTokenPools) {
+      if (rawPool) {
+        // We have a Meteora pool - enrich it with metadata
+        enrichPoolWithMetadata(rawPool)
+          .then(enriched => {
+            setPool(enriched);
+          })
+          .catch(err => {
+            console.error('Failed to enrich pool metadata:', err);
+            setPool(rawPool); // Use raw pool if enrichment fails
           });
-        })
-        .catch(err => {
-          console.error('Failed to fetch token metadata:', err);
-          // Fallback token info
-          setTokenInfo({
-            address: mint,
-            symbol: 'TOKEN',
-            name: 'Unknown Token',
-            icon: '',
-            decimals: 9,
+      } else if (tokenPools.length === 0) {
+        // No Meteora pools - fetch token metadata from Jupiter
+        fetch(`https://tokens.jup.ag/token/${mint}`)
+          .then(res => res.json())
+          .then(data => {
+            setTokenInfo({
+              address: mint,
+              symbol: data.symbol || 'UNKNOWN',
+              name: data.name || 'Unknown Token',
+              icon: data.logoURI || '',
+              decimals: data.decimals || 9,
+            });
+          })
+          .catch(err => {
+            console.error('Failed to fetch token metadata:', err);
+            setTokenInfo({
+              address: mint,
+              symbol: 'TOKEN',
+              name: 'Unknown Token',
+              icon: '',
+              decimals: 9,
+            });
           });
-        });
+      }
     }
-  }, [rawPool, isLoadingAllPools, mint]);
-
-  // Enrich pool with token metadata (logos, etc.) when pool exists
-  useEffect(() => {
-    if (rawPool && !enriching) {
-      setEnriching(true);
-      enrichPoolWithMetadata(rawPool)
-        .then(enriched => {
-          setPool(enriched);
-          setEnriching(false);
-        })
-        .catch(err => {
-          console.error('Failed to enrich pool metadata:', err);
-          setPool(rawPool); // Use raw pool if enrichment fails
-          setEnriching(false);
-        });
-    }
-  }, [rawPool]);
+  }, [rawPool, isLoadingTokenPools, tokenPools.length, mint]);
 
   // Handle loading state
   if (isLoading && !pool && !tokenInfo) {
