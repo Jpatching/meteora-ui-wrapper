@@ -15,11 +15,12 @@ import { PoolActionsPanel } from '@/components/pool/PoolActionsPanel';
 import { UserPositionsPanel } from '@/components/pool/UserPositionsPanel';
 import { PoolListSidebar } from '@/components/pool/PoolListSidebar';
 import { LiquidityDistributionPanel } from '@/components/pool/LiquidityDistributionPanel';
+import { useBackendPool } from '@/lib/hooks/useBackendPools';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { Pool } from '@/lib/jupiter/types';
-import { enrichPoolWithMetadata, enrichPoolsWithMetadata } from '@/lib/services/tokenMetadata';
+import { enrichPoolWithMetadata } from '@/lib/services/tokenMetadata';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'next/navigation';
 
 interface TokenPageProps {
   params: Promise<{ mint: string }>;
@@ -30,33 +31,14 @@ export default function TokenPage({ params }: TokenPageProps) {
   const { mint } = resolvedParams;
   const router = useRouter();
   const { network } = useNetwork();
+  const searchParams = useSearchParams();
 
-  // Fetch all Jupiter pools and filter by token mint
-  const { data: allPools, isLoading, error } = useQuery({
-    queryKey: ['all-jupiter-pools', '24h'],
-    queryFn: async () => {
-      const response = await fetch('https://datapi.jup.ag/v1/pools/gems', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recent: { timeframe: '24h' } }),
-      });
-      if (!response.ok) throw new Error('Failed to fetch pools');
-      const data = await response.json();
-      return [
-        ...(data.recent?.pools || []),
-        ...(data.aboutToGraduate?.pools || []),
-        ...(data.graduated?.pools || []),
-      ];
-    },
-  });
+  // Get pool address from query parameter
+  const poolAddress = searchParams.get('pool');
 
-  // Find pools for this specific token
-  const tokenPools = allPools?.filter((pool: any) => pool.baseAsset.id === mint) || [];
-
-  // Get the primary pool (highest volume)
-  const rawPool = tokenPools.length > 0
-    ? tokenPools.sort((a: any, b: any) => (b.volume24h || 0) - (a.volume24h || 0))[0]
-    : null;
+  // Fetch pool from unified backend endpoint with network filtering
+  // URL shows /solana/{mint} but we fetch by pool address internally
+  const { data: rawPool, isLoading, error } = useBackendPool(poolAddress, network);
 
   // State for enriched pool with token metadata
   const [pool, setPool] = useState<Pool | null>(null);

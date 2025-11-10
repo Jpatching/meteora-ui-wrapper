@@ -710,8 +710,12 @@ export default function DiscoverPage() {
                       sortBy={tokenSortBy}
                       onSortChange={setTokenSortBy}
                       onTokenClick={(token) => {
-                        // Navigate to token chart page - /solana/{token_mint}
-                        router.push(`/solana/${token.tokenAddress}`);
+                        // Navigate to token chart page - /solana/{token_mint}?pool={pool_address}
+                        // Get primary pool (highest volume)
+                        const primaryPool = token.pools.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0))[0];
+                        if (primaryPool) {
+                          router.push(`/solana/${token.tokenAddress}?pool=${primaryPool.id}`);
+                        }
                       }}
                     />
                   )}
@@ -779,8 +783,8 @@ export default function DiscoverPage() {
                       sortBy={poolSortBy}
                       onSortChange={setPoolSortBy}
                       onPoolClick={(pool) => {
-                        // Navigate to token chart page for base token - /solana/{token_mint}
-                        router.push(`/solana/${pool.baseAsset.id}`);
+                        // Navigate to token chart page - /solana/{token_mint}?pool={pool_address}
+                        router.push(`/solana/${pool.baseAsset.id}?pool=${pool.id}`);
                       }}
                     />
                   )}
