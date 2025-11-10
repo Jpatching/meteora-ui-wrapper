@@ -499,6 +499,9 @@ export default function DiscoverPage() {
       }
 
       if (!tokenMap.has(tokenId)) {
+        const buys = (pool.baseAsset as any).stats24h?.numBuys || 0;
+        const sells = (pool.baseAsset as any).stats24h?.numSells || 0;
+
         // Use actual blockchain timestamp if available, otherwise use current time
         const blockchainTimestamp = tokenCreationTimestamps.get(tokenId);
         const createdAt = blockchainTimestamp
@@ -506,14 +509,18 @@ export default function DiscoverPage() {
           : new Date().toISOString();
 
         tokenMap.set(tokenId, {
-          id: tokenId,
+          tokenAddress: tokenId,
           symbol: pool.baseAsset.symbol,
           name: pool.baseAsset.name || pool.baseAsset.symbol,
           icon: pool.baseAsset.icon,
           totalVolume24h: 0,
           totalLiquidity: 0,
           pools: [],
-          marketCap: (pool.baseAsset as any).marketCap,
+          marketCap: (pool.baseAsset as any).mcap || 0,
+          holders: (pool.baseAsset as any).holderCount || 0,
+          txCount: buys + sells,
+          priceChange: ((pool.baseAsset as any).stats24h?.priceChange as number) || 0,
+          twitter: (pool.baseAsset as any).twitter,
           createdAt,
           organicScore: (pool.baseAsset as any).organicScore,
           audit: (pool.baseAsset as any).audit,
@@ -544,8 +551,8 @@ export default function DiscoverPage() {
       isSearching={isSearching}
       onTokenClick={(token) => {
         // Navigate to token chart page - /solana/{token_mint}
-        if (token.id) {
-          router.push(`/solana/${token.id}`);
+        if (token.tokenAddress) {
+          router.push(`/solana/${token.tokenAddress}`);
         }
       }}
       onPoolClick={(pool) => {
