@@ -7,6 +7,7 @@
 import { Router, Request, Response } from 'express';
 import { redis, getCached, setCached, CACHE_TTL, cacheKeys } from '../config/redis';
 import { syncAllPools, getPoolsByToken, getTopPools } from '../services/poolSyncService';
+import { db } from '../config/database';
 
 const router = Router();
 
