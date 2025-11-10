@@ -254,6 +254,17 @@ export default function DiscoverPage() {
         const buys = (pool.baseAsset as any).stats24h?.numBuys || 0;
         const sells = (pool.baseAsset as any).stats24h?.numSells || 0;
 
+        // Debug: Log timestamp data for first token
+        if (tokenMap.size === 0) {
+          console.log('🔍 DEBUG - First token timestamp data:', {
+            symbol: pool.baseAsset.symbol,
+            'pool.createdAt': pool.createdAt,
+            'pool.baseAsset.firstPool': (pool.baseAsset as any).firstPool,
+            'pool.baseAsset.graduatedAt': (pool.baseAsset as any).graduatedAt,
+            'all baseAsset keys': Object.keys(pool.baseAsset),
+          });
+        }
+
         tokenMap.set(tokenId, {
           tokenAddress: tokenId,
           symbol: pool.baseAsset.symbol,
