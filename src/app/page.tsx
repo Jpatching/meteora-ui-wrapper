@@ -637,9 +637,9 @@ export default function DiscoverPage() {
 
                         {/* Filter Dropdown Panel */}
                         {showTokenFilters && (
-                          <div className="absolute top-full right-0 mt-1 w-64 bg-background-secondary border border-border-light rounded-lg shadow-xl z-50 p-4 max-h-[400px] overflow-y-auto">
+                          <div className="absolute top-full right-0 mt-1 w-64 bg-background-secondary border border-border-light rounded-lg shadow-xl z-50 p-3 max-h-[400px] overflow-y-auto">
                             {/* Liquidity Section */}
-                            <div className="mb-4">
+                            <div className="mb-3">
                               <label className="block text-xs font-medium text-foreground mb-2">Liquidity</label>
                               <div className="flex gap-2">
                                 <input
@@ -660,7 +660,7 @@ export default function DiscoverPage() {
                             </div>
 
                             {/* Market Cap Section */}
-                            <div className="mb-4">
+                            <div className="mb-3">
                               <label className="block text-xs font-medium text-foreground mb-2">Market Cap</label>
                               <div className="flex gap-2">
                                 <input
