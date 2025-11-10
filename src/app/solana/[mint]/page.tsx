@@ -179,6 +179,7 @@ export default function TokenPage({ params }: TokenPageProps) {
   const hasMeteoraPool = !!pool;
 
   // If no Meteora pool exists, create a minimal pool object for chart display
+  // Use 'as unknown as Pool' to bypass TypeScript's strict type checking for this synthetic object
   const chartPool: Pool | null = pool || (tokenInfo ? {
     id: mint,
     chain: 'solana',
@@ -209,7 +210,7 @@ export default function TokenPage({ params }: TokenPageProps) {
     },
     tvl: 0,
     raydiumFields: null,
-  } as Pool : null);
+  } as unknown as Pool : null);
 
   if (!displayToken || !chartPool) {
     return null; // Should never happen, but TypeScript safety
