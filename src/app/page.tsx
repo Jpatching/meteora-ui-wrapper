@@ -575,16 +575,30 @@ export default function DiscoverPage() {
                 {/* Token Filter Bar - Match pools header height with 2 rows */}
                 <div className="px-4 py-2 border-b border-border-light">
                   <div className="flex flex-col gap-2">
-                    {/* First Row - Token count (matches pools protocol filter row height) */}
+                    {/* First Row - Token label (matches pools protocol filter row height) */}
                     <div className="flex items-center gap-1">
-                      <div className="px-3 py-1.5 rounded-lg text-sm font-medium bg-background-tertiary text-foreground border border-border-light">
-                        {aggregatedTokens.length} tokens
-                      </div>
+                      <button className="px-3 py-1.5 rounded-lg text-sm font-medium bg-background-tertiary text-foreground border border-border-light cursor-default">
+                        Tokens
+                      </button>
                     </div>
 
-                    {/* Second Row - Filter and Sort (matches pools sort row) */}
+                    {/* Second Row - Sort, Filter, and Count (matches pools sort row) */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
+                        {/* Sort Dropdown */}
+                        <span className="text-foreground-muted text-xs">Sort:</span>
+                        <select
+                          value={tokenSortBy}
+                          onChange={(e) => setTokenSortBy(e.target.value as TokenSortOption)}
+                          className="bg-background-secondary border border-border-light rounded-lg px-2 py-1 text-foreground text-xs focus:outline-none focus:border-foreground-muted cursor-pointer"
+                        >
+                          <option value="volume">Volume</option>
+                          <option value="liquidity">Liquidity</option>
+                          <option value="marketCap">Market Cap</option>
+                          <option value="holders">Holders</option>
+                          <option value="txs">Transactions</option>
+                        </select>
+
                         {/* Filter Dropdown Button */}
                         <div className="relative">
                         <button
@@ -658,22 +672,13 @@ export default function DiscoverPage() {
                           </div>
                         )}
                         </div>
+                      </div>
 
-                        {/* Sort Dropdown */}
-                        <div className="flex items-center gap-2">
-                          <span className="text-foreground-muted text-xs">Sort:</span>
-                          <select
-                            value={tokenSortBy}
-                            onChange={(e) => setTokenSortBy(e.target.value as TokenSortOption)}
-                            className="bg-background-secondary border border-border-light rounded-lg px-2 py-1 text-foreground text-xs focus:outline-none focus:border-foreground-muted cursor-pointer"
-                          >
-                            <option value="volume">Volume</option>
-                            <option value="liquidity">Liquidity</option>
-                            <option value="marketCap">Market Cap</option>
-                            <option value="holders">Holders</option>
-                            <option value="txs">Transactions</option>
-                          </select>
-                        </div>
+                      {/* Token Count Badge (right side - matches pools layout) */}
+                      <div className="px-2 py-1 bg-background-secondary rounded-lg border border-border-light">
+                        <span className="text-xs font-medium text-foreground-muted">
+                          {aggregatedTokens.length} tokens
+                        </span>
                       </div>
                     </div>
                   </div>
