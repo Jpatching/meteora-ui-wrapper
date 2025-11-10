@@ -17,6 +17,8 @@ interface Pool {
   pool_address: string;
   pool_name: string;
   protocol: 'dlmm' | 'damm-v2' | 'damm-v1';
+  token_a_mint: string;
+  token_b_mint: string;
   token_a_symbol: string;
   token_b_symbol: string;
   tvl: string;
@@ -171,12 +173,32 @@ export function SearchDropdown({
                         className="px-4 py-3 hover:bg-background-hover cursor-pointer transition-colors"
                       >
                         <div className="flex items-center gap-3">
-                          {/* Pool pair icons */}
+                          {/* Pool pair icons - using Jupiter CDN */}
                           <div className="flex items-center -space-x-2">
-                            <div className="w-8 h-8 rounded-full bg-primary/20 border-2 border-background-elevated flex items-center justify-center text-xs font-bold text-primary">
+                            <img
+                              src={`https://img.fotofolio.xyz/?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsolana-labs%2Ftoken-list%2Fmain%2Fassets%2Fmainnet%2F${pool.token_a_mint}%2Flogo.png`}
+                              alt={pool.token_a_symbol}
+                              className="w-8 h-8 rounded-full border-2 border-[#1a1b1e] bg-gray-800"
+                              onError={(e) => {
+                                // Fallback to letter avatar if image fails
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.nextElementSibling!.classList.remove('hidden');
+                              }}
+                            />
+                            <div className="hidden w-8 h-8 rounded-full bg-primary/20 border-2 border-[#1a1b1e] flex items-center justify-center text-xs font-bold text-primary">
                               {pool.token_a_symbol.charAt(0)}
                             </div>
-                            <div className="w-8 h-8 rounded-full bg-secondary/20 border-2 border-background-elevated flex items-center justify-center text-xs font-bold text-secondary">
+                            <img
+                              src={`https://img.fotofolio.xyz/?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsolana-labs%2Ftoken-list%2Fmain%2Fassets%2Fmainnet%2F${pool.token_b_mint}%2Flogo.png`}
+                              alt={pool.token_b_symbol}
+                              className="w-8 h-8 rounded-full border-2 border-[#1a1b1e] bg-gray-800"
+                              onError={(e) => {
+                                // Fallback to letter avatar if image fails
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.nextElementSibling!.classList.remove('hidden');
+                              }}
+                            />
+                            <div className="hidden w-8 h-8 rounded-full bg-secondary/20 border-2 border-[#1a1b1e] flex items-center justify-center text-xs font-bold text-secondary">
                               {pool.token_b_symbol.charAt(0)}
                             </div>
                           </div>

@@ -504,18 +504,32 @@ export default function DiscoverPage() {
     setMaxMarketCap('');
   };
 
+  // Search tokens by search term
+  const searchedTokens = useMemo(() => {
+    if (!searchTerm || searchTerm.length < 2) return [];
+
+    const lowerSearch = searchTerm.toLowerCase();
+    return aggregatedTokens
+      .filter(token =>
+        token.symbol.toLowerCase().includes(lowerSearch) ||
+        token.name.toLowerCase().includes(lowerSearch)
+      )
+      .slice(0, 3); // Top 3 matching tokens
+  }, [aggregatedTokens, searchTerm]);
+
   return (
     <MainLayout
       searchTerm={searchTerm}
       onSearchChange={setSearchTerm}
       searchResults={{
-        tokens: filteredTokens.slice(0, 3), // Top 3 matching tokens
+        tokens: searchedTokens,
         pools: searchResults
       }}
       isSearching={isSearching}
       onTokenClick={(token) => {
-        // Handle token click - could navigate to token page
+        // Navigate to token chart page (same as clicking in token table)
         console.log('Token clicked:', token);
+        // TODO: Navigate to token detail/chart page
       }}
       onPoolClick={(pool) => {
         // Handle pool click - navigate to pool page
