@@ -41,7 +41,7 @@ export default function DiscoverPage() {
   const [showChartModal, setShowChartModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState(''); // Unified search for both tokens and pools
   const [showTokenFilters, setShowTokenFilters] = useState(false); // Toggle for filter dropdown
-  const [timePeriod, setTimePeriod] = useState<'1H' | '2H' | '4H' | '8H' | '24H'>('24H'); // Time period filter
+  const [timePeriod, setTimePeriod] = useState<'1H' | '2H' | '4H' | '8H' | '24H'>('1H'); // Time period filter
   const [minLiquidity, setMinLiquidity] = useState<string>('');
   const [maxLiquidity, setMaxLiquidity] = useState<string>('');
   const [minMarketCap, setMinMarketCap] = useState<string>('');
