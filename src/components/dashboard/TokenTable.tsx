@@ -79,7 +79,7 @@ export function TokenTable({ tokens, onTokenClick, sortBy, onSortChange }: Token
         <button
           key={token.tokenAddress}
           onClick={() => onTokenClick(token)}
-          className="w-full py-6 px-4 hover:bg-gray-800/30 transition-colors text-left"
+          className="w-full py-8 px-4 hover:bg-gray-800/30 transition-colors text-left"
         >
           {/* Main Container: Left (Token Info) + Right (Metrics) */}
           <div className="flex items-start gap-3">
