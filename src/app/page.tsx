@@ -499,7 +499,12 @@ export default function DiscoverPage() {
       }
 
       if (!tokenMap.has(tokenId)) {
-        const createdAt = tokenCreationTimestamps.get(tokenId) || Date.now();
+        // Use actual blockchain timestamp if available, otherwise use current time
+        const blockchainTimestamp = tokenCreationTimestamps.get(tokenId);
+        const createdAt = blockchainTimestamp
+          ? new Date(blockchainTimestamp * 1000).toISOString()
+          : new Date().toISOString();
+
         tokenMap.set(tokenId, {
           id: tokenId,
           symbol: pool.baseAsset.symbol,
