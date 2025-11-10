@@ -85,38 +85,38 @@ export function TokenTable({ tokens, onTokenClick, sortBy, onSortChange }: Token
           <div className="flex items-start gap-3">
 
             {/* LEFT SECTION: Icon + Token Info */}
-            <div className="flex items-start gap-2 flex-shrink-0">
-              {/* Token Icon */}
+            <div className="flex items-start gap-3 flex-shrink-0">
+              {/* Token Icon - Larger */}
               <TokenIcon
                 src={token.icon}
                 symbol={token.symbol}
-                size="md"
+                size="lg"
               />
 
               {/* Token Details */}
-              <div className="flex flex-col">
-                {/* Token Name */}
-                <h3 className="font-bold text-white text-sm mb-0.5">
+              <div className="flex flex-col gap-1">
+                {/* Token Name - Larger */}
+                <h3 className="font-bold text-white text-base mb-0.5">
                   {token.symbol}
                 </h3>
 
                 {/* Contract Address with Copy */}
-                <div className="flex items-center gap-1 mb-1">
-                  <span className="text-[10px] text-gray-400 font-mono">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className="text-xs text-gray-400 font-mono">
                     {token.tokenAddress.slice(0, 3)}...{token.tokenAddress.slice(-4)}
                   </span>
                   <button
                     onClick={(e) => handleCopyAddress(token.tokenAddress, e)}
                     className="text-gray-400 hover:text-primary transition-colors"
                   >
-                    <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
                   </button>
                 </div>
 
                 {/* Token Age & Social Links */}
-                <div className="flex items-center gap-1.5 text-[10px]">
+                <div className="flex items-center gap-2 text-xs">
                   <span className="text-gray-500">
                     {getTokenAge(token.createdAt)}
                   </span>
@@ -130,7 +130,7 @@ export function TokenTable({ tokens, onTokenClick, sortBy, onSortChange }: Token
                         onClick={(e) => e.stopPropagation()}
                         className="text-gray-400 hover:text-primary transition-colors"
                       >
-                        <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                           <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
                         </svg>
                       </a>
@@ -144,7 +144,7 @@ export function TokenTable({ tokens, onTokenClick, sortBy, onSortChange }: Token
                     onClick={(e) => e.stopPropagation()}
                     className="text-gray-400 hover:text-primary transition-colors"
                   >
-                    <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                     </svg>
                   </a>
@@ -155,7 +155,7 @@ export function TokenTable({ tokens, onTokenClick, sortBy, onSortChange }: Token
             {/* RIGHT SECTION: Metrics in 2 Rows x 5 Columns */}
             <div className="flex-1 min-w-0">
               {/* Row 1: Main Metrics Headers */}
-              <div className="grid grid-cols-5 gap-x-2 text-[9px] text-gray-500 mb-0.5">
+              <div className="grid grid-cols-5 gap-x-3 text-[10px] text-gray-500 mb-1">
                 <div>Vol</div>
                 <div>Market Cap</div>
                 <div>Liquidity</div>
@@ -164,7 +164,7 @@ export function TokenTable({ tokens, onTokenClick, sortBy, onSortChange }: Token
               </div>
 
               {/* Row 2: Main Metrics Values */}
-              <div className="grid grid-cols-5 gap-x-2 text-[11px] text-white font-medium mb-2">
+              <div className="grid grid-cols-5 gap-x-3 text-xs text-white font-medium mb-3">
                 <div>{formatUSD(token.totalVolume24h)}</div>
                 <div>{formatUSD(token.marketCap)}</div>
                 <div>{formatUSD(token.totalLiquidity)}</div>
@@ -173,7 +173,7 @@ export function TokenTable({ tokens, onTokenClick, sortBy, onSortChange }: Token
               </div>
 
               {/* Row 3: Security Metrics Headers */}
-              <div className="grid grid-cols-5 gap-x-2 text-[9px] text-gray-500 mb-0.5">
+              <div className="grid grid-cols-5 gap-x-3 text-[10px] text-gray-500 mb-1">
                 <div>Top 10</div>
                 <div>Dev H</div>
                 <div>Mint</div>
@@ -182,7 +182,7 @@ export function TokenTable({ tokens, onTokenClick, sortBy, onSortChange }: Token
               </div>
 
               {/* Row 4: Security Metrics Values */}
-              <div className="grid grid-cols-5 gap-x-2 text-[11px] font-medium">
+              <div className="grid grid-cols-5 gap-x-3 text-xs font-medium">
                 <div className="text-white">
                   {token.audit?.topHoldersPercentage !== undefined
                     ? `${token.audit.topHoldersPercentage.toFixed(2)}%`
