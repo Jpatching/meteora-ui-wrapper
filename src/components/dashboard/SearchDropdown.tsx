@@ -70,13 +70,13 @@ export function SearchDropdown({
 
   return (
     <>
-      {/* Dark overlay - more opaque like charting.ag */}
-      <div className="fixed inset-0 bg-black/80 z-40" onClick={onClose} />
+      {/* Dark overlay - more opaque like charting.ag - highest z-index to cover everything */}
+      <div className="fixed inset-0 bg-black/80 z-[9998]" onClick={onClose} />
 
-      {/* Search dropdown - solid background, no transparency */}
+      {/* Search dropdown - solid background, no transparency - on top of overlay */}
       <div
         ref={dropdownRef}
-        className="absolute top-full left-0 right-0 mt-2 bg-[#1a1b1e] border border-gray-700 rounded-xl shadow-2xl z-50 max-h-[600px] overflow-y-auto backdrop-blur-xl"
+        className="absolute top-full left-0 right-0 mt-2 bg-[#1a1b1e] border border-gray-700 rounded-xl shadow-2xl z-[9999] max-h-[600px] overflow-y-auto backdrop-blur-xl"
       >
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
