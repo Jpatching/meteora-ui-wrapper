@@ -637,7 +637,7 @@ export default function DiscoverPage() {
 
                         {/* Filter Dropdown Panel */}
                         {showTokenFilters && (
-                          <div className="absolute top-full right-0 mt-1 w-80 bg-background-secondary border border-border-light rounded-lg shadow-xl z-50 px-6 py-4 max-h-[400px] overflow-y-auto">
+                          <div className="absolute top-full left-0 mt-1 w-80 bg-background-secondary border border-border-light rounded-lg shadow-xl z-50 px-6 py-4 max-h-[400px] overflow-y-auto">
                             {/* Liquidity Section */}
                             <div className="mb-3">
                               <label className="block text-xs font-medium text-foreground mb-2">Liquidity</label>
