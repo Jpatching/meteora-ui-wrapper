@@ -79,9 +79,9 @@ export default function TokenPage({ params }: TokenPageProps) {
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center max-w-md">
             <div className="text-6xl mb-4">🔍</div>
-            <h1 className="text-2xl font-bold text-white mb-2">Pool Not Found</h1>
+            <h1 className="text-2xl font-bold text-white mb-2">Token Not Found</h1>
             <p className="text-text-secondary mb-6">
-              The pool at address <code className="bg-surface-light px-2 py-1 rounded text-sm">{address}</code> could not be found.
+              The token at address <code className="bg-surface-light px-2 py-1 rounded text-sm">{mint}</code> could not be found.
             </p>
             <Link
               href="/"
