@@ -60,7 +60,7 @@ export default function TokenPage({ params }: TokenPageProps) {
     ? tokenPools.sort((a: any, b: any) => (b.volume24h || 0) - (a.volume24h || 0))[0]
     : null;
 
-  const poolAddress = poolAddressParam || primaryPool?.id;
+  const poolAddress = poolAddressParam || primaryPool?.id || null;
 
   // Fetch pool from unified backend endpoint with network filtering
   const { data: rawPool, isLoading: isLoadingPool, error } = useBackendPool(poolAddress, network);
