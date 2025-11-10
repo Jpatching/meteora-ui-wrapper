@@ -345,6 +345,16 @@ export default function DiscoverPage() {
   const filteredPools = useMemo(() => {
     let filtered = displayPools;
 
+    // Debug: Log pool counts by type
+    const poolsByType = displayPools.reduce((acc, pool) => {
+      acc[pool.type] = (acc[pool.type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    console.log('📊 Pool counts by type:', poolsByType);
+    console.log('📊 Total displayPools:', displayPools.length);
+    console.log('📊 Raw DLMM pools from backend:', dlmmPools.length);
+    console.log('📊 Raw DAMM pools from backend:', dammPools.length);
+
     // Protocol filter
     if (protocolFilter !== 'all') {
       filtered = filtered.filter((pool) => {
@@ -352,6 +362,7 @@ export default function DiscoverPage() {
         if (protocolFilter === 'damm-v2') return pool.type === 'damm-v2';
         return true;
       });
+      console.log(`📊 After ${protocolFilter} filter:`, filtered.length, 'pools');
     }
 
     // Sort pools
@@ -362,7 +373,7 @@ export default function DiscoverPage() {
     });
 
     return filtered;
-  }, [displayPools, protocolFilter, poolSortBy]);
+  }, [displayPools, protocolFilter, poolSortBy, dlmmPools.length, dammPools.length]);
 
   // Apply filters and sorting to tokens
   const filteredTokens = useMemo(() => {
