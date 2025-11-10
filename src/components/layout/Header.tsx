@@ -150,10 +150,8 @@ export function Header({
 
             {/* Wallet Button */}
             <WalletMultiButton
+              className="!bg-background-secondary !border !border-border-light !text-foreground hover:!border-foreground-muted !transition-colors"
               style={{
-                background: publicKey
-                  ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                  : 'linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%)',
                 height: '40px',
                 borderRadius: '8px',
                 fontSize: '14px',
@@ -174,17 +172,7 @@ export function Header({
               <div className="w-2 h-2 rounded-full bg-info"></div>
               <span className="text-sm text-foreground-secondary">...</span>
             </div>
-            <div
-              className="px-4 py-2 rounded-lg text-sm font-medium"
-              style={{
-                background: 'linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%)',
-                height: '40px',
-                minWidth: '140px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
+            <div className="px-4 py-2 rounded-lg text-sm font-medium bg-background-secondary border border-border-light text-foreground h-[40px] min-w-[140px] flex items-center justify-center">
               Select Wallet
             </div>
           </>
