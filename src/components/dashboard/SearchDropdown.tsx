@@ -22,6 +22,8 @@ interface Pool {
   token_b_mint: string;
   token_a_symbol: string;
   token_b_symbol: string;
+  token_a_icon?: string; // Icon URL for token A
+  token_b_icon?: string; // Icon URL for token B
   tvl: string;
   volume_24h: string;
   fees_24h: string;
@@ -175,13 +177,13 @@ export function SearchDropdown({
                           {/* Pool pair icons - using TokenIcon component (same as discover page) */}
                           <div className="flex items-center -space-x-2">
                             <TokenIcon
-                              src={`https://cache.jup.ag/static/cdn/strict/${pool.token_a_mint}`}
+                              src={pool.token_a_icon || `https://cache.jup.ag/static/cdn/strict/${pool.token_a_mint}`}
                               symbol={pool.token_a_symbol}
                               size="lg"
                               className="border-2 border-[#1a1b1e]"
                             />
                             <TokenIcon
-                              src={`https://cache.jup.ag/static/cdn/strict/${pool.token_b_mint}`}
+                              src={pool.token_b_icon || `https://cache.jup.ag/static/cdn/strict/${pool.token_b_mint}`}
                               symbol={pool.token_b_symbol}
                               size="lg"
                               className="border-2 border-[#1a1b1e]"

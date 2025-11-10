@@ -47,7 +47,8 @@ export default function DiscoverPage() {
   const [maxMarketCap, setMaxMarketCap] = useState<string>('');
   const [enrichedPools, setEnrichedPools] = useState<Pool[]>([]);
   const [isEnriching, setIsEnriching] = useState(false);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<any[]>([]); // Pool search results
+  const [tokenSearchResults, setTokenSearchResults] = useState<TokenData[]>([]); // Token search results
   const [isSearching, setIsSearching] = useState(false);
   const [tokenCreationTimestamps, setTokenCreationTimestamps] = useState<Map<string, number>>(new Map());
 
@@ -256,36 +257,57 @@ export default function DiscoverPage() {
 
   // No need to fetch pool details separately - Meteora API provides them!
 
-  // Search pools from database when user types (searches ALL pools, not just top 100)
+  // Search tokens AND pools when user types
   useEffect(() => {
-    const searchPools = async () => {
+    const performSearch = async () => {
       if (!searchTerm || searchTerm.length < 2) {
         setSearchResults([]);
+        setTokenSearchResults([]);
         setIsSearching(false);
         return;
       }
 
       setIsSearching(true);
       try {
-        const response = await fetch(
-          `https://alsk-production.up.railway.app/api/pools/search?q=${encodeURIComponent(searchTerm)}&network=${network}&limit=100`
-        );
-        const data = await response.json();
+        // Search both tokens and pools in parallel
+        const [tokenResponse, poolResponse] = await Promise.all([
+          fetch(`/api/tokens/search?q=${encodeURIComponent(searchTerm)}`),
+          fetch(`https://alsk-production.up.railway.app/api/pools/search?q=${encodeURIComponent(searchTerm)}&network=${network}&limit=100`)
+        ]);
 
-        if (data.success) {
-          console.log(`🔍 Found ${data.data.length} pools matching "${searchTerm}"`);
-          setSearchResults(data.data);
+        const [tokenData, poolData] = await Promise.all([
+          tokenResponse.json(),
+          poolResponse.json()
+        ]);
+
+        if (tokenData.success) {
+          console.log(`🔍 Found ${tokenData.data.length} tokens matching "${searchTerm}" (via Jupiter API)`);
+          setTokenSearchResults(tokenData.data.slice(0, 3)); // Top 3 tokens
+        }
+
+        if (poolData.success) {
+          console.log(`🔍 Found ${poolData.data.length} pools matching "${searchTerm}"`);
+
+          // Enrich pools with token icon URLs from Jupiter CDN
+          const enrichedPools = poolData.data.map((pool: any) => ({
+            ...pool,
+            token_a_icon: `https://cache.jup.ag/static/cdn/strict/${pool.token_a_mint}`,
+            token_b_icon: `https://cache.jup.ag/static/cdn/strict/${pool.token_b_mint}`,
+          }));
+
+          setSearchResults(enrichedPools);
         }
       } catch (error) {
-        console.error('Failed to search pools:', error);
+        console.error('Failed to search:', error);
         setSearchResults([]);
+        setTokenSearchResults([]);
       } finally {
         setIsSearching(false);
       }
     };
 
     // Debounce search
-    const timeoutId = setTimeout(searchPools, 300);
+    const timeoutId = setTimeout(performSearch, 300);
     return () => clearTimeout(timeoutId);
   }, [searchTerm, network]);
 
@@ -479,73 +501,12 @@ export default function DiscoverPage() {
     setMaxMarketCap('');
   };
 
-  // Search tokens by search term - search ALL tokens from Jupiter, not just top 100
-  const searchedTokens = useMemo(() => {
-    if (!searchTerm || searchTerm.length < 2) return [];
-
-    const lowerSearch = searchTerm.toLowerCase();
-
-    // Create a map of unique tokens from ALL Jupiter pools (not just top 100)
-    const tokenMap = new Map<string, TokenData>();
-
-    jupiterPools.forEach(pool => {
-      const tokenId = pool.baseAsset.id;
-      const tokenSymbol = pool.baseAsset.symbol.toLowerCase();
-      const tokenName = pool.baseAsset.name?.toLowerCase() || '';
-
-      // Only include if it matches search
-      if (!tokenSymbol.includes(lowerSearch) && !tokenName.includes(lowerSearch)) {
-        return;
-      }
-
-      if (!tokenMap.has(tokenId)) {
-        const buys = (pool.baseAsset as any).stats24h?.numBuys || 0;
-        const sells = (pool.baseAsset as any).stats24h?.numSells || 0;
-
-        // Use actual blockchain timestamp if available, otherwise use current time
-        const blockchainTimestamp = tokenCreationTimestamps.get(tokenId);
-        const createdAt = blockchainTimestamp
-          ? new Date(blockchainTimestamp * 1000).toISOString()
-          : new Date().toISOString();
-
-        tokenMap.set(tokenId, {
-          tokenAddress: tokenId,
-          symbol: pool.baseAsset.symbol,
-          name: pool.baseAsset.name || pool.baseAsset.symbol,
-          icon: pool.baseAsset.icon,
-          totalVolume24h: 0,
-          totalLiquidity: 0,
-          pools: [],
-          marketCap: (pool.baseAsset as any).mcap || 0,
-          holders: (pool.baseAsset as any).holderCount || 0,
-          txCount: buys + sells,
-          priceChange: ((pool.baseAsset as any).stats24h?.priceChange as number) || 0,
-          twitter: (pool.baseAsset as any).twitter,
-          createdAt,
-          organicScore: (pool.baseAsset as any).organicScore,
-          audit: (pool.baseAsset as any).audit,
-        });
-      }
-
-      const token = tokenMap.get(tokenId)!;
-      token.totalVolume24h += pool.volume24h || 0;
-      token.totalLiquidity += pool.baseAsset.liquidity || 0;
-      token.pools.push(pool);
-    });
-
-    // Get all matching tokens, sort by volume, take top 3
-    const matches = Array.from(tokenMap.values());
-    return matches
-      .sort((a, b) => b.totalVolume24h - a.totalVolume24h)
-      .slice(0, 3);
-  }, [jupiterPools, searchTerm, tokenCreationTimestamps]);
-
   return (
     <MainLayout
       searchTerm={searchTerm}
       onSearchChange={setSearchTerm}
       searchResults={{
-        tokens: searchedTokens,
+        tokens: tokenSearchResults,
         pools: searchResults
       }}
       isSearching={isSearching}
