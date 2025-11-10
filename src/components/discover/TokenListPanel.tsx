@@ -328,7 +328,11 @@ export function TokenListPanel({ pools, isLoading }: TokenListPanelProps) {
                           ? `${token.audit.topHoldersPercentage.toFixed(2)}%`
                           : '0.00%'}
                       </div>
-                      <div className="text-white">
+                      <div className={
+                        token.audit?.devBalancePercentage !== undefined && token.audit.devBalancePercentage < 10
+                          ? 'text-success'
+                          : 'text-white'
+                      }>
                         {token.audit?.devBalancePercentage !== undefined
                           ? `${token.audit.devBalancePercentage.toFixed(0)}%`
                           : '0%'}
@@ -343,8 +347,7 @@ export function TokenListPanel({ pools, isLoading }: TokenListPanelProps) {
                         className={`relative ${
                           !token.organicScore ? 'text-error' :
                           token.organicScore >= 70 ? 'text-success' :
-                          token.organicScore >= 40 ? 'text-warning' :
-                          'text-error'
+                          'text-white'
                         }`}
                         onMouseEnter={() => !token.organicScore && setHoveredScoreIndex(index)}
                         onMouseLeave={() => setHoveredScoreIndex(null)}

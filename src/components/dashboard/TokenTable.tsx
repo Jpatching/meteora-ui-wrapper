@@ -191,7 +191,11 @@ export function TokenTable({ tokens, onTokenClick, sortBy, onSortChange }: Token
                     ? `${token.audit.topHoldersPercentage.toFixed(2)}%`
                     : '0.00%'}
                 </div>
-                <div className="text-white">
+                <div className={
+                  token.audit?.devBalancePercentage !== undefined && token.audit.devBalancePercentage < 10
+                    ? 'text-success'
+                    : 'text-white'
+                }>
                   {token.audit?.devBalancePercentage !== undefined
                     ? `${token.audit.devBalancePercentage.toFixed(0)}%`
                     : '0%'}
@@ -206,8 +210,7 @@ export function TokenTable({ tokens, onTokenClick, sortBy, onSortChange }: Token
                   className={`relative ${
                     !token.organicScore ? 'text-error' :
                     token.organicScore >= 70 ? 'text-success' :
-                    token.organicScore >= 40 ? 'text-warning' :
-                    'text-error'
+                    'text-white'
                   }`}
                   onMouseEnter={() => !token.organicScore && setHoveredScoreIndex(index)}
                   onMouseLeave={() => setHoveredScoreIndex(null)}

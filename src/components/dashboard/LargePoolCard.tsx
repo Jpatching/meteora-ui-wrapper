@@ -152,8 +152,7 @@ export function LargePoolCard({ pool, isSelected = false, onClick }: LargePoolCa
             className={`relative ${
               !baseAsset.organicScore ? 'font-bold text-error' :
               baseAsset.organicScore >= 70 ? 'font-bold text-success' :
-              baseAsset.organicScore >= 40 ? 'font-bold text-warning' :
-              'font-bold text-error'
+              'font-bold text-white'
             }`}
             onMouseEnter={() => !baseAsset.organicScore && setShowScoreHover(true)}
             onMouseLeave={() => setShowScoreHover(false)}
