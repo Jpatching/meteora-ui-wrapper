@@ -15,11 +15,11 @@ import { PoolActionsPanel } from '@/components/pool/PoolActionsPanel';
 import { UserPositionsPanel } from '@/components/pool/UserPositionsPanel';
 import { PoolListSidebar } from '@/components/pool/PoolListSidebar';
 import { LiquidityDistributionPanel } from '@/components/pool/LiquidityDistributionPanel';
-import { useBackendPool } from '@/lib/hooks/useBackendPools';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { Pool } from '@/lib/jupiter/types';
-import { enrichPoolWithMetadata } from '@/lib/services/tokenMetadata';
+import { enrichPoolWithMetadata, enrichPoolsWithMetadata } from '@/lib/services/tokenMetadata';
 import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
 
 interface TokenPageProps {
   params: Promise<{ mint: string }>;
@@ -31,9 +31,32 @@ export default function TokenPage({ params }: TokenPageProps) {
   const router = useRouter();
   const { network } = useNetwork();
 
-  // Fetch pool from unified backend endpoint with network filtering
-  // Note: This fetches by pool address, but we receive mint - need to find pool by token mint
-  const { data: rawPool, isLoading, error } = useBackendPool(mint, network);
+  // Fetch all Jupiter pools and filter by token mint
+  const { data: allPools, isLoading, error } = useQuery({
+    queryKey: ['all-jupiter-pools', '24h'],
+    queryFn: async () => {
+      const response = await fetch('https://datapi.jup.ag/v1/pools/gems', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recent: { timeframe: '24h' } }),
+      });
+      if (!response.ok) throw new Error('Failed to fetch pools');
+      const data = await response.json();
+      return [
+        ...(data.recent?.pools || []),
+        ...(data.aboutToGraduate?.pools || []),
+        ...(data.graduated?.pools || []),
+      ];
+    },
+  });
+
+  // Find pools for this specific token
+  const tokenPools = allPools?.filter((pool: any) => pool.baseAsset.id === mint) || [];
+
+  // Get the primary pool (highest volume)
+  const rawPool = tokenPools.length > 0
+    ? tokenPools.sort((a: any, b: any) => (b.volume24h || 0) - (a.volume24h || 0))[0]
+    : null;
 
   // State for enriched pool with token metadata
   const [pool, setPool] = useState<Pool | null>(null);
