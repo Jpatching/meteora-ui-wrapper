@@ -45,13 +45,13 @@ export function PoolTable({ pools, onPoolClick, sortBy, onSortChange }: PoolTabl
   );
 
   const getProtocolBadge = (pool: Pool): { label: string; color: string } => {
-    // Charting.ag style badges - softer colors with glow effect
-    if (pool.baseAsset.launchpad === 'met-dbc') return { label: 'DBC', color: 'bg-purple-500/10 text-purple-400/90 border border-purple-500/20' };
-    if (pool.type === 'dlmm') return { label: 'DLMM', color: 'bg-orange-500/10 text-orange-400/90 border border-orange-500/20' };
-    if (pool.type === 'damm-v2') return { label: 'DAMM v2', color: 'bg-emerald-500/10 text-emerald-400/90 border border-emerald-500/20' };
-    if (pool.type === 'damm-v1' || pool.type === 'damm') return { label: 'DAMM v1', color: 'bg-teal-500/10 text-teal-400/90 border border-teal-500/20' };
-    if (pool.type === 'alpha-vault') return { label: 'ALPHA', color: 'bg-pink-500/10 text-pink-400/90 border border-pink-500/20' };
-    return { label: 'POOL', color: 'bg-gray-500/10 text-gray-400/90 border border-gray-500/20' };
+    // Charting.ag style - border only with white text, no fill
+    if (pool.baseAsset.launchpad === 'met-dbc') return { label: 'DBC', color: 'border border-orange-500/50 text-white' };
+    if (pool.type === 'dlmm') return { label: 'DLMM', color: 'border border-orange-500/50 text-white' };
+    if (pool.type === 'damm-v2') return { label: 'DYN2', color: 'border border-orange-500/50 text-white' };
+    if (pool.type === 'damm-v1' || pool.type === 'damm') return { label: 'DYN1', color: 'border border-orange-500/50 text-white' };
+    if (pool.type === 'alpha-vault') return { label: 'ALPHA', color: 'border border-orange-500/50 text-white' };
+    return { label: 'POOL', color: 'border border-gray-500/50 text-white' };
   };
 
   const getQuoteTokenInfo = (pool: Pool): { logo: string; symbol: string } => {
@@ -163,7 +163,13 @@ export function PoolTable({ pools, onPoolClick, sortBy, onSortChange }: PoolTabl
                     {/* Pool Info */}
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${protocol.color}`}>
+                        {/* Meteora Logo Icon */}
+                        <div className="w-5 h-5 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center flex-shrink-0">
+                          <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z"/>
+                          </svg>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-medium uppercase ${protocol.color}`}>
                           {protocol.label}
                         </span>
                         <span className="font-semibold text-sm text-foreground/90 truncate">
