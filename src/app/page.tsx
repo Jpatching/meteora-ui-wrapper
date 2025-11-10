@@ -637,7 +637,7 @@ export default function DiscoverPage() {
 
                         {/* Filter Dropdown Panel */}
                         {showTokenFilters && (
-                          <div className="absolute top-full right-0 mt-1 w-64 bg-background-secondary border border-border-light rounded-lg shadow-xl z-50 p-3 max-h-[400px] overflow-y-auto">
+                          <div className="absolute top-full right-0 mt-1 w-56 bg-background-secondary border border-border-light rounded-lg shadow-xl z-50 p-3 max-h-[400px] overflow-y-auto">
                             {/* Liquidity Section */}
                             <div className="mb-3">
                               <label className="block text-xs font-medium text-foreground mb-2">Liquidity</label>
@@ -647,14 +647,14 @@ export default function DiscoverPage() {
                                   placeholder="Min"
                                   value={minLiquidity}
                                   onChange={(e) => setMinLiquidity(e.target.value)}
-                                  className="flex-1 px-3 py-2 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
+                                  className="flex-1 px-2 py-1.5 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
                                 />
                                 <input
                                   type="number"
                                   placeholder="Max"
                                   value={maxLiquidity}
                                   onChange={(e) => setMaxLiquidity(e.target.value)}
-                                  className="flex-1 px-3 py-2 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
+                                  className="flex-1 px-2 py-1.5 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
                                 />
                               </div>
                             </div>
@@ -668,14 +668,14 @@ export default function DiscoverPage() {
                                   placeholder="Min"
                                   value={minMarketCap}
                                   onChange={(e) => setMinMarketCap(e.target.value)}
-                                  className="flex-1 px-3 py-2 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
+                                  className="flex-1 px-2 py-1.5 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
                                 />
                                 <input
                                   type="number"
                                   placeholder="Max"
                                   value={maxMarketCap}
                                   onChange={(e) => setMaxMarketCap(e.target.value)}
-                                  className="flex-1 px-3 py-2 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
+                                  className="flex-1 px-2 py-1.5 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
                                 />
                               </div>
                             </div>
