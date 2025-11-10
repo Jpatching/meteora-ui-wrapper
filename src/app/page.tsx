@@ -710,15 +710,9 @@ export default function DiscoverPage() {
                       sortBy={tokenSortBy}
                       onSortChange={setTokenSortBy}
                       onTokenClick={(token) => {
-                        // Navigate to token chart page - /solana/{token_mint}?pool={pool_address}
-                        // Get primary pool (highest volume)
-                        const primaryPool = token.pools.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0))[0];
-                        if (primaryPool) {
-                          // Jupiter pools use 'id' field for pool address
-                          const poolAddress = primaryPool.id || primaryPool.poolAddress || primaryPool.address;
-                          console.log('Token click - Pool:', { poolAddress, primaryPool });
-                          router.push(`/solana/${token.tokenAddress}?pool=${poolAddress}`);
-                        }
+                        // Navigate to token chart page - /solana/{token_mint}
+                        // The page will automatically find the primary pool for this token
+                        router.push(`/solana/${token.tokenAddress}`);
                       }}
                     />
                   )}
