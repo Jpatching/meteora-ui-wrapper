@@ -505,7 +505,23 @@ export default function DiscoverPage() {
   };
 
   return (
-    <MainLayout searchTerm={searchTerm} onSearchChange={setSearchTerm}>
+    <MainLayout
+      searchTerm={searchTerm}
+      onSearchChange={setSearchTerm}
+      searchResults={{
+        tokens: filteredTokens.slice(0, 3), // Top 3 matching tokens
+        pools: searchResults
+      }}
+      isSearching={isSearching}
+      onTokenClick={(token) => {
+        // Handle token click - could navigate to token page
+        console.log('Token clicked:', token);
+      }}
+      onPoolClick={(pool) => {
+        // Handle pool click - navigate to pool page
+        router.push(`/pool/${pool.pool_address}`);
+      }}
+    >
       <div className="h-[calc(100vh-80px)] flex flex-col">
 
         {/* Error State */}
