@@ -95,23 +95,41 @@ export default function TokenPage({ params }: TokenPageProps) {
     );
   }
 
-  // Handle error or not found
-  if (error || !pool) {
+  // Handle no pools found - show "Create First Pool" page
+  if (!pool && !isLoading) {
     return (
       <MainLayout>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center max-w-md">
-            <div className="text-6xl mb-4">🔍</div>
-            <h1 className="text-2xl font-bold text-white mb-2">Token Not Found</h1>
+          <div className="text-center max-w-2xl">
+            <div className="text-6xl mb-4">🚀</div>
+            <h1 className="text-2xl font-bold text-white mb-2">No Pools Yet</h1>
             <p className="text-text-secondary mb-6">
-              The token at address <code className="bg-surface-light px-2 py-1 rounded text-sm">{mint}</code> could not be found.
+              This token doesn't have any liquidity pools yet. Be the first to create one!
             </p>
-            <Link
-              href="/"
-              className="inline-block px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
-            >
-              ← Back to Dashboard
-            </Link>
+            <div className="bg-background-secondary border border-border-light rounded-lg p-4 mb-6">
+              <p className="text-sm text-foreground-muted mb-2">Token Address:</p>
+              <code className="bg-background-tertiary px-3 py-2 rounded text-sm text-foreground block">{mint}</code>
+            </div>
+            <div className="flex gap-4 justify-center">
+              <Link
+                href={`/dlmm/create-pool?tokenMint=${mint}`}
+                className="inline-block px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/80 transition-colors"
+              >
+                Create DLMM Pool
+              </Link>
+              <Link
+                href={`/damm-v2/create-balanced?tokenMint=${mint}`}
+                className="inline-block px-6 py-3 bg-secondary text-white rounded-lg hover:bg-secondary/80 transition-colors"
+              >
+                Create DAMM Pool
+              </Link>
+              <Link
+                href="/"
+                className="inline-block px-6 py-3 bg-background-secondary text-foreground border border-border-light rounded-lg hover:border-foreground-muted transition-colors"
+              >
+                ← Back to Dashboard
+              </Link>
+            </div>
           </div>
         </div>
       </MainLayout>
