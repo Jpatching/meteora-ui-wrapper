@@ -694,13 +694,6 @@ export default function DiscoverPage() {
                         )}
                         </div>
                       </div>
-
-                      {/* Token Count Badge (right side - matches pools layout) */}
-                      <div className="px-2 py-1 bg-background-secondary rounded-lg border border-border-light">
-                        <span className="text-xs font-medium text-foreground-muted">
-                          {aggregatedTokens.length} tokens
-                        </span>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -780,11 +773,6 @@ export default function DiscoverPage() {
                           <option value="volume">Volume</option>
                           <option value="liquidity">Liquidity</option>
                         </select>
-                      </div>
-                      <div className="px-2 py-1 bg-background-secondary rounded-lg border border-border-light">
-                        <span className="text-xs font-medium text-foreground-muted">
-                          {filteredPools.length} pools
-                        </span>
                       </div>
                     </div>
                   </div>
