@@ -42,7 +42,6 @@ export default function DiscoverPage() {
   const [searchTerm, setSearchTerm] = useState(''); // Unified search for both tokens and pools
   const [showTokenFilters, setShowTokenFilters] = useState(false); // Toggle for filter dropdown
   const [timePeriod, setTimePeriod] = useState<'1H' | '2H' | '4H' | '8H' | '24H'>('1H'); // Token time period filter
-  const [poolTimePeriod, setPoolTimePeriod] = useState<'1H' | '2H' | '4H' | '8H' | '24H'>('24H'); // Pool time period filter (UI only - backend shows 24h data)
   const [minLiquidity, setMinLiquidity] = useState<string>('');
   const [maxLiquidity, setMaxLiquidity] = useState<string>('');
   const [minMarketCap, setMinMarketCap] = useState<string>('');
@@ -761,21 +760,11 @@ export default function DiscoverPage() {
                         ))}
                       </div>
 
-                      {/* Time Period Filters */}
+                      {/* Time Period - 24H only (Meteora backend limitation) */}
                       <div className="flex items-center gap-1">
-                        {(['1H', '2H', '4H', '8H', '24H'] as const).map((period) => (
-                          <button
-                            key={period}
-                            onClick={() => setPoolTimePeriod(period)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                              poolTimePeriod === period
-                                ? 'bg-background-tertiary text-foreground border border-border-light'
-                                : 'text-foreground-muted hover:text-foreground border border-transparent'
-                            }`}
-                          >
-                            {period}
-                          </button>
-                        ))}
+                        <button className="px-3 py-1.5 rounded-lg text-xs font-medium bg-background-tertiary text-foreground border border-border-light cursor-default">
+                          24H
+                        </button>
                       </div>
                     </div>
 
