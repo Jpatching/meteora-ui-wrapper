@@ -572,12 +572,21 @@ export default function DiscoverPage() {
           <div className="flex-1 overflow-hidden bg-background p-4 flex gap-4">
               {/* Left: Token Column with Filter Bar */}
               <div className="w-1/2 flex flex-col bg-background-secondary border border-border-light rounded-xl overflow-hidden">
-                {/* Token Filter Bar */}
+                {/* Token Filter Bar - Match pools header height with 2 rows */}
                 <div className="px-4 py-2 border-b border-border-light">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      {/* Filter Dropdown Button */}
-                      <div className="relative">
+                  <div className="flex flex-col gap-2">
+                    {/* First Row - Token count (matches pools protocol filter row height) */}
+                    <div className="flex items-center gap-1">
+                      <div className="px-3 py-1.5 rounded-lg text-sm font-medium bg-background-tertiary text-foreground border border-border-light">
+                        {aggregatedTokens.length} tokens
+                      </div>
+                    </div>
+
+                    {/* Second Row - Filter and Sort (matches pools sort row) */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        {/* Filter Dropdown Button */}
+                        <div className="relative">
                         <button
                           onClick={() => setShowTokenFilters(!showTokenFilters)}
                           className="flex items-center gap-2 px-3 py-1.5 bg-background-secondary border border-border-light rounded-lg text-xs text-foreground hover:border-foreground-muted transition-colors"
@@ -665,13 +674,6 @@ export default function DiscoverPage() {
                           <option value="txs">Transactions</option>
                         </select>
                       </div>
-                    </div>
-
-                    {/* Token Count */}
-                    <div className="px-2 py-1 bg-background-secondary rounded-lg border border-border-light">
-                      <span className="text-xs font-medium text-foreground-muted">
-                        {filteredTokens.length} tokens
-                      </span>
                     </div>
                   </div>
                 </div>
