@@ -1,12 +1,13 @@
 /**
  * Token Table Component
- * Shows aggregated token data (all pools combined per token)
+ * Shows aggregated token data with charting.ag-inspired layout
  */
 
 'use client';
 
 import { formatUSD, formatNumber } from '@/lib/format/number';
 import { TokenIcon } from '@/components/ui/TokenIcon';
+import toast from 'react-hot-toast';
 
 export interface TokenData {
   tokenAddress: string;
@@ -15,9 +16,20 @@ export interface TokenData {
   icon?: string;
   totalVolume24h: number;
   totalLiquidity: number;
+  marketCap: number;
   holders: number;
+  txCount: number;
   pools: any[]; // Pool type
   priceChange: number;
+  twitter?: string;
+  createdAt: string;
+  organicScore?: number;
+  audit?: {
+    mintAuthorityDisabled: boolean | undefined;
+    freezeAuthorityDisabled: boolean | undefined;
+    topHoldersPercentage: number | undefined;
+    devBalancePercentage?: number | undefined;
+  };
 }
 
 export interface TokenTableProps {
@@ -28,114 +40,174 @@ export interface TokenTableProps {
 }
 
 export function TokenTable({ tokens, onTokenClick, sortBy, onSortChange }: TokenTableProps) {
-  const SortableHeader = ({
-    label,
-    sortKey,
-    align = 'right'
-  }: {
-    label: string;
-    sortKey: 'volume' | 'liquidity' | 'holders';
-    align?: 'left' | 'right';
-  }) => (
-    <th
-      className={`text-${align} py-3 px-4 font-medium cursor-pointer hover:text-foreground transition-colors select-none group`}
-      onClick={() => onSortChange?.(sortKey)}
-    >
-      <div className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : 'justify-start'}`}>
-        <span>{label}</span>
-        <svg
-          className={`w-3 h-3 transition-opacity ${sortBy === sortKey ? 'opacity-100 text-primary' : 'opacity-40 group-hover:opacity-70'}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-        </svg>
-      </div>
-    </th>
-  );
+  const formatCount = (num: number) => {
+    if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
+    if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
+    return num.toString();
+  };
+
+  const getTokenAge = (createdAt: string) => {
+    const now = new Date();
+    const created = new Date(createdAt);
+    const diffMs = now.getTime() - created.getTime();
+
+    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (days > 0) {
+      const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      return `${days}d ${hours}h`;
+    }
+
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    if (hours > 0) {
+      const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      return `${hours}h ${minutes}m`;
+    }
+
+    const minutes = Math.floor(diffMs / (1000 * 60));
+    return `${minutes}m`;
+  };
+
+  const handleCopyAddress = (address: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(address);
+    toast.success('Address copied!');
+  };
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead>
-          <tr className="text-xs text-foreground-muted border-b border-border-light">
-            <th className="text-left py-3 px-4 font-medium">Token</th>
-            <th className="text-right py-3 px-4 font-medium">Pools</th>
-            <SortableHeader label="Total TVL" sortKey="liquidity" />
-            <SortableHeader label="Total Volume" sortKey="volume" />
-            <SortableHeader label="Holders" sortKey="holders" />
-            <th className="text-right py-3 px-4 font-medium">24h Change</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tokens.map((token) => {
-            const isPositive = token.priceChange >= 0;
+    <div className="divide-y divide-gray-800/50">
+      {tokens.map((token) => (
+        <button
+          key={token.tokenAddress}
+          onClick={() => onTokenClick(token)}
+          className="w-full p-3 hover:bg-gray-800/30 transition-colors text-left"
+        >
+          {/* Main Container: Left (Token Info) + Right (Metrics) */}
+          <div className="flex items-start gap-3">
 
-            return (
-              <tr
-                key={token.tokenAddress}
-                onClick={() => onTokenClick(token)}
-                className="border-b border-border-light hover:bg-background-secondary cursor-pointer transition-colors"
-              >
-                {/* Token Column */}
-                <td className="py-3 px-4">
-                  <div className="flex items-center gap-3">
-                    <TokenIcon
-                      src={token.icon}
-                      symbol={token.symbol}
-                      size="md"
-                    />
-                    <div>
-                      <div className="font-semibold text-foreground">
-                        {token.symbol}
-                      </div>
-                      <div className="text-xs text-foreground-muted">
-                        {token.name}
-                      </div>
-                    </div>
-                  </div>
-                </td>
+            {/* LEFT SECTION: Icon + Token Info */}
+            <div className="flex items-start gap-2 flex-shrink-0">
+              {/* Token Icon */}
+              <TokenIcon
+                src={token.icon}
+                symbol={token.symbol}
+                size="md"
+              />
 
-                {/* Pools Count */}
-                <td className="py-3 px-4 text-right">
-                  <div className="font-medium text-foreground">
-                    {token.pools.length}
-                  </div>
-                </td>
+              {/* Token Details */}
+              <div className="flex flex-col">
+                {/* Token Name */}
+                <h3 className="font-bold text-white text-sm mb-0.5">
+                  {token.symbol}
+                </h3>
 
-                {/* Total TVL Column */}
-                <td className="py-3 px-4 text-right">
-                  <div className="font-semibold font-mono text-foreground">
-                    {token.totalLiquidity > 0 ? formatUSD(token.totalLiquidity) : '$0'}
-                  </div>
-                </td>
+                {/* Contract Address with Copy */}
+                <div className="flex items-center gap-1 mb-1">
+                  <span className="text-[10px] text-gray-400 font-mono">
+                    {token.tokenAddress.slice(0, 3)}...{token.tokenAddress.slice(-4)}
+                  </span>
+                  <button
+                    onClick={(e) => handleCopyAddress(token.tokenAddress, e)}
+                    className="text-gray-400 hover:text-primary transition-colors"
+                  >
+                    <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  </button>
+                </div>
 
-                {/* Total Volume Column */}
-                <td className="py-3 px-4 text-right">
-                  <div className="font-semibold font-mono text-foreground">
-                    {token.totalVolume24h > 0 ? formatUSD(token.totalVolume24h) : '$0'}
-                  </div>
-                </td>
+                {/* Token Age & Social Links */}
+                <div className="flex items-center gap-1.5 text-[10px]">
+                  <span className="text-gray-500">
+                    {getTokenAge(token.createdAt)}
+                  </span>
+                  <span className="text-gray-700">|</span>
+                  {token.twitter && (
+                    <>
+                      <a
+                        href={`https://x.com/${token.twitter.replace('@', '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-gray-400 hover:text-primary transition-colors"
+                      >
+                        <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                        </svg>
+                      </a>
+                      <span className="text-gray-700">|</span>
+                    </>
+                  )}
+                  <a
+                    href={`https://solscan.io/token/${token.tokenAddress}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-gray-400 hover:text-primary transition-colors"
+                  >
+                    <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                </div>
+              </div>
+            </div>
 
-                {/* Holders Column */}
-                <td className="py-3 px-4 text-right">
-                  <div className="font-semibold font-mono text-foreground">
-                    {formatNumber(token.holders)}
-                  </div>
-                </td>
+            {/* RIGHT SECTION: Metrics in 2 Rows x 5 Columns */}
+            <div className="flex-1 min-w-0">
+              {/* Row 1: Main Metrics Headers */}
+              <div className="grid grid-cols-5 gap-x-2 text-[9px] text-gray-500 mb-0.5">
+                <div>Vol</div>
+                <div>Market Cap</div>
+                <div>Liquidity</div>
+                <div>Holder</div>
+                <div>TXs</div>
+              </div>
 
-                {/* 24h Change Column */}
-                <td className="py-3 px-4 text-right">
-                  <div className={`font-semibold ${isPositive ? 'text-success' : 'text-error'}`}>
-                    {isPositive ? '+' : ''}{token.priceChange.toFixed(2)}%
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+              {/* Row 2: Main Metrics Values */}
+              <div className="grid grid-cols-5 gap-x-2 text-[11px] text-white font-medium mb-2">
+                <div>{formatUSD(token.totalVolume24h)}</div>
+                <div>{formatUSD(token.marketCap)}</div>
+                <div>{formatUSD(token.totalLiquidity)}</div>
+                <div>{formatCount(token.holders)}</div>
+                <div>{formatCount(token.txCount)}</div>
+              </div>
+
+              {/* Row 3: Security Metrics Headers */}
+              <div className="grid grid-cols-5 gap-x-2 text-[9px] text-gray-500 mb-0.5">
+                <div>Top 10</div>
+                <div>Dev H</div>
+                <div>Mint</div>
+                <div>Freeze</div>
+                <div>Score</div>
+              </div>
+
+              {/* Row 4: Security Metrics Values */}
+              <div className="grid grid-cols-5 gap-x-2 text-[11px] font-medium">
+                <div className="text-white">
+                  {token.audit?.topHoldersPercentage !== undefined
+                    ? `${token.audit.topHoldersPercentage.toFixed(2)}%`
+                    : '0.00%'}
+                </div>
+                <div className="text-white">
+                  {token.audit?.devBalancePercentage !== undefined
+                    ? `${token.audit.devBalancePercentage.toFixed(0)}%`
+                    : '0%'}
+                </div>
+                <div className={token.audit?.mintAuthorityDisabled === true ? 'text-success' : 'text-warning'}>
+                  {token.audit?.mintAuthorityDisabled === true ? 'No' : 'Yes'}
+                </div>
+                <div className={token.audit?.freezeAuthorityDisabled === true ? 'text-success' : 'text-warning'}>
+                  {token.audit?.freezeAuthorityDisabled === true ? 'No' : 'Yes'}
+                </div>
+                <div className="text-white">
+                  {token.organicScore || '0'}
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </button>
+      ))}
 
       {tokens.length === 0 && (
         <div className="text-center py-12 text-foreground-muted">

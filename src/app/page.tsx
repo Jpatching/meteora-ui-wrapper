@@ -251,6 +251,9 @@ export default function DiscoverPage() {
       const tokenId = pool.baseAsset.id;
 
       if (!tokenMap.has(tokenId)) {
+        const buys = (pool.baseAsset as any).stats24h?.numBuys || 0;
+        const sells = (pool.baseAsset as any).stats24h?.numSells || 0;
+
         tokenMap.set(tokenId, {
           tokenAddress: tokenId,
           symbol: pool.baseAsset.symbol,
@@ -258,9 +261,15 @@ export default function DiscoverPage() {
           icon: (pool.baseAsset as any).icon,
           totalVolume24h: 0,
           totalLiquidity: 0,
+          marketCap: (pool.baseAsset as any).mcap || 0,
           holders: (pool.baseAsset as any).holderCount || 0,
+          txCount: buys + sells,
           pools: [],
           priceChange: ((pool.baseAsset as any).stats24h?.priceChange as number) || 0,
+          twitter: (pool.baseAsset as any).twitter,
+          createdAt: pool.createdAt,
+          organicScore: (pool.baseAsset as any).organicScore,
+          audit: (pool.baseAsset as any).audit,
         });
       }
 
