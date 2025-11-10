@@ -527,13 +527,14 @@ export default function DiscoverPage() {
       }}
       isSearching={isSearching}
       onTokenClick={(token) => {
-        // Navigate to token chart page (same as clicking in token table)
-        console.log('Token clicked:', token);
-        // TODO: Navigate to token detail/chart page
+        // Navigate to token chart page - /solana/{token_mint}
+        if (token.id) {
+          router.push(`/solana/${token.id}`);
+        }
       }}
       onPoolClick={(pool) => {
-        // Handle pool click - navigate to pool page
-        router.push(`/pool/${pool.pool_address}`);
+        // Navigate to token chart page for base token - /solana/{token_mint}
+        router.push(`/solana/${pool.token_a_mint}`);
       }}
     >
       <div className="h-[calc(100vh-80px)] flex flex-col">

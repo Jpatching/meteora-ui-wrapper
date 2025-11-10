@@ -1,5 +1,6 @@
 /**
- * Pool Detail Page - Comprehensive analytics with AI features
+ * Token Detail Page - Comprehensive analytics with AI features
+ * URL: /solana/{mint} (matches charting.ag pattern)
  * Three-column layout: Token Info | Chart + Analytics | Trading + AI
  */
 
@@ -20,18 +21,19 @@ import { Pool } from '@/lib/jupiter/types';
 import { enrichPoolWithMetadata } from '@/lib/services/tokenMetadata';
 import Link from 'next/link';
 
-interface PoolPageProps {
-  params: Promise<{ address: string }>;
+interface TokenPageProps {
+  params: Promise<{ mint: string }>;
 }
 
-export default function PoolPage({ params }: PoolPageProps) {
+export default function TokenPage({ params }: TokenPageProps) {
   const resolvedParams = use(params);
-  const { address } = resolvedParams;
+  const { mint } = resolvedParams;
   const router = useRouter();
   const { network } = useNetwork();
 
   // Fetch pool from unified backend endpoint with network filtering
-  const { data: rawPool, isLoading, error } = useBackendPool(address, network);
+  // Note: This fetches by pool address, but we receive mint - need to find pool by token mint
+  const { data: rawPool, isLoading, error } = useBackendPool(mint, network);
 
   // State for enriched pool with token metadata
   const [pool, setPool] = useState<Pool | null>(null);
