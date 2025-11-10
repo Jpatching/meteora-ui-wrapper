@@ -87,8 +87,8 @@ export function TokenTable({ tokens, onTokenClick, sortBy, onSortChange }: Token
           {/* Main Container: Left (Token Info) + Right (Metrics) */}
           <div className="flex items-start gap-3">
 
-            {/* LEFT SECTION: Icon + Token Info */}
-            <div className="flex items-start gap-3 flex-shrink-0">
+            {/* LEFT SECTION: Icon + Token Info - FIXED WIDTH for alignment */}
+            <div className="flex items-start gap-3 flex-shrink-0 w-[200px]">
               {/* Token Icon - Larger */}
               <TokenIcon
                 src={token.icon}
