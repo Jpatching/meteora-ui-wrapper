@@ -104,12 +104,11 @@ export function PoolTable({ pools, onPoolClick, sortBy, onSortChange }: PoolTabl
     <div className="overflow-x-auto">
       <table className="w-full table-fixed">
         <colgroup>
-          <col style={{ width: '35%' }} />
-          <col style={{ width: '13%' }} />
+          <col style={{ width: '40%' }} />
           <col style={{ width: '15%' }} />
-          <col style={{ width: '13%' }} />
-          <col style={{ width: '12%' }} />
-          <col style={{ width: '12%' }} />
+          <col style={{ width: '15%' }} />
+          <col style={{ width: '15%' }} />
+          <col style={{ width: '15%' }} />
         </colgroup>
         <thead>
           <tr className="text-[10px] text-foreground-muted/60 border-b border-border-light/30 uppercase tracking-wider">
@@ -117,16 +116,13 @@ export function PoolTable({ pools, onPoolClick, sortBy, onSortChange }: PoolTabl
             <SortableHeader label="TVL" sortKey="liquidity" />
             <SortableHeader label="Volume" sortKey="volume" />
             <th className="text-right py-2 px-2 font-medium">Fees</th>
-            <th className="text-right py-2 px-2 font-medium">Fee/TV</th>
-            <th className="text-right py-2 px-2 font-medium">24h</th>
+            <th className="text-right py-2 px-2 font-medium">Fee/TVL</th>
           </tr>
         </thead>
         <tbody>
           {pools.map((pool) => {
             const protocol = getProtocolBadge(pool);
             const quoteToken = getQuoteTokenInfo(pool);
-            const priceChange = pool.baseAsset.stats24h?.priceChange || 0;
-            const isPositive = priceChange >= 0;
             const timeAgo = getTimeAgo(pool.createdAt);
 
             // Calculate Fee/TV ratio (24h fees / TVL) - represents daily yield
@@ -204,24 +200,10 @@ export function PoolTable({ pools, onPoolClick, sortBy, onSortChange }: PoolTabl
                   </div>
                 </td>
 
-                {/* Fee/TV Ratio Column */}
+                {/* Fee/TVL Ratio Column */}
                 <td className="py-4 px-2 text-right">
                   <div className={`font-medium text-sm ${feeTVRatio > 0.1 ? 'text-emerald-400/80' : 'text-foreground-muted/60'}`}>
                     {feeTVRatio.toFixed(2)}%
-                  </div>
-                </td>
-
-                {/* 24h Change Column with arrow */}
-                <td className="py-4 px-2 text-right">
-                  <div className={`font-medium text-sm flex items-center justify-end gap-1 ${isPositive ? 'text-emerald-400/80' : 'text-red-400/80'}`}>
-                    <span>{isPositive ? '+' : ''}{priceChange.toFixed(2)}%</span>
-                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                      {isPositive ? (
-                        <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                      ) : (
-                        <path fillRule="evenodd" d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      )}
-                    </svg>
                   </div>
                 </td>
               </tr>
