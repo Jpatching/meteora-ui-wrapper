@@ -641,20 +641,20 @@ export default function DiscoverPage() {
                             {/* Liquidity Section */}
                             <div className="mb-3">
                               <label className="block text-xs font-medium text-foreground mb-2">Liquidity</label>
-                              <div className="flex gap-2">
+                              <div className="flex gap-3 justify-center">
                                 <input
                                   type="number"
                                   placeholder="Min"
                                   value={minLiquidity}
                                   onChange={(e) => setMinLiquidity(e.target.value)}
-                                  className="flex-1 px-2 py-1.5 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
+                                  className="w-24 px-2 py-1.5 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
                                 />
                                 <input
                                   type="number"
                                   placeholder="Max"
                                   value={maxLiquidity}
                                   onChange={(e) => setMaxLiquidity(e.target.value)}
-                                  className="flex-1 px-2 py-1.5 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
+                                  className="w-24 px-2 py-1.5 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
                                 />
                               </div>
                             </div>
@@ -662,20 +662,20 @@ export default function DiscoverPage() {
                             {/* Market Cap Section */}
                             <div className="mb-3">
                               <label className="block text-xs font-medium text-foreground mb-2">Market Cap</label>
-                              <div className="flex gap-2">
+                              <div className="flex gap-3 justify-center">
                                 <input
                                   type="number"
                                   placeholder="Min"
                                   value={minMarketCap}
                                   onChange={(e) => setMinMarketCap(e.target.value)}
-                                  className="flex-1 px-2 py-1.5 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
+                                  className="w-24 px-2 py-1.5 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
                                 />
                                 <input
                                   type="number"
                                   placeholder="Max"
                                   value={maxMarketCap}
                                   onChange={(e) => setMaxMarketCap(e.target.value)}
-                                  className="flex-1 px-2 py-1.5 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
+                                  className="w-24 px-2 py-1.5 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
                                 />
                               </div>
                             </div>
