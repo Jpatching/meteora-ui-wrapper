@@ -189,7 +189,7 @@ async function fetchTokenCreationFromBlockchain(
 
     const mintPubkey = new PublicKey(mintAddress);
 
-    let allSignatures: Array<{ signature: string; blockTime: number | null }> = [];
+    let allSignatures: any[] = [];
     let before: string | undefined = undefined;
     let iterations = 0;
     const MAX_ITERATIONS = 10; // Safety limit to avoid infinite loops
@@ -220,7 +220,7 @@ async function fetchTokenCreationFromBlockchain(
     }
 
     // Sort chronologically and get the earliest with a blockTime
-    const validSignatures = allSignatures.filter(sig => sig.blockTime !== null);
+    const validSignatures = allSignatures.filter(sig => sig.blockTime !== null && sig.blockTime !== undefined);
 
     if (validSignatures.length === 0) {
       console.warn(`⚠️ No valid blockTime found for token: ${mintAddress}`);
@@ -231,7 +231,7 @@ async function fetchTokenCreationFromBlockchain(
       (a.blockTime || 0) - (b.blockTime || 0)
     )[0];
 
-    return oldestSignature.blockTime;
+    return oldestSignature.blockTime as number;
   } catch (error) {
     console.error(`❌ Error fetching from blockchain for ${mintAddress}:`, error);
     return null;
