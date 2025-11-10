@@ -62,16 +62,46 @@ export default function TokenPage({ params }: TokenPageProps) {
 
   const poolAddress = poolAddressParam || primaryPool?.id || null;
 
-  // Fetch pool from unified backend endpoint with network filtering
+  // Fetch pool from unified backend endpoint with network filtering (only if pool exists)
   const { data: rawPool, isLoading: isLoadingPool, error } = useBackendPool(poolAddress, network);
 
-  const isLoading = poolAddressParam ? isLoadingPool : (isLoadingAllPools || isLoadingPool);
+  const isLoading = isLoadingAllPools || isLoadingPool;
 
   // State for enriched pool with token metadata
   const [pool, setPool] = useState<Pool | null>(null);
+  const [tokenInfo, setTokenInfo] = useState<any>(null);
   const [enriching, setEnriching] = useState(false);
 
-  // Enrich pool with token metadata (logos, etc.)
+  // Fetch token metadata from Jupiter (for tokens without pools)
+  useEffect(() => {
+    if (!rawPool && !isLoadingAllPools && mint) {
+      // Token has no pools, fetch metadata from Jupiter token list
+      fetch(`https://tokens.jup.ag/token/${mint}`)
+        .then(res => res.json())
+        .then(data => {
+          setTokenInfo({
+            address: mint,
+            symbol: data.symbol || 'UNKNOWN',
+            name: data.name || 'Unknown Token',
+            icon: data.logoURI || '',
+            decimals: data.decimals || 9,
+          });
+        })
+        .catch(err => {
+          console.error('Failed to fetch token metadata:', err);
+          // Fallback token info
+          setTokenInfo({
+            address: mint,
+            symbol: 'TOKEN',
+            name: 'Unknown Token',
+            icon: '',
+            decimals: 9,
+          });
+        });
+    }
+  }, [rawPool, isLoadingAllPools, mint]);
+
+  // Enrich pool with token metadata (logos, etc.) when pool exists
   useEffect(() => {
     if (rawPool && !enriching) {
       setEnriching(true);
@@ -89,66 +119,25 @@ export default function TokenPage({ params }: TokenPageProps) {
   }, [rawPool]);
 
   // Handle loading state
-  if (isLoading || (rawPool && !pool)) {
+  if (isLoading && !pool && !tokenInfo) {
     return (
       <MainLayout>
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-text-secondary">
-              {isLoading ? 'Loading pool details...' : 'Loading token metadata...'}
-            </p>
+            <p className="text-text-secondary">Loading token details...</p>
           </div>
         </div>
       </MainLayout>
     );
   }
 
-  // Handle no pools found - show "Create First Pool" page
-  if (!pool && !isLoading) {
-    return (
-      <MainLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center max-w-2xl">
-            <div className="text-6xl mb-4">🚀</div>
-            <h1 className="text-2xl font-bold text-white mb-2">No Pools Yet</h1>
-            <p className="text-text-secondary mb-6">
-              This token doesn't have any liquidity pools yet. Be the first to create one!
-            </p>
-            <div className="bg-background-secondary border border-border-light rounded-lg p-4 mb-6">
-              <p className="text-sm text-foreground-muted mb-2">Token Address:</p>
-              <code className="bg-background-tertiary px-3 py-2 rounded text-sm text-foreground block">{mint}</code>
-            </div>
-            <div className="flex gap-4 justify-center">
-              <Link
-                href={`/dlmm/create-pool?tokenMint=${mint}`}
-                className="inline-block px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/80 transition-colors"
-              >
-                Create DLMM Pool
-              </Link>
-              <Link
-                href={`/damm-v2/create-balanced?tokenMint=${mint}`}
-                className="inline-block px-6 py-3 bg-secondary text-white rounded-lg hover:bg-secondary/80 transition-colors"
-              >
-                Create DAMM Pool
-              </Link>
-              <Link
-                href="/"
-                className="inline-block px-6 py-3 bg-background-secondary text-foreground border border-border-light rounded-lg hover:border-foreground-muted transition-colors"
-              >
-                ← Back to Dashboard
-              </Link>
-            </div>
-          </div>
-        </div>
-      </MainLayout>
-    );
-  }
+  // Derive display data from either pool or tokenInfo
+  const displayToken = pool?.baseAsset || tokenInfo;
+  const hasPool = !!pool;
 
-  // Pool found - render pool details (Charting.ag + Meteora Hybrid Layout)
-  // TypeScript guard: This should never happen due to early returns above, but helps TS compiler
-  if (!pool) {
-    return null;
+  if (!displayToken) {
+    return null; // Should never happen, but TypeScript safety
   }
 
   return (
@@ -162,28 +151,28 @@ export default function TokenPage({ params }: TokenPageProps) {
               {/* Token Icons + Name */}
               <div className="flex items-center gap-2">
                 <div className="flex items-center -space-x-1">
-                  {pool.baseAsset.icon && (
-                    <img src={pool.baseAsset.icon} alt={pool.baseAsset.symbol} className="w-8 h-8 rounded-full border-2 border-background" />
+                  {displayToken.icon && (
+                    <img src={displayToken.icon} alt={displayToken.symbol} className="w-8 h-8 rounded-full border-2 border-background" />
                   )}
-                  {pool.quoteAsset?.icon && (
+                  {pool?.quoteAsset?.icon && (
                     <img src={pool.quoteAsset.icon} alt={pool.quoteAsset.symbol} className="w-8 h-8 rounded-full border-2 border-background" />
                   )}
                 </div>
                 <div>
-                  <h1 className="text-lg font-bold text-white">{pool.baseAsset.symbol}</h1>
-                  <p className="text-[10px] text-gray-500">{pool.baseAsset.id.slice(0, 8)}...{pool.baseAsset.id.slice(-6)}</p>
+                  <h1 className="text-lg font-bold text-white">{displayToken.symbol}</h1>
+                  <p className="text-[10px] text-gray-500">{(displayToken.id || displayToken.address).slice(0, 8)}...{(displayToken.id || displayToken.address).slice(-6)}</p>
                 </div>
               </div>
 
               {/* Metadata Tile */}
               <div className="flex items-center gap-3 px-3 py-1.5 bg-background-secondary/30 rounded-lg border border-border-light">
-                {pool.baseAsset.name && (
+                {displayToken.name && (
                   <div className="flex items-center gap-1.5">
                     <span className="text-[10px] text-gray-400">Name:</span>
-                    <span className="text-xs font-medium text-white">{pool.baseAsset.name}</span>
+                    <span className="text-xs font-medium text-white">{displayToken.name}</span>
                   </div>
                 )}
-                {pool.type && (
+                {pool?.type && (
                   <>
                     <div className="h-3 w-px bg-border-light"></div>
                     <div className="flex items-center gap-1.5">
@@ -196,16 +185,21 @@ export default function TokenPage({ params }: TokenPageProps) {
                     </div>
                   </>
                 )}
+                {!hasPool && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-yellow-400">⚠️ No Pools Yet</span>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Social Links Tile */}
-            {(pool.baseAsset.twitter || pool.baseAsset.telegram || pool.baseAsset.website) && (
+            {(displayToken.twitter || displayToken.telegram || displayToken.website) && (
               <div className="flex items-center gap-2 px-3 py-1.5 bg-background-secondary/30 rounded-lg border border-border-light">
                 <span className="text-[10px] text-gray-400 mr-1">Links:</span>
-                {pool.baseAsset.twitter && (
+                {displayToken.twitter && (
                   <a
-                    href={pool.baseAsset.twitter}
+                    href={displayToken.twitter}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-1 hover:bg-gray-700/50 rounded transition-colors"
@@ -296,19 +290,19 @@ export default function TokenPage({ params }: TokenPageProps) {
             <div className="ml-auto flex items-center gap-6">
               <div className="text-center">
                 <div className="text-[10px] text-gray-400">Price</div>
-                <div className="text-sm font-bold text-white">${(pool.baseAsset.usdPrice || 0).toFixed(4)}</div>
+                <div className="text-sm font-bold text-white">${(pool?.baseAsset.usdPrice || 0).toFixed(4)}</div>
               </div>
               <div className="text-center">
                 <div className="text-[10px] text-gray-400">24h Vol</div>
-                <div className="text-sm font-bold text-white">${((pool.volume24h || 0) / 1000).toFixed(1)}K</div>
+                <div className="text-sm font-bold text-white">${((pool?.volume24h || 0) / 1000).toFixed(1)}K</div>
               </div>
               <div className="text-center">
                 <div className="text-[10px] text-gray-400">MCap</div>
-                <div className="text-sm font-bold text-white">${((pool.baseAsset.liquidity || 0) / 1000).toFixed(0)}K</div>
+                <div className="text-sm font-bold text-white">${((pool?.baseAsset.liquidity || 0) / 1000).toFixed(0)}K</div>
               </div>
               <div className="text-center">
                 <div className="text-[10px] text-gray-400">Liquidity</div>
-                <div className="text-sm font-bold text-white">${((pool.baseAsset.liquidity || 0) / 1000).toFixed(1)}K</div>
+                <div className="text-sm font-bold text-white">${((pool?.baseAsset.liquidity || 0) / 1000).toFixed(1)}K</div>
               </div>
             </div>
           </div>
@@ -316,51 +310,99 @@ export default function TokenPage({ params }: TokenPageProps) {
 
         {/* Main Content: 3-Column Layout - Charting.ag Style */}
         <div className="flex flex-1 overflow-hidden min-h-0">
-          {/* Left Sidebar (280px) - Related Pools List */}
-          <div className="w-[280px] flex-shrink-0 border-r border-border-light overflow-hidden">
-            <PoolListSidebar currentPool={pool} network={network} />
-          </div>
+          {hasPool ? (
+            <>
+              {/* Left Sidebar (280px) - Related Pools List */}
+              <div className="w-[280px] flex-shrink-0 border-r border-border-light overflow-hidden">
+                <PoolListSidebar currentPool={pool} network={network} />
+              </div>
 
-          {/* Center: Chart (dominates) + Collapsed Active Positions (flex-1) */}
-          <div className="flex-1 flex flex-col overflow-hidden min-h-0 bg-background">
-            {/* Chart - Slightly reduced from charting.ag to give Active Positions more space */}
-            <div className="flex-[3] overflow-hidden min-h-0">
-              <ChartDetailsPanel pool={pool} />
-            </div>
+              {/* Center: Chart (dominates) + Collapsed Active Positions (flex-1) */}
+              <div className="flex-1 flex flex-col overflow-hidden min-h-0 bg-background">
+                {/* Chart - Slightly reduced from charting.ag to give Active Positions more space */}
+                <div className="flex-[3] overflow-hidden min-h-0">
+                  <ChartDetailsPanel pool={pool!} />
+                </div>
 
-            {/* Active Positions - Clean Tile Format (charting.ag style) */}
-            <div className="flex-[1] min-h-[180px] max-h-[280px] flex-shrink-0 border-t border-border-light overflow-hidden">
-              <UserPositionsPanel
-                poolAddress={pool.id}
-                poolType={pool.type}
-                tokenXSymbol={pool.baseAsset.symbol}
-                tokenYSymbol={pool.quoteAsset?.symbol || 'USDC'}
-              />
-            </div>
-          </div>
+                {/* Active Positions - Clean Tile Format (charting.ag style) */}
+                <div className="flex-[1] min-h-[180px] max-h-[280px] flex-shrink-0 border-t border-border-light overflow-hidden">
+                  <UserPositionsPanel
+                    poolAddress={pool!.id}
+                    poolType={pool!.type}
+                    tokenXSymbol={pool!.baseAsset.symbol}
+                    tokenYSymbol={pool!.quoteAsset?.symbol || 'USDC'}
+                  />
+                </div>
+              </div>
 
-          {/* Right Sidebar (400px) - Pool Actions + Liquidity Distribution */}
-          <div className="w-[400px] flex-shrink-0 border-l border-border-light overflow-y-auto bg-background">
-            {/* Pool Actions Panel - Top Half */}
-            <div className="flex-shrink-0">
-              <PoolActionsPanel
-                poolAddress={pool.id}
-                tokenXMint={pool.baseAsset.id}
-                tokenYMint={pool.quoteAsset?.id || ''}
-                tokenXSymbol={pool.baseAsset.symbol}
-                tokenYSymbol={pool.quoteAsset?.symbol || 'USDC'}
-                currentPrice={pool.baseAsset.usdPrice || 0}
-                binStep={(pool as any).binStep || 20}
-                baseFee={(pool as any).baseFee || 0.2}
-                poolType={pool.type}
-              />
-            </div>
+              {/* Right Sidebar (400px) - Pool Actions + Liquidity Distribution */}
+              <div className="w-[400px] flex-shrink-0 border-l border-border-light overflow-y-auto bg-background">
+                {/* Pool Actions Panel - Top Half */}
+                <div className="flex-shrink-0">
+                  <PoolActionsPanel
+                    poolAddress={pool!.id}
+                    tokenXMint={pool!.baseAsset.id}
+                    tokenYMint={pool!.quoteAsset?.id || ''}
+                    tokenXSymbol={pool!.baseAsset.symbol}
+                    tokenYSymbol={pool!.quoteAsset?.symbol || 'USDC'}
+                    currentPrice={pool!.baseAsset.usdPrice || 0}
+                    binStep={(pool as any).binStep || 20}
+                    baseFee={(pool as any).baseFee || 0.2}
+                    poolType={pool!.type}
+                  />
+                </div>
 
-            {/* Liquidity Distribution - Bottom Half (Scrollable) */}
-            <div className="flex-shrink-0 mt-2">
-              <LiquidityDistributionPanel pool={pool} />
+                {/* Liquidity Distribution - Bottom Half (Scrollable) */}
+                <div className="flex-shrink-0 mt-2">
+                  <LiquidityDistributionPanel pool={pool!} />
+                </div>
+              </div>
+            </>
+          ) : (
+            /* No Pool - Show simplified chart view with Create Pool CTA */
+            <div className="flex-1 flex items-center justify-center bg-background">
+              <div className="text-center max-w-2xl px-8">
+                <div className="text-6xl mb-6">📊</div>
+                <h2 className="text-2xl font-bold text-white mb-3">Token Chart Coming Soon</h2>
+                <p className="text-text-secondary mb-8">
+                  This token doesn't have any liquidity pools yet. Create the first pool to enable trading and charting!
+                </p>
+
+                <div className="bg-background-secondary border border-border-light rounded-lg p-6 mb-8">
+                  <div className="flex items-center gap-3 mb-4">
+                    {displayToken.icon && (
+                      <img src={displayToken.icon} alt={displayToken.symbol} className="w-12 h-12 rounded-full" />
+                    )}
+                    <div className="text-left">
+                      <h3 className="text-lg font-bold text-white">{displayToken.symbol}</h3>
+                      <p className="text-sm text-text-secondary">{displayToken.name}</p>
+                    </div>
+                  </div>
+                  <div className="bg-background-tertiary px-4 py-3 rounded text-left">
+                    <p className="text-xs text-foreground-muted mb-1">Token Address:</p>
+                    <code className="text-xs text-foreground font-mono break-all">{displayToken.address || displayToken.id}</code>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 justify-center">
+                  <Link
+                    href={`/dlmm/create-pool?tokenMint=${mint}`}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/80 transition-colors font-medium"
+                  >
+                    <span>🚀</span>
+                    Create DLMM Pool
+                  </Link>
+                  <Link
+                    href={`/damm-v2/create-balanced?tokenMint=${mint}`}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-secondary text-white rounded-lg hover:bg-secondary/80 transition-colors font-medium"
+                  >
+                    <span>⚡</span>
+                    Create DAMM Pool
+                  </Link>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </MainLayout>
