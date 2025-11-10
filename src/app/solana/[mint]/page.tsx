@@ -146,6 +146,11 @@ export default function TokenPage({ params }: TokenPageProps) {
   }
 
   // Pool found - render pool details (Charting.ag + Meteora Hybrid Layout)
+  // TypeScript guard: This should never happen due to early returns above, but helps TS compiler
+  if (!pool) {
+    return null;
+  }
+
   return (
     <MainLayout>
       <div className="flex flex-col h-screen overflow-hidden bg-background">
