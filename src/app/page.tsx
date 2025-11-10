@@ -288,14 +288,48 @@ export default function DiscoverPage() {
         if (poolData.success) {
           console.log(`🔍 Found ${poolData.data.length} pools matching "${searchTerm}"`);
 
-          // Enrich pools with token icon URLs from Jupiter CDN
-          const enrichedPools = poolData.data.map((pool: any) => ({
-            ...pool,
-            token_a_icon: `https://cache.jup.ag/static/cdn/strict/${pool.token_a_mint}`,
-            token_b_icon: `https://cache.jup.ag/static/cdn/strict/${pool.token_b_mint}`,
+          // Transform backend pool format to Pool type (same structure as discover page)
+          const transformedPools = poolData.data.map((pool: any) => ({
+            id: pool.pool_address,
+            chain: 'solana',
+            dex: 'Meteora',
+            type: pool.protocol === 'dlmm' ? 'dlmm' : pool.protocol === 'damm-v2' ? 'damm-v2' : 'damm-v1',
+            createdAt: pool.created_at || new Date().toISOString(),
+            bondingCurve: undefined,
+            volume24h: parseFloat(pool.volume_24h || '0'),
+            isUnreliable: false,
+            updatedAt: pool.updated_at || new Date().toISOString(),
+            price: 0,
+            baseAsset: {
+              id: pool.token_a_mint,
+              name: pool.token_a_symbol,
+              symbol: pool.token_a_symbol,
+              decimals: 0,
+              tokenProgram: '',
+              organicScoreLabel: 'medium' as const,
+              liquidity: parseFloat(pool.tvl || '0'),
+              stats24h: {},
+            },
+            quoteAsset: {
+              id: pool.token_b_mint,
+              symbol: pool.token_b_symbol,
+              name: pool.token_b_symbol,
+            },
+            meteoraData: {
+              binStep: pool.metadata?.bin_step,
+              baseFeePercentage: pool.metadata?.base_fee_percentage,
+              poolType: pool.protocol as any,
+            }
           }));
 
-          setSearchResults(enrichedPools);
+          // Enrich with metadata (logos) - same as discover page
+          enrichPoolsWithMetadata(transformedPools).then(enriched => {
+            console.log(`✅ Enriched ${enriched.length} search pool results with metadata`);
+            setSearchResults(enriched);
+          }).catch(error => {
+            console.error('❌ Failed to enrich search pools:', error);
+            setSearchResults(transformedPools); // Fallback to non-enriched
+          });
         }
       } catch (error) {
         console.error('Failed to search:', error);
@@ -518,7 +552,7 @@ export default function DiscoverPage() {
       }}
       onPoolClick={(pool) => {
         // Navigate to token chart page for base token - /solana/{token_mint}
-        router.push(`/solana/${pool.token_a_mint}`);
+        router.push(`/solana/${pool.baseAsset.id}`);
       }}
     >
       <div className="h-[calc(100vh-80px)] flex flex-col">

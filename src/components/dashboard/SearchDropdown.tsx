@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { TokenIcon } from '@/components/ui/TokenIcon';
+import { Pool } from '@/lib/jupiter/types';
 
 interface Token {
   symbol: string;
@@ -12,27 +13,6 @@ interface Token {
   liquidity?: number;
   volume24h?: number;
   organicScore?: number;
-}
-
-interface Pool {
-  pool_address: string;
-  pool_name: string;
-  protocol: 'dlmm' | 'damm-v2' | 'damm-v1';
-  token_a_mint: string;
-  token_b_mint: string;
-  token_a_symbol: string;
-  token_b_symbol: string;
-  token_a_icon?: string; // Icon URL for token A
-  token_b_icon?: string; // Icon URL for token B
-  tvl: string;
-  volume_24h: string;
-  fees_24h: string;
-  apr: string;
-  metadata?: {
-    bin_step?: number;
-    base_fee?: number;
-    base_fee_percentage?: string;
-  };
 }
 
 interface SearchDropdownProps {
@@ -162,14 +142,14 @@ export function SearchDropdown({
                 </div>
                 <div className="divide-y divide-border-light">
                   {pools.map((pool) => {
-                    const tvl = parseFloat(pool.tvl) || 0;
-                    const volume24h = parseFloat(pool.volume_24h) || 0;
-                    const fees24h = parseFloat(pool.fees_24h) || 0;
-                    const feeToTvlRatio = tvl > 0 ? (fees24h / tvl) * 100 : 0;
+                    const tvl = pool.baseAsset.liquidity || 0;
+                    const volume24h = pool.volume24h || 0;
+                    const estimatedFees = volume24h * 0.003; // Assume 0.3% fee
+                    const feeToTvlRatio = tvl > 0 ? (estimatedFees / tvl) * 100 : 0;
 
                     return (
                       <div
-                        key={pool.pool_address}
+                        key={pool.id}
                         onClick={() => onPoolClick?.(pool)}
                         className="px-4 py-3 hover:bg-background-hover cursor-pointer transition-colors"
                       >
@@ -177,14 +157,14 @@ export function SearchDropdown({
                           {/* Pool pair icons - using TokenIcon component (same as discover page) */}
                           <div className="flex items-center -space-x-2">
                             <TokenIcon
-                              src={pool.token_a_icon || `https://cache.jup.ag/static/cdn/strict/${pool.token_a_mint}`}
-                              symbol={pool.token_a_symbol}
+                              src={pool.baseAsset.icon}
+                              symbol={pool.baseAsset.symbol}
                               size="lg"
                               className="border-2 border-[#1a1b1e]"
                             />
                             <TokenIcon
-                              src={pool.token_b_icon || `https://cache.jup.ag/static/cdn/strict/${pool.token_b_mint}`}
-                              symbol={pool.token_b_symbol}
+                              src={pool.quoteAsset?.icon}
+                              symbol={pool.quoteAsset?.symbol || 'SOL'}
                               size="lg"
                               className="border-2 border-[#1a1b1e]"
                             />
@@ -192,23 +172,25 @@ export function SearchDropdown({
 
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="font-medium text-foreground">{pool.pool_name}</span>
-                              <span className="px-2 py-0.5 rounded text-[10px] font-medium uppercase border border-orange-500/50 text-white">
-                                {pool.protocol === 'dlmm' ? 'DLMM' : pool.protocol === 'damm-v2' ? 'DYN2' : 'DYN1'}
+                              <span className="font-medium text-foreground">
+                                {pool.baseAsset.symbol}-{pool.quoteAsset?.symbol || 'SOL'}
                               </span>
-                              {pool.metadata?.bin_step && (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-medium uppercase border border-orange-500/50 text-white">
+                                {pool.type === 'dlmm' ? 'DLMM' : pool.type === 'damm-v2' ? 'DYN2' : 'DYN1'}
+                              </span>
+                              {pool.meteoraData?.binStep && (
                                 <span className="text-xs text-foreground-muted">
-                                  Bin Step: {pool.metadata.bin_step}
+                                  Bin Step: {pool.meteoraData.binStep}
                                 </span>
                               )}
                               <span className="text-xs text-foreground-muted">
-                                Fee: {pool.metadata?.base_fee_percentage || pool.metadata?.base_fee?.toString() || '0.25'}%
+                                Fee: {pool.meteoraData?.baseFeePercentage || '0.25'}%
                               </span>
                             </div>
                             <div className="flex items-center gap-4 text-xs text-foreground-muted">
                               <span>TVL: {formatCurrency(tvl)}</span>
                               <span>Vol 24h: {formatCurrency(volume24h)}</span>
-                              <span>Fee 24h: {formatCurrency(fees24h)}</span>
+                              <span>Fee 24h: {formatCurrency(estimatedFees)}</span>
                               <span>Fee/TVL: {feeToTvlRatio.toFixed(2)}%</span>
                             </div>
                           </div>
