@@ -710,19 +710,8 @@ export default function DiscoverPage() {
                       sortBy={tokenSortBy}
                       onSortChange={setTokenSortBy}
                       onTokenClick={(token) => {
-                        // When clicking a token, navigate to its primary pool (highest volume)
-                        const primaryPool = token.pools.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0))[0];
-                        if (primaryPool) {
-                          console.log('📍 Navigating to pool:', {
-                            poolId: primaryPool.id,
-                            token: token.symbol,
-                            poolVolume: primaryPool.volume24h,
-                            totalPools: token.pools.length,
-                          });
-                          router.push(`/pool/${primaryPool.id}`);
-                        } else {
-                          console.warn('⚠️ No pools found for token:', token.symbol);
-                        }
+                        // Navigate to token chart page - /solana/{token_mint}
+                        router.push(`/solana/${token.tokenAddress}`);
                       }}
                     />
                   )}
@@ -790,8 +779,8 @@ export default function DiscoverPage() {
                       sortBy={poolSortBy}
                       onSortChange={setPoolSortBy}
                       onPoolClick={(pool) => {
-                        // Navigate to pool detail page instead of showing modal
-                        router.push(`/pool/${pool.id}`);
+                        // Navigate to token chart page for base token - /solana/{token_mint}
+                        router.push(`/solana/${pool.baseAsset.id}`);
                       }}
                     />
                   )}
