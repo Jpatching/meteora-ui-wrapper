@@ -35,10 +35,10 @@ interface TokenMetrics {
   createdAt: string;
   organicScore?: number;
   audit?: {
-    mintAuthorityDisabled: boolean;
-    freezeAuthorityDisabled: boolean;
-    topHoldersPercentage: number;
-    devBalancePercentage?: number;
+    mintAuthorityDisabled: boolean | undefined;
+    freezeAuthorityDisabled: boolean | undefined;
+    topHoldersPercentage: number | undefined;
+    devBalancePercentage?: number | undefined;
   };
 }
 
@@ -313,25 +313,29 @@ export function TokenListPanel({ pools, isLoading }: TokenListPanelProps) {
                   <div>
                     <div className="text-gray-500 mb-0.5">Top 10</div>
                     <div className="text-white font-medium">
-                      {token.audit?.topHoldersPercentage?.toFixed(2) || '0.00'}%
+                      {token.audit?.topHoldersPercentage !== undefined
+                        ? `${token.audit.topHoldersPercentage.toFixed(2)}%`
+                        : '0.00%'}
                     </div>
                   </div>
                   <div>
                     <div className="text-gray-500 mb-0.5">Dev H</div>
                     <div className="text-white font-medium">
-                      {token.audit?.devBalancePercentage?.toFixed(0) || '0'}%
+                      {token.audit?.devBalancePercentage !== undefined
+                        ? `${token.audit.devBalancePercentage.toFixed(0)}%`
+                        : '0%'}
                     </div>
                   </div>
                   <div>
                     <div className="text-gray-500 mb-0.5">Mint</div>
-                    <div className={token.audit?.mintAuthorityDisabled ? 'text-success font-medium' : 'text-warning font-medium'}>
-                      {token.audit?.mintAuthorityDisabled ? 'No' : 'Yes'}
+                    <div className={token.audit?.mintAuthorityDisabled === true ? 'text-success font-medium' : 'text-warning font-medium'}>
+                      {token.audit?.mintAuthorityDisabled === true ? 'No' : 'Yes'}
                     </div>
                   </div>
                   <div>
                     <div className="text-gray-500 mb-0.5">Freeze</div>
-                    <div className={token.audit?.freezeAuthorityDisabled ? 'text-success font-medium' : 'text-warning font-medium'}>
-                      {token.audit?.freezeAuthorityDisabled ? 'No' : 'Yes'}
+                    <div className={token.audit?.freezeAuthorityDisabled === true ? 'text-success font-medium' : 'text-warning font-medium'}>
+                      {token.audit?.freezeAuthorityDisabled === true ? 'No' : 'Yes'}
                     </div>
                   </div>
                   <div>
