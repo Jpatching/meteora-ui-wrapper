@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { TokenIcon } from '@/components/ui/TokenIcon';
 import { Pool } from '@/lib/jupiter/types';
@@ -24,6 +25,7 @@ interface SearchDropdownProps {
   onClose: () => void;
   onTokenClick?: (token: Token) => void;
   onPoolClick?: (pool: Pool) => void;
+  searchInputRef?: React.RefObject<HTMLDivElement>; // Reference to position dropdown
 }
 
 export function SearchDropdown({
@@ -35,6 +37,7 @@ export function SearchDropdown({
   onClose,
   onTokenClick,
   onPoolClick,
+  searchInputRef,
 }: SearchDropdownProps) {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -66,17 +69,28 @@ export function SearchDropdown({
     }
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || typeof window === 'undefined') return null;
 
-  return (
+  // Get position of search input to position dropdown
+  const rect = searchInputRef?.current?.getBoundingClientRect();
+  const dropdownStyle = rect ? {
+    position: 'fixed' as const,
+    top: `${rect.bottom + 8}px`,
+    left: `${rect.left}px`,
+    width: `${rect.width}px`,
+  } : {};
+
+  // Render in portal at document body to escape all stacking contexts
+  return createPortal(
     <>
-      {/* Dark overlay - more opaque like charting.ag - highest z-index to cover everything */}
+      {/* Dark overlay - PORTAL LEVEL - covers everything */}
       <div className="fixed inset-0 bg-black/80 z-[99998]" onClick={onClose} />
 
-      {/* Search dropdown - solid background, no transparency - on top of overlay */}
+      {/* Search dropdown - PORTAL LEVEL - on top of overlay */}
       <div
         ref={dropdownRef}
-        className="absolute top-full left-0 right-0 mt-2 bg-[#1a1b1e] border border-gray-700 rounded-xl shadow-2xl z-[99999] max-h-[600px] overflow-y-auto backdrop-blur-xl"
+        style={dropdownStyle}
+        className="bg-[#1a1b1e] border border-gray-700 rounded-xl shadow-2xl z-[99999] max-h-[600px] overflow-y-auto backdrop-blur-xl"
       >
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
@@ -218,6 +232,7 @@ export function SearchDropdown({
           </>
         )}
       </div>
-    </>
+    </>,
+    document.body
   );
 }

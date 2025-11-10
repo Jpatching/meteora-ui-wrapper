@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useNetwork, NetworkType } from '@/contexts/NetworkContext';
@@ -31,6 +31,7 @@ export function Header({
   const { network, setNetwork } = useNetwork();
   const [mounted, setMounted] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -53,7 +54,7 @@ export function Header({
       {/* Center - Search Bar */}
       {onSearchChange && (
         <div className="flex-1 max-w-md mx-8 relative">
-          <div className="relative">
+          <div className="relative" ref={searchContainerRef}>
             <svg
               className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted"
               fill="none"
@@ -89,7 +90,7 @@ export function Header({
             )}
           </div>
 
-          {/* Search Dropdown */}
+          {/* Search Dropdown - uses portal to render at body level */}
           <SearchDropdown
             isOpen={showSearchDropdown}
             searchTerm={searchTerm}
@@ -105,6 +106,7 @@ export function Header({
               onPoolClick?.(pool);
               setShowSearchDropdown(false);
             }}
+            searchInputRef={searchContainerRef}
           />
         </div>
       )}
