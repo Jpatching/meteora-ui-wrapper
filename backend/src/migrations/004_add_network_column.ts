@@ -28,9 +28,16 @@ export async function up() {
     ALTER TABLE pools DROP CONSTRAINT IF EXISTS pools_pool_address_key
   `);
 
-  // Add composite unique constraint on (pool_address, network)
+  // Add composite unique constraint on (pool_address, network) if it doesn't exist
   await db.query(`
-    ALTER TABLE pools ADD CONSTRAINT pools_address_network_unique UNIQUE (pool_address, network)
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'pools_address_network_unique'
+      ) THEN
+        ALTER TABLE pools ADD CONSTRAINT pools_address_network_unique UNIQUE (pool_address, network);
+      END IF;
+    END $$;
   `);
 
   // Add indexes for network filtering
