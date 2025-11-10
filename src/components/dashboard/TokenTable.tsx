@@ -51,19 +51,6 @@ export function TokenTable({ tokens, onTokenClick, sortBy, onSortChange }: Token
     const created = new Date(createdAt);
     const diffMs = now.getTime() - created.getTime();
 
-    // Debug log for first call
-    if (!getTokenAge.logged) {
-      console.log('🔍 DEBUG - getTokenAge calculation:', {
-        createdAt,
-        'created timestamp': created.getTime(),
-        'created readable': created.toISOString(),
-        'now': now.toISOString(),
-        diffMs,
-        'diffMs in hours': diffMs / (1000 * 60 * 60),
-      });
-      (getTokenAge as any).logged = true;
-    }
-
     const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
     if (days > 0) {
       const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));

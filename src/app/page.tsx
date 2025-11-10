@@ -47,6 +47,7 @@ export default function DiscoverPage() {
   const [maxMarketCap, setMaxMarketCap] = useState<string>('');
   const [enrichedPools, setEnrichedPools] = useState<Pool[]>([]);
   const [isEnriching, setIsEnriching] = useState(false);
+  const [tokenCreationTimestamps, setTokenCreationTimestamps] = useState<Map<string, number>>(new Map());
 
   // Fetch Jupiter pools for TOKEN aggregation (LEFT SIDE)
   const { data: jupiterData, isLoading: isLoadingJupiter, error: jupiterError } = useAllPublicPools({
@@ -241,29 +242,70 @@ export default function DiscoverPage() {
 
   // No need to fetch pool details separately - Meteora API provides them!
 
-  // Aggregate Meteora pools by token (for Token view - LEFT SIDE)
-  // Changed from Jupiter to Meteora for faster, cached data
+  // Fetch actual token creation timestamps from backend (blockchain data cached in PostgreSQL/Redis)
+  useEffect(() => {
+    const fetchTokenCreationTimestamps = async () => {
+      if (jupiterPools.length === 0) return;
+
+      // Get unique token addresses from top 100 tokens by volume
+      const tokenAddresses = Array.from(
+        new Set(jupiterPools.map(pool => pool.baseAsset.id))
+      ).slice(0, 100); // Top 100 tokens
+
+      if (tokenAddresses.length === 0) return;
+
+      try {
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+        const response = await fetch(`${backendUrl}/api/tokens/batch/creation`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ addresses: tokenAddresses }),
+        });
+
+        if (!response.ok) {
+          console.error('❌ Failed to fetch token creation timestamps:', response.statusText);
+          return;
+        }
+
+        const result = await response.json();
+
+        if (result.success && result.data) {
+          const timestampMap = new Map<string, number>();
+          Object.entries(result.data).forEach(([address, data]) => {
+            if (data && typeof data === 'object' && 'timestamp' in data) {
+              timestampMap.set(address, (data as { timestamp: number }).timestamp);
+            }
+          });
+
+          setTokenCreationTimestamps(timestampMap);
+          console.log(`✅ Fetched creation timestamps for ${timestampMap.size} tokens`);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching token creation timestamps:', error);
+      }
+    };
+
+    fetchTokenCreationTimestamps();
+  }, [jupiterPools]);
+
+  // Aggregate Jupiter pools by token (for Token view - LEFT SIDE)
+  // MUST use Jupiter pools because they have firstPool.createdAt for token age!
   const aggregatedTokens = useMemo(() => {
     const tokenMap = new Map<string, TokenData>();
 
-    // Use displayPools (Meteora pools from backend) instead of Jupiter pools
-    displayPools.forEach(pool => {
+    // Use jupiterPools because they have full token metadata including firstPool
+    jupiterPools.forEach(pool => {
       const tokenId = pool.baseAsset.id;
 
       if (!tokenMap.has(tokenId)) {
         const buys = (pool.baseAsset as any).stats24h?.numBuys || 0;
         const sells = (pool.baseAsset as any).stats24h?.numSells || 0;
 
-        // Debug: Log timestamp data for first token
-        if (tokenMap.size === 0) {
-          console.log('🔍 DEBUG - First token timestamp data:', {
-            symbol: pool.baseAsset.symbol,
-            'pool.createdAt': pool.createdAt,
-            'pool.baseAsset.firstPool': (pool.baseAsset as any).firstPool,
-            'pool.baseAsset.graduatedAt': (pool.baseAsset as any).graduatedAt,
-            'all baseAsset keys': Object.keys(pool.baseAsset),
-          });
-        }
+        // Use actual blockchain timestamp if available, otherwise fall back to firstPool
+        const blockchainTimestamp = tokenCreationTimestamps.get(tokenId);
+        const createdAt = blockchainTimestamp
+          ? new Date(blockchainTimestamp * 1000).toISOString()
+          : ((pool.baseAsset as any).firstPool?.createdAt || pool.createdAt);
 
         tokenMap.set(tokenId, {
           tokenAddress: tokenId,
@@ -278,7 +320,7 @@ export default function DiscoverPage() {
           pools: [],
           priceChange: ((pool.baseAsset as any).stats24h?.priceChange as number) || 0,
           twitter: (pool.baseAsset as any).twitter,
-          createdAt: (pool.baseAsset as any).firstPool?.createdAt || pool.createdAt,
+          createdAt,
           organicScore: (pool.baseAsset as any).organicScore,
           audit: (pool.baseAsset as any).audit,
         });
@@ -295,9 +337,9 @@ export default function DiscoverPage() {
     // Sort by volume and take top 100
     const sorted = allTokens.sort((a, b) => b.totalVolume24h - a.totalVolume24h);
     const top100 = sorted.slice(0, 100);
-    console.log(`📊 Showing top 100 tokens out of ${allTokens.length} total (from Meteora pools)`);
+    console.log(`📊 Showing top 100 tokens out of ${allTokens.length} total (from Jupiter API)`);
     return top100;
-  }, [displayPools]);
+  }, [jupiterPools, tokenCreationTimestamps]);
 
   // Apply filters and sorting to Meteora pools (RIGHT SIDE)
   const filteredPools = useMemo(() => {
