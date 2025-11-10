@@ -393,7 +393,7 @@ export default function DiscoverPage() {
     // If user is searching, show search results instead of discover pools
     if (searchTerm && searchTerm.length >= 2 && searchResults.length > 0) {
       console.log(`🔍 Showing ${searchResults.length} search results for "${searchTerm}"`);
-      // Transform search results to Pool format
+      // Transform search results to Pool format (simplified for search dropdown)
       return searchResults.map(pool => ({
         id: pool.pool_address,
         type: pool.protocol as 'dlmm' | 'damm-v2' | 'damm-v1',
@@ -413,7 +413,7 @@ export default function DiscoverPage() {
           baseFeePercentage: pool.metadata?.base_fee_percentage || pool.metadata?.base_fee?.toString() || '0.25',
           poolType: pool.protocol as 'dlmm' | 'damm-v2',
         },
-      })) as Pool[];
+      } as any)) as Pool[];
     }
 
     let filtered = displayPools;
