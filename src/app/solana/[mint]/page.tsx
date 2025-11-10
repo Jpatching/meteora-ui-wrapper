@@ -210,9 +210,9 @@ export default function TokenPage({ params }: TokenPageProps) {
                     </svg>
                   </a>
                 )}
-                {pool.baseAsset.telegram && (
+                {displayToken.telegram && (
                   <a
-                    href={pool.baseAsset.telegram}
+                    href={displayToken.telegram}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-1 hover:bg-gray-700/50 rounded transition-colors"
@@ -223,9 +223,9 @@ export default function TokenPage({ params }: TokenPageProps) {
                     </svg>
                   </a>
                 )}
-                {pool.baseAsset.website && (
+                {displayToken.website && (
                   <a
-                    href={pool.baseAsset.website}
+                    href={displayToken.website}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-1 hover:bg-gray-700/50 rounded transition-colors"
