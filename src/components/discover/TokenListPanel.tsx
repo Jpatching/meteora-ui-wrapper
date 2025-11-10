@@ -213,137 +213,136 @@ export function TokenListPanel({ pools, isLoading }: TokenListPanelProps) {
                 onClick={() => handleTokenClick(token)}
                 className="w-full p-3 hover:bg-gray-800/30 transition-colors text-left"
               >
-                {/* Token Header Row */}
-                <div className="flex items-start gap-2 mb-2">
-                  {/* Token Icon */}
-                  {token.icon ? (
-                    <img
-                      src={token.icon}
-                      alt={token.symbol}
-                      className="w-10 h-10 rounded-full flex-shrink-0"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
-                      {token.symbol.slice(0, 2)}
-                    </div>
-                  )}
+                {/* Main Container: Left (Token Info) + Right (Metrics) */}
+                <div className="flex items-start gap-3">
 
-                  {/* Token Info */}
-                  <div className="flex-1 min-w-0">
-                    {/* Token Name */}
-                    <h3 className="font-bold text-white text-base mb-0.5">
-                      {token.symbol}
-                    </h3>
+                  {/* LEFT SECTION: Icon + Token Info */}
+                  <div className="flex items-start gap-2 flex-shrink-0">
+                    {/* Token Icon */}
+                    {token.icon ? (
+                      <img
+                        src={token.icon}
+                        alt={token.symbol}
+                        className="w-10 h-10 rounded-full"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-sm font-bold text-white">
+                        {token.symbol.slice(0, 2)}
+                      </div>
+                    )}
 
-                    {/* Contract Address with Copy */}
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <span className="text-xs text-gray-400 font-mono">
-                        {token.address.slice(0, 3)}...{token.address.slice(-4)}
-                      </span>
-                      <button
-                        onClick={(e) => handleCopyAddress(token.address, e)}
-                        className="text-gray-400 hover:text-primary transition-colors"
-                      >
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                      </button>
-                    </div>
+                    {/* Token Details */}
+                    <div className="flex flex-col">
+                      {/* Token Name */}
+                      <h3 className="font-bold text-white text-sm mb-0.5">
+                        {token.symbol}
+                      </h3>
 
-                    {/* Token Age & Social Links */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">
-                        {getTokenAge(token.createdAt)}
-                      </span>
-                      <span className="text-gray-700">|</span>
-                      {token.twitter && (
+                      {/* Contract Address with Copy */}
+                      <div className="flex items-center gap-1 mb-1">
+                        <span className="text-[10px] text-gray-400 font-mono">
+                          {token.address.slice(0, 3)}...{token.address.slice(-4)}
+                        </span>
+                        <button
+                          onClick={(e) => handleCopyAddress(token.address, e)}
+                          className="text-gray-400 hover:text-primary transition-colors"
+                        >
+                          <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        </button>
+                      </div>
+
+                      {/* Token Age & Social Links */}
+                      <div className="flex items-center gap-1.5 text-[10px]">
+                        <span className="text-gray-500">
+                          {getTokenAge(token.createdAt)}
+                        </span>
+                        <span className="text-gray-700">|</span>
+                        {token.twitter && (
+                          <>
+                            <a
+                              href={`https://x.com/${token.twitter.replace('@', '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-gray-400 hover:text-primary transition-colors"
+                            >
+                              <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                              </svg>
+                            </a>
+                            <span className="text-gray-700">|</span>
+                          </>
+                        )}
                         <a
-                          href={`https://x.com/${token.twitter.replace('@', '')}`}
+                          href={`https://solscan.io/token/${token.address}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
                           className="text-gray-400 hover:text-primary transition-colors"
                         >
-                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                          <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                           </svg>
                         </a>
-                      )}
-                      <a
-                        href={`https://solscan.io/token/${token.address}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="text-gray-400 hover:text-primary transition-colors"
-                      >
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                      </a>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Metrics Grid - Row 1: Main Stats */}
-                <div className="grid grid-cols-5 gap-x-2 gap-y-1 text-[10px] mb-2">
-                  <div>
-                    <div className="text-gray-500 mb-0.5">Vol</div>
-                    <div className="text-white font-medium">{formatNumber(token.volume24h)}</div>
-                  </div>
-                  <div>
-                    <div className="text-gray-500 mb-0.5">Market Cap</div>
-                    <div className="text-white font-medium">{formatNumber(token.mcap)}</div>
-                  </div>
-                  <div>
-                    <div className="text-gray-500 mb-0.5">Liquidity</div>
-                    <div className="text-white font-medium">{formatNumber(token.liquidity)}</div>
-                  </div>
-                  <div>
-                    <div className="text-gray-500 mb-0.5">Holder</div>
-                    <div className="text-white font-medium">{formatCount(token.holders)}</div>
-                  </div>
-                  <div>
-                    <div className="text-gray-500 mb-0.5">TXs</div>
-                    <div className="text-white font-medium">{formatCount(token.txCount)}</div>
-                  </div>
-                </div>
+                  {/* RIGHT SECTION: Metrics in 2 Rows x 5 Columns */}
+                  <div className="flex-1 min-w-0">
+                    {/* Row 1: Main Metrics Headers */}
+                    <div className="grid grid-cols-5 gap-x-2 text-[9px] text-gray-500 mb-0.5">
+                      <div>Vol</div>
+                      <div>Market Cap</div>
+                      <div>Liquidity</div>
+                      <div>Holder</div>
+                      <div>TXs</div>
+                    </div>
 
-                {/* Metrics Grid - Row 2: Security/Risk */}
-                <div className="grid grid-cols-5 gap-x-2 gap-y-1 text-[10px]">
-                  <div>
-                    <div className="text-gray-500 mb-0.5">Top 10</div>
-                    <div className="text-white font-medium">
-                      {token.audit?.topHoldersPercentage !== undefined
-                        ? `${token.audit.topHoldersPercentage.toFixed(2)}%`
-                        : '0.00%'}
+                    {/* Row 2: Main Metrics Values */}
+                    <div className="grid grid-cols-5 gap-x-2 text-[11px] text-white font-medium mb-2">
+                      <div>{formatNumber(token.volume24h)}</div>
+                      <div>{formatNumber(token.mcap)}</div>
+                      <div>{formatNumber(token.liquidity)}</div>
+                      <div>{formatCount(token.holders)}</div>
+                      <div>{formatCount(token.txCount)}</div>
+                    </div>
+
+                    {/* Row 3: Security Metrics Headers */}
+                    <div className="grid grid-cols-5 gap-x-2 text-[9px] text-gray-500 mb-0.5">
+                      <div>Top 10</div>
+                      <div>Dev H</div>
+                      <div>Mint</div>
+                      <div>Freeze</div>
+                      <div>Score</div>
+                    </div>
+
+                    {/* Row 4: Security Metrics Values */}
+                    <div className="grid grid-cols-5 gap-x-2 text-[11px] font-medium">
+                      <div className="text-white">
+                        {token.audit?.topHoldersPercentage !== undefined
+                          ? `${token.audit.topHoldersPercentage.toFixed(2)}%`
+                          : '0.00%'}
+                      </div>
+                      <div className="text-white">
+                        {token.audit?.devBalancePercentage !== undefined
+                          ? `${token.audit.devBalancePercentage.toFixed(0)}%`
+                          : '0%'}
+                      </div>
+                      <div className={token.audit?.mintAuthorityDisabled === true ? 'text-success' : 'text-warning'}>
+                        {token.audit?.mintAuthorityDisabled === true ? 'No' : 'Yes'}
+                      </div>
+                      <div className={token.audit?.freezeAuthorityDisabled === true ? 'text-success' : 'text-warning'}>
+                        {token.audit?.freezeAuthorityDisabled === true ? 'No' : 'Yes'}
+                      </div>
+                      <div className="text-white">
+                        {token.organicScore || '0'}
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <div className="text-gray-500 mb-0.5">Dev H</div>
-                    <div className="text-white font-medium">
-                      {token.audit?.devBalancePercentage !== undefined
-                        ? `${token.audit.devBalancePercentage.toFixed(0)}%`
-                        : '0%'}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-gray-500 mb-0.5">Mint</div>
-                    <div className={token.audit?.mintAuthorityDisabled === true ? 'text-success font-medium' : 'text-warning font-medium'}>
-                      {token.audit?.mintAuthorityDisabled === true ? 'No' : 'Yes'}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-gray-500 mb-0.5">Freeze</div>
-                    <div className={token.audit?.freezeAuthorityDisabled === true ? 'text-success font-medium' : 'text-warning font-medium'}>
-                      {token.audit?.freezeAuthorityDisabled === true ? 'No' : 'Yes'}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-gray-500 mb-0.5">Score</div>
-                    <div className="text-white font-medium">
-                      {token.organicScore || '0'}
-                    </div>
-                  </div>
+
                 </div>
               </button>
             ))}
