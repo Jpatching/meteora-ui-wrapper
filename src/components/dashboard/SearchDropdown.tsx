@@ -178,13 +178,13 @@ export function SearchDropdown({
                               <span className="px-2 py-0.5 rounded text-[10px] font-medium uppercase border border-orange-500/50 text-white">
                                 {pool.type === 'dlmm' ? 'DLMM' : pool.type === 'damm-v2' ? 'DYN2' : 'DYN1'}
                               </span>
-                              {pool.meteoraData?.binStep && (
+                              {(pool as any).meteoraData?.binStep && (
                                 <span className="text-xs text-foreground-muted">
-                                  Bin Step: {pool.meteoraData.binStep}
+                                  Bin Step: {(pool as any).meteoraData.binStep}
                                 </span>
                               )}
                               <span className="text-xs text-foreground-muted">
-                                Fee: {pool.meteoraData?.baseFeePercentage || '0.25'}%
+                                Fee: {(pool as any).meteoraData?.baseFeePercentage || '0.25'}%
                               </span>
                             </div>
                             <div className="flex items-center gap-4 text-xs text-foreground-muted">
