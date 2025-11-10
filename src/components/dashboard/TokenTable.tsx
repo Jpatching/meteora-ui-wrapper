@@ -46,18 +46,6 @@ export function TokenTable({ tokens, onTokenClick, sortBy, onSortChange }: Token
     return num.toString();
   };
 
-  const getOrganicScoreTooltip = (score?: number) => {
-    if (!score || score === 0) {
-      return 'New/unproven token - No organic trading activity yet. Trade with caution!';
-    }
-    if (score >= 70) {
-      return 'High organic score - Strong genuine trading activity. Generally safer.';
-    }
-    if (score >= 40) {
-      return 'Medium organic score - Moderate trading activity. Do your research.';
-    }
-    return 'Low organic score - Limited or suspicious activity. High risk!';
-  };
 
   const getTokenAge = (createdAt: string) => {
     const now = new Date();
@@ -219,8 +207,10 @@ export function TokenTable({ tokens, onTokenClick, sortBy, onSortChange }: Token
                     token.organicScore >= 40 ? 'text-warning' :
                     'text-error'
                   }
-                  title={getOrganicScoreTooltip(token.organicScore)}
-                  style={{ cursor: 'help' }}
+                  {...(!token.organicScore && {
+                    title: 'New token - No organic trading activity yet due to age',
+                    style: { cursor: 'help' }
+                  })}
                 >
                   {token.organicScore ? Math.round(token.organicScore) : '0'}
                 </div>

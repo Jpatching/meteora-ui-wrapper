@@ -47,18 +47,6 @@ export function TokenListPanel({ pools, isLoading }: TokenListPanelProps) {
   const [timeframe, setTimeframe] = useState<TimeFrame>('24H');
   const [sortBy, setSortBy] = useState<'volume' | 'mcap' | 'price' | 'holders'>('volume');
 
-  const getOrganicScoreTooltip = (score?: number) => {
-    if (!score || score === 0) {
-      return 'New/unproven token - No organic trading activity yet. Trade with caution!';
-    }
-    if (score >= 70) {
-      return 'High organic score - Strong genuine trading activity. Generally safer.';
-    }
-    if (score >= 40) {
-      return 'Medium organic score - Moderate trading activity. Do your research.';
-    }
-    return 'Low organic score - Limited or suspicious activity. High risk!';
-  };
 
   // Aggregate tokens from all pools
   const tokens = useMemo(() => {
@@ -357,8 +345,10 @@ export function TokenListPanel({ pools, isLoading }: TokenListPanelProps) {
                           token.organicScore >= 40 ? 'text-warning' :
                           'text-error'
                         }
-                        title={getOrganicScoreTooltip(token.organicScore)}
-                        style={{ cursor: 'help' }}
+                        {...(!token.organicScore && {
+                          title: 'New token - No organic trading activity yet due to age',
+                          style: { cursor: 'help' }
+                        })}
                       >
                         {token.organicScore ? Math.round(token.organicScore) : '0'}
                       </div>
