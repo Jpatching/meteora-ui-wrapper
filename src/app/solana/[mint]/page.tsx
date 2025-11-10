@@ -6,7 +6,7 @@
 
 'use client';
 
-import { use, useState, useEffect } from 'react';
+import { use, useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { MainLayout } from '@/components/layout';
 import { ChartDetailsPanel } from '@/components/dashboard/ChartDetailsPanel';
@@ -38,13 +38,22 @@ export default function TokenPage({ params }: TokenPageProps) {
   const poolAddressParam = searchParams.get('pool');
 
   // Fetch ALL Jupiter pools (same as dashboard)
-  const { data: allJupiterPools, isLoading: isLoadingAllPools } = useAllPublicPools({
+  const { data: jupiterData, isLoading: isLoadingAllPools } = useAllPublicPools({
     timeframe: '24h',
     refetchInterval: false,
   });
 
+  // Combine all pools from Jupiter response
+  const allJupiterPools = useMemo(() => {
+    return [
+      ...(jupiterData?.recent?.pools || []),
+      ...(jupiterData?.aboutToGraduate?.pools || []),
+      ...(jupiterData?.graduated?.pools || []),
+    ];
+  }, [jupiterData]);
+
   // Filter pools for this specific token
-  const tokenPools = allJupiterPools?.filter((pool: any) => pool.baseAsset.id === mint) || [];
+  const tokenPools = allJupiterPools.filter((pool: any) => pool.baseAsset.id === mint);
 
   // Determine which pool to use
   const primaryPool = tokenPools.length > 0
