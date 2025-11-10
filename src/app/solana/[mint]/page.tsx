@@ -21,6 +21,7 @@ import { Pool } from '@/lib/jupiter/types';
 import { enrichPoolWithMetadata } from '@/lib/services/tokenMetadata';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 
 interface TokenPageProps {
   params: Promise<{ mint: string }>;
@@ -33,12 +34,44 @@ export default function TokenPage({ params }: TokenPageProps) {
   const { network } = useNetwork();
   const searchParams = useSearchParams();
 
-  // Get pool address from query parameter
-  const poolAddress = searchParams.get('pool');
+  // Get pool address from query parameter (optional)
+  const poolAddressParam = searchParams.get('pool');
+
+  // If pool address provided, use it directly
+  // If not, fetch all pools for this token and use primary one
+  const { data: allTokenPools, isLoading: isLoadingTokenPools } = useQuery({
+    queryKey: ['token-pools', mint],
+    queryFn: async () => {
+      // Fetch from Jupiter gems API
+      const response = await fetch('https://datapi.jup.ag/v1/pools/gems', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recent: { timeframe: '24h' } }),
+      });
+      if (!response.ok) return [];
+      const data = await response.json();
+      const allPools = [
+        ...(data.recent?.pools || []),
+        ...(data.aboutToGraduate?.pools || []),
+        ...(data.graduated?.pools || []),
+      ];
+      // Filter pools where this token is the base asset
+      return allPools.filter((pool: any) => pool.baseAsset.id === mint);
+    },
+    enabled: !poolAddressParam && !!mint, // Only fetch if no pool param provided
+  });
+
+  // Determine which pool to use
+  const primaryPool = allTokenPools && allTokenPools.length > 0
+    ? allTokenPools.sort((a: any, b: any) => (b.volume24h || 0) - (a.volume24h || 0))[0]
+    : null;
+
+  const poolAddress = poolAddressParam || primaryPool?.id;
 
   // Fetch pool from unified backend endpoint with network filtering
-  // URL shows /solana/{mint} but we fetch by pool address internally
-  const { data: rawPool, isLoading, error } = useBackendPool(poolAddress, network);
+  const { data: rawPool, isLoading: isLoadingPool, error } = useBackendPool(poolAddress, network);
+
+  const isLoading = poolAddressParam ? isLoadingPool : (isLoadingTokenPools || isLoadingPool);
 
   // State for enriched pool with token metadata
   const [pool, setPool] = useState<Pool | null>(null);
