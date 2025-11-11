@@ -200,8 +200,13 @@ export function TradingChartPro({
 
   // Calculate circulating supply from current market cap and price
   const circulatingSupply = useMemo(() => {
-    if (!marketCap || !currentPrice || currentPrice === 0) return null;
-    return marketCap / currentPrice;
+    if (!marketCap || !currentPrice || currentPrice === 0) {
+      console.log('⚠️ Cannot calculate circulating supply:', { marketCap, currentPrice });
+      return null;
+    }
+    const supply = marketCap / currentPrice;
+    console.log('✅ Circulating supply calculated:', supply, '(MCap:', marketCap, '/ Price:', currentPrice, ')');
+    return supply;
   }, [marketCap, currentPrice]);
 
   // Update chart data
