@@ -41,13 +41,15 @@ export function useRelatedPools({
       try {
         const { transformBackendPoolToPool } = await import('./useBackendPools');
 
-        // Get the exact token mint address (contract address)
+        // Get token symbol for search (same method as working searchbar)
+        const baseTokenSymbol = currentPool.baseAsset.symbol;
         const baseTokenMint = currentPool.baseAsset.id;
 
-        // Search backend API using the MINT ADDRESS for exact matching
-        // This ensures we get ALL pools containing this exact token, not symbol matches
+        console.log(`🔍 Searching for pools with token: ${baseTokenSymbol} (${baseTokenMint})`);
+
+        // Search backend API using SYMBOL (same as searchbar - works perfectly!)
         const response = await fetch(
-          `https://alsk-production.up.railway.app/api/pools/search?q=${encodeURIComponent(baseTokenMint)}&network=${network}&limit=100`
+          `https://alsk-production.up.railway.app/api/pools/search?q=${encodeURIComponent(baseTokenSymbol)}&network=${network}&limit=100`
         );
 
         if (!response.ok) {
