@@ -64,7 +64,7 @@ export function useRelatedPools({
         // Transform backend pools to Pool format
         const transformed = data.data.map((p: any) => transformBackendPoolToPool(p, p.protocol));
 
-        // Filter for pools that share the SAME BASE TOKEN
+        // Filter for pools that share the SAME BASE TOKEN and are ACTIVE (not dead)
         // Example: TRUMP-USDC pool should show TRUMP-SOL, TRUMP-BONK, etc. (all TRUMP pools)
         const related = transformed.filter((pool: Pool) => {
           // Skip the current pool itself
@@ -75,7 +75,18 @@ export function useRelatedPools({
             pool.baseAsset.id === currentPool.baseAsset.id ||
             pool.quoteAsset?.id === currentPool.baseAsset.id;
 
-          return sharesBaseToken;
+          if (!sharesBaseToken) return false;
+
+          // Filter out dead/empty pools with no liquidity
+          const hasLiquidity = (pool.baseAsset.liquidity || 0) > 0;
+
+          // Filter out pools with zero volume (completely inactive)
+          const hasVolume = (pool.volume24h || 0) > 0;
+
+          // Pool must have either liquidity OR volume to be considered active
+          const isActive = hasLiquidity || hasVolume;
+
+          return isActive;
         });
 
         // Sort by TVL descending
