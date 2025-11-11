@@ -511,14 +511,14 @@ export default function TokenPage({ params }: TokenPageProps) {
                 <div className="text-center">
                   <div className="text-xs text-gray-500 mb-1">MCap</div>
                   <div className="text-base font-bold text-white">
-                    ${((pool?.baseAsset.mcap || 0) / 1_000_000).toFixed(2)}M
+                    ${((jupiterTokenData?.mcap || 0) / 1_000_000).toFixed(2)}M
                   </div>
                 </div>
                 {/* FDV */}
                 <div className="text-center">
                   <div className="text-xs text-gray-500 mb-1">FDV</div>
                   <div className="text-base font-bold text-white">
-                    ${((pool?.baseAsset.fdv || 0) / 1_000_000).toFixed(2)}M
+                    ${((jupiterTokenData?.fdv || 0) / 1_000_000).toFixed(2)}M
                   </div>
                 </div>
                 {/* Liquidity */}
