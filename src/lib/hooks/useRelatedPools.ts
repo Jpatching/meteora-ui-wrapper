@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Pool } from '@/lib/jupiter/types';
-import { useBackendDLMMPools, useBackendDAMMPools } from './useBackendPools';
 import { enrichPoolsWithMetadata } from '@/lib/services/tokenMetadata';
 
 interface UseRelatedPoolsOptions {
@@ -16,44 +15,62 @@ interface RelatedPoolsResult {
 }
 
 /**
- * Fetches pools related to the current pool (sharing base or quote token)
- * Uses backend database hooks with Redis caching for fast lookups
+ * Fetches pools related to the current pool (sharing base token)
+ * Uses backend search API to find ALL pools containing the base token
  */
 export function useRelatedPools({
   currentPool,
   network,
   limit = 20,
 }: UseRelatedPoolsOptions): RelatedPoolsResult {
-  const { data: dlmmPools = [], isLoading: dlmmLoading, error: dlmmError } = useBackendDLMMPools(network);
-  const { data: dammPools = [], isLoading: dammLoading, error: dammError } = useBackendDAMMPools(network);
-
   const [pools, setPools] = useState<Pool[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!currentPool || dlmmLoading || dammLoading) {
+    if (!currentPool) {
+      setPools([]);
       return;
     }
 
-    // Import transformation functions and enrich with metadata
-    const transformBackendPools = async () => {
+    // Fetch pools containing the base token using backend search API
+    const fetchRelatedPools = async () => {
+      setLoading(true);
+      setError(null);
+
       try {
         const { transformBackendPoolToPool } = await import('./useBackendPools');
 
+        // Get token symbol for search (e.g., "TRUMP" from TRUMP-USDC pool)
+        const baseTokenSymbol = currentPool.baseAsset.symbol;
+
+        // Search backend API for all pools containing this token
+        const response = await fetch(
+          `https://alsk-production.up.railway.app/api/pools/search?q=${encodeURIComponent(baseTokenSymbol)}&network=${network}&limit=100`
+        );
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch related pools');
+        }
+
+        const data = await response.json();
+
+        if (!data.success || !data.data) {
+          setPools([]);
+          setLoading(false);
+          return;
+        }
+
         // Transform backend pools to Pool format
-        const dlmmTransformed = dlmmPools.map((p: any) => transformBackendPoolToPool(p, 'dlmm'));
-        const dammTransformed = dammPools.map((p: any) => transformBackendPoolToPool(p, 'damm-v2'));
+        const transformed = data.data.map((p: any) => transformBackendPoolToPool(p, p.protocol));
 
-        const allPools: Pool[] = [...dlmmTransformed, ...dammTransformed];
-
-        // Filter for pools that share the SAME BASE TOKEN ONLY (not quote token)
+        // Filter for pools that share the SAME BASE TOKEN
         // Example: TRUMP-USDC pool should show TRUMP-SOL, TRUMP-BONK, etc. (all TRUMP pools)
-        const related = allPools.filter((pool) => {
+        const related = transformed.filter((pool: Pool) => {
           // Skip the current pool itself
           if (pool.id === currentPool.id) return false;
 
           // Only show pools that have the same base token
-          // This means TRUMP-USDC will show: TRUMP-SOL, TRUMP-BONK, etc.
-          // NOT: YZY-USDC, LIBRA-USDC (which share quote token)
           const sharesBaseToken =
             pool.baseAsset.id === currentPool.baseAsset.id ||
             pool.quoteAsset?.id === currentPool.baseAsset.id;
@@ -62,7 +79,7 @@ export function useRelatedPools({
         });
 
         // Sort by TVL descending
-        related.sort((a, b) => (b.baseAsset.liquidity || 0) - (a.baseAsset.liquidity || 0));
+        related.sort((a: Pool, b: Pool) => (b.baseAsset.liquidity || 0) - (a.baseAsset.liquidity || 0));
 
         // Limit results
         const limited = related.slice(0, limit);
@@ -70,17 +87,21 @@ export function useRelatedPools({
         // Enrich with token metadata (logos, etc.)
         const enriched = await enrichPoolsWithMetadata(limited);
         setPools(enriched);
+        setLoading(false);
       } catch (err) {
-        console.error('Error transforming related pools:', err);
+        console.error('Error fetching related pools:', err);
+        setError(err as Error);
+        setPools([]);
+        setLoading(false);
       }
     };
 
-    transformBackendPools();
-  }, [currentPool?.id, dlmmPools, dammPools, limit, dlmmLoading, dammLoading]);
+    fetchRelatedPools();
+  }, [currentPool?.id, currentPool?.baseAsset.symbol, network, limit]);
 
   return {
     pools,
-    loading: dlmmLoading || dammLoading,
-    error: dlmmError || dammError || null,
+    loading,
+    error,
   };
 }
