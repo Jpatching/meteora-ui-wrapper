@@ -193,6 +193,12 @@ export function TradingChartPro({
     };
   }, [height, interval]);
 
+  // Calculate circulating supply from current market cap and price
+  const circulatingSupply = useMemo(() => {
+    if (!marketCap || !currentPrice || currentPrice === 0) return null;
+    return marketCap / currentPrice;
+  }, [marketCap, currentPrice]);
+
   // Update chart data
   useEffect(() => {
     const chart = chartRef.current;
@@ -241,13 +247,25 @@ export function TradingChartPro({
     volumeSeriesRef.current = volumeSeries;
 
     // Set data (time must be in seconds for lightweight-charts)
-    const candleData = data.map(d => ({
-      time: d.time as any,  // Cast to any to handle time type mismatch
-      open: d.open,
-      high: d.high,
-      low: d.low,
-      close: d.close,
-    }));
+    // Transform to market cap if mode is 'mcap' and we have circulating supply
+    const candleData = data.map(d => {
+      if (mode === 'mcap' && circulatingSupply) {
+        return {
+          time: d.time as any,
+          open: d.open * circulatingSupply,
+          high: d.high * circulatingSupply,
+          low: d.low * circulatingSupply,
+          close: d.close * circulatingSupply,
+        };
+      }
+      return {
+        time: d.time as any,  // Cast to any to handle time type mismatch
+        open: d.open,
+        high: d.high,
+        low: d.low,
+        close: d.close,
+      };
+    });
 
     const volumeData = data.map(d => ({
       time: d.time as any,  // Cast to any to handle time type mismatch
@@ -449,7 +467,7 @@ export function TradingChartPro({
 
     // Fit content
     chart.timeScale().fitContent();
-  }, [data, priceRange, dlmmRange, binData, showBinDistribution, activeBinPrice, positionRanges]);
+  }, [data, priceRange, dlmmRange, binData, showBinDistribution, activeBinPrice, positionRanges, mode, circulatingSupply]);
 
   return (
     <div className="relative">
@@ -511,10 +529,14 @@ export function TradingChartPro({
       {/* Token Info Bar - Top Left of Chart */}
       <div className="absolute top-16 left-4 z-10 pointer-events-none">
         <div className="text-xs text-[#8f98ad] mb-1">
-          {tokenSymbol} / USDT - Exchange
+          {tokenSymbol} / USDT - {mode === 'mcap' ? 'Market Cap' : 'Exchange'}
         </div>
         <div className="text-lg font-semibold text-white">
-          ${currentPrice.toFixed(4)}
+          {mode === 'mcap' && marketCap ? (
+            `$${(marketCap / 1_000_000).toFixed(2)}M`
+          ) : (
+            `$${currentPrice.toFixed(4)}`
+          )}
         </div>
       </div>
 
