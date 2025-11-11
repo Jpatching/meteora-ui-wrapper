@@ -104,31 +104,9 @@ export function ChartDetailsPanel({ pool }: ChartDetailsPanelProps) {
   return (
     <div className="h-full flex flex-col overflow-hidden relative">
       {/* Chart Section - Full Height */}
-      <div className="flex-1 overflow-hidden relative min-h-0">
-        {/* Liquidity Overlay Toggle Button */}
-        {isDLMM && (
-          <div className="absolute top-6 right-6 z-10">
-            <button
-              onClick={() => setShowLiquidityOverlay(!showLiquidityOverlay)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                showLiquidityOverlay
-                  ? 'bg-primary text-white shadow-lg shadow-primary/50'
-                  : 'bg-background-secondary text-foreground-muted hover:bg-background-tertiary border border-border-light'
-              }`}
-              title={showLiquidityOverlay ? 'Hide Liquidity Controls' : 'Show Liquidity Controls'}
-            >
-              <div className="flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-                {showLiquidityOverlay ? 'Liquidity' : 'Add LP'}
-              </div>
-            </button>
-          </div>
-        )}
-
+      <div className="flex-1 overflow-hidden relative min-h-0 flex flex-col">
         {/* Chart fills available height */}
-        <div className="h-full w-full p-4">
+        <div className="flex-1 w-full p-4">
           <TradingChartPro
             key={pool.id} // Force re-render when pool changes
             data={chartDataPoints}
@@ -162,6 +140,28 @@ export function ChartDetailsPanel({ pool }: ChartDetailsPanelProps) {
             />
           )}
         </div>
+
+        {/* Liquidity Overlay Toggle Button - Below Chart */}
+        {isDLMM && (
+          <div className="px-4 pb-4 -mt-2 relative z-50">
+            <button
+              onClick={() => setShowLiquidityOverlay(!showLiquidityOverlay)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                showLiquidityOverlay
+                  ? 'bg-primary text-white shadow-lg shadow-primary/50'
+                  : 'bg-background-secondary text-foreground-muted hover:bg-background-tertiary border border-border-light'
+              }`}
+              title={showLiquidityOverlay ? 'Hide Liquidity Controls' : 'Show Liquidity Controls'}
+            >
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                {showLiquidityOverlay ? 'Liquidity' : 'Add LP'}
+              </div>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
