@@ -624,6 +624,7 @@ export default function TokenPage({ params }: TokenPageProps) {
                 currentPool={pool}
                 network={network}
                 onSelectPool={(pool) => setSelectedPool(pool)}
+                selectedPoolId={selectedPool?.id}
               />
             ) : (
               <div className="p-4 flex flex-col h-full">

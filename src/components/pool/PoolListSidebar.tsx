@@ -10,11 +10,12 @@ interface PoolListSidebarProps {
   currentPool: Pool;
   network: 'devnet' | 'mainnet-beta';
   onSelectPool?: (pool: Pool) => void;
+  selectedPoolId?: string; // Track which pool is selected
 }
 
 type FilterType = 'all' | 'dlmm' | 'dyn2' | 'pump';
 
-export function PoolListSidebar({ currentPool, network, onSelectPool }: PoolListSidebarProps) {
+export function PoolListSidebar({ currentPool, network, onSelectPool, selectedPoolId }: PoolListSidebarProps) {
   const router = useRouter();
   const [filter, setFilter] = useState<FilterType>('all');
   const [displayCount, setDisplayCount] = useState(5); // Track how many to show
@@ -97,7 +98,7 @@ export function PoolListSidebar({ currentPool, network, onSelectPool }: PoolList
         ) : (
           <div>
             {displayPools.map((pool) => {
-              const isActive = pool.id === currentPool.id;
+              const isActive = pool.id === (selectedPoolId || currentPool.id);
 
               // Calculate 24h fees (volume * fee)
               const fee24h = (pool.volume24h || 0) * (pool.baseFee || 0.002);
