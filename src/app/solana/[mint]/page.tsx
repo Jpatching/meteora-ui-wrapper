@@ -652,19 +652,19 @@ export default function TokenPage({ params }: TokenPageProps) {
 
           {/* Center: Chart (dominates) + Positions (if pool exists) */}
           <div className="flex-1 flex flex-col overflow-hidden min-h-0 bg-gray-800/30">
-            {/* Chart - Always shown */}
+            {/* Chart - Always shown - Use selected pool for chart data */}
             <div className={hasMeteoraPool ? "flex-[3] overflow-hidden min-h-0" : "flex-1 overflow-hidden min-h-0"}>
-              <ChartDetailsPanel pool={chartPool} />
+              <ChartDetailsPanel pool={selectedPool || chartPool} />
             </div>
 
             {/* Active Positions - Only if Meteora pool exists */}
             {hasMeteoraPool && pool && (
               <div className="flex-[1] min-h-[180px] max-h-[280px] flex-shrink-0 border-t border-border-light overflow-hidden">
                 <UserPositionsPanel
-                  poolAddress={pool.id}
-                  poolType={pool.type}
-                  tokenXSymbol={pool.baseAsset.symbol}
-                  tokenYSymbol={pool.quoteAsset?.symbol || 'USDC'}
+                  poolAddress={selectedPool?.id || pool.id}
+                  poolType={selectedPool?.type || pool.type}
+                  tokenXSymbol={selectedPool?.baseAsset.symbol || pool.baseAsset.symbol}
+                  tokenYSymbol={selectedPool?.quoteAsset?.symbol || pool.quoteAsset?.symbol || 'USDC'}
                 />
               </div>
             )}
@@ -688,9 +688,9 @@ export default function TokenPage({ params }: TokenPageProps) {
             </div>
 
             {/* Liquidity Distribution - Only if Meteora pool exists */}
-            {hasMeteoraPool && pool && (
+            {hasMeteoraPool && (selectedPool || pool) && (
               <div className="flex-shrink-0 mt-2">
-                <LiquidityDistributionPanel pool={pool} />
+                <LiquidityDistributionPanel pool={selectedPool || pool} />
               </div>
             )}
           </div>
