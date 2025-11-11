@@ -376,14 +376,14 @@ export default function TokenPage({ params }: TokenPageProps) {
                 <div className="text-center">
                   <div className="text-[9px] text-gray-500 mb-0.5">MCap</div>
                   <div className="text-xs font-semibold text-white">
-                    ${((pool?.tvl || 0) / 1_000_000).toFixed(2)}M
+                    ${((pool?.baseAsset.mcap || 0) / 1_000_000).toFixed(2)}M
                   </div>
                 </div>
                 {/* FDV */}
                 <div className="text-center">
                   <div className="text-[9px] text-gray-500 mb-0.5">FDV</div>
                   <div className="text-xs font-semibold text-white">
-                    ${((pool?.tvl || 0) / 1_000_000).toFixed(2)}M
+                    ${((pool?.baseAsset.fdv || 0) / 1_000_000).toFixed(2)}M
                   </div>
                 </div>
                 {/* Liquidity */}
