@@ -204,6 +204,8 @@ export function TradingChartPro({
     const chart = chartRef.current;
     if (!chart || !data || data.length === 0) return;
 
+    console.log('📊 Chart update triggered - Mode:', mode, 'CircSupply:', circulatingSupply);
+
     // Remove existing series
     if (candlestickSeriesRef.current) {
       chart.removeSeries(candlestickSeriesRef.current);
@@ -248,8 +250,15 @@ export function TradingChartPro({
 
     // Set data (time must be in seconds for lightweight-charts)
     // Transform to market cap if mode is 'mcap' and we have circulating supply
-    const candleData = data.map(d => {
+    const candleData = data.map((d, idx) => {
       if (mode === 'mcap' && circulatingSupply) {
+        if (idx === 0) {
+          console.log('💰 MCap mode - Sample transformation:', {
+            originalClose: d.close,
+            transformedClose: d.close * circulatingSupply,
+            circulatingSupply
+          });
+        }
         return {
           time: d.time as any,
           open: d.open * circulatingSupply,
@@ -257,6 +266,9 @@ export function TradingChartPro({
           low: d.low * circulatingSupply,
           close: d.close * circulatingSupply,
         };
+      }
+      if (idx === 0) {
+        console.log('💵 Price mode - Original close:', d.close);
       }
       return {
         time: d.time as any,  // Cast to any to handle time type mismatch
