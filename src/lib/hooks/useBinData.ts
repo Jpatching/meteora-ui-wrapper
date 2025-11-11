@@ -113,12 +113,12 @@ export function useBinData({
     }
   }, [enabled, binRange]);
 
-  // Initial fetch
+  // Initial fetch and re-fetch when pool changes
   useEffect(() => {
     if (enabled && serviceRef.current) {
       fetchBinData();
     }
-  }, [enabled, fetchBinData]);
+  }, [enabled, fetchBinData, poolAddress]); // Added poolAddress to trigger re-fetch
 
   // Set up auto-refresh
   useEffect(() => {
