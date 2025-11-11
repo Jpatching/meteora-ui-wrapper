@@ -270,13 +270,11 @@ export default function TokenPage({ params }: TokenPageProps) {
 
               {/* Protocol Badge with Meteora Logo (only if pool exists) */}
               {pool?.type && (
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border-2 border-orange-500/50 bg-orange-500/10">
-                  {/* Meteora Logo */}
-                  <div className="w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center">
-                    <span className="text-[10px] font-bold text-white">M</span>
-                  </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-orange-500 bg-transparent">
+                  {/* Real Meteora Logo */}
+                  <img src="/meteora.png" alt="Meteora" className="w-5 h-5" />
                   {/* Protocol Type */}
-                  <span className="text-sm font-bold uppercase text-orange-400">
+                  <span className="text-sm font-bold uppercase text-white">
                     {pool.type === 'dlmm' ? 'DLMM' : 'DYN2'}
                   </span>
                 </div>
