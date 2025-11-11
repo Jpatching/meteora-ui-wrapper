@@ -132,45 +132,72 @@ export default function TokenPage({ params }: TokenPageProps) {
     devBalancePercentage: number;
   } | null>(null);
 
-  // Fetch holder data from Jupiter API to calculate Top 10% and Dev holdings
+  // Fetch token info and holder data from Jupiter API
   useEffect(() => {
-    const fetchHolderData = async () => {
+    const fetchTokenData = async () => {
       try {
-        const response = await fetch(`https://datapi.jup.ag/v1/holders/${mint}`);
-        const data = await response.json();
+        // Fetch token info which includes dev wallet and topHoldersPercentage
+        const tokenInfoResponse = await fetch(`https://datapi.jup.ag/v1/pools?assetIds=${mint}`);
+        const tokenInfoData = await tokenInfoResponse.json();
 
-        if (data.holders && data.holders.length > 0) {
-          console.log(`📊 Fetched ${data.holders.length} holders for token ${mint}`);
-
-          // Calculate total supply from all holders
-          const totalSupply = data.holders.reduce((sum: number, h: any) => sum + h.amount, 0);
-
-          // Calculate top 10 holders percentage
-          const top10Supply = data.holders.slice(0, 10).reduce((sum: number, h: any) => sum + h.amount, 0);
-          const top10Percentage = (top10Supply / totalSupply) * 100;
-
-          // Find dev wallet (first holder or tagged as dev)
-          // Typically the dev is one of the top holders
-          const devHolder = data.holders[0]; // Assuming first holder is dev (common pattern)
-          const devPercentage = (devHolder.amount / totalSupply) * 100;
-
-          setHolderMetrics({
-            topHoldersPercentage: top10Percentage,
-            devBalancePercentage: devPercentage,
+        if (tokenInfoData.pools && tokenInfoData.pools.length > 0) {
+          const tokenData = tokenInfoData.pools[0].baseAsset;
+          console.log('📊 Jupiter token data:', {
+            dev: tokenData.dev,
+            topHoldersPercentage: tokenData.audit?.topHoldersPercentage,
+            holderCount: tokenData.holderCount,
           });
 
-          console.log('✅ Holder metrics calculated:', {
-            topHoldersPercentage: top10Percentage.toFixed(2) + '%',
-            devBalancePercentage: devPercentage.toFixed(2) + '%',
-            totalHolders: data.count || data.holders.length,
-          });
+          // Jupiter already provides topHoldersPercentage in audit object
+          const topHoldersPercentage = tokenData.audit?.topHoldersPercentage;
+
+          // Now fetch holder data to find dev wallet balance
+          const holdersResponse = await fetch(`https://datapi.jup.ag/v1/holders/${mint}`);
+          const holdersData = await holdersResponse.json();
+
+          if (holdersData.holders && holdersData.holders.length > 0 && tokenData.dev) {
+            console.log(`📊 Fetched ${holdersData.holders.length} holders`);
+
+            // Find the dev wallet in holder list
+            const devHolder = holdersData.holders.find((h: any) => h.address === tokenData.dev);
+
+            if (devHolder) {
+              // Calculate total supply from all holders
+              const totalSupply = holdersData.holders.reduce((sum: number, h: any) => sum + h.amount, 0);
+              const devPercentage = (devHolder.amount / totalSupply) * 100;
+
+              setHolderMetrics({
+                topHoldersPercentage: topHoldersPercentage || 0,
+                devBalancePercentage: devPercentage,
+              });
+
+              console.log('✅ Holder metrics loaded:', {
+                topHoldersPercentage: topHoldersPercentage?.toFixed(2) + '%',
+                devBalancePercentage: devPercentage.toFixed(2) + '%',
+                devWallet: tokenData.dev,
+              });
+            } else {
+              // Dev wallet not in top 100 holders - likely low holdings
+              setHolderMetrics({
+                topHoldersPercentage: topHoldersPercentage || 0,
+                devBalancePercentage: 0,
+              });
+              console.log('⚠️ Dev wallet not in top 100 holders - likely sold out');
+            }
+          } else if (topHoldersPercentage) {
+            // We have topHolders but no dev data
+            setHolderMetrics({
+              topHoldersPercentage,
+              devBalancePercentage: 0,
+            });
+          }
         }
       } catch (error) {
-        console.error('Failed to fetch holder data:', error);
+        console.error('Failed to fetch token data:', error);
       }
     };
 
-    fetchHolderData();
+    fetchTokenData();
   }, [mint]);
 
   // Find Jupiter pool for this token to get audit data
