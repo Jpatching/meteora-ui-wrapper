@@ -227,24 +227,24 @@ export default function TokenPage({ params }: TokenPageProps) {
   return (
     <MainLayout>
       <div className="flex flex-col h-screen overflow-hidden bg-background">
-        {/* Top Bar - Token Info + Price Changes (Charting.ag Style) */}
-        <div className="flex-shrink-0 border-b border-border-light">
-          {/* Breadcrumb Navigation (Charting.ag Style) */}
-          <div className="px-4 pt-2 pb-1">
-            <div className="flex items-center gap-2 text-sm">
-              <Link
-                href="/"
-                className="text-gray-400 hover:text-white transition-colors cursor-pointer"
-              >
-                Dashboard
-              </Link>
-              <span className="text-gray-600">›</span>
-              <span className="text-white font-medium">{displayToken.symbol}</span>
-            </div>
+        {/* Breadcrumb Navigation (Charting.ag Style) */}
+        <div className="flex-shrink-0 px-4 pt-2 pb-1 border-b border-border-light">
+          <div className="flex items-center gap-2 text-sm">
+            <Link
+              href="/"
+              className="text-gray-400 hover:text-white transition-colors cursor-pointer"
+            >
+              Dashboard
+            </Link>
+            <span className="text-gray-600">›</span>
+            <span className="text-white font-medium">{displayToken.symbol}</span>
           </div>
+        </div>
 
-          {/* Token Header - Two Row Layout (Charting.ag Style) */}
-          <div className="px-4 py-2">
+        {/* Main Content Row - Token Box (Left) + Metrics Box (Center) */}
+        <div className="flex-shrink-0 flex items-start gap-6 px-4 py-3 border-b border-border-light">
+          {/* LEFT: Token Info Box (Charting.ag Style) */}
+          <div className="bg-gray-800/50 rounded-lg px-4 py-3 border border-gray-700/50">
             {/* Row 1: Icon + Symbol + Name + Dropdown */}
             <div className="flex items-center gap-3 mb-1">
               {displayToken.icon && (
@@ -307,9 +307,8 @@ export default function TokenPage({ params }: TokenPageProps) {
             </div>
           </div>
 
-
-          {/* Price Changes, Volume Changes, Key Metrics (Charting.ag Exact Layout) */}
-          <div className="px-4 pb-3 flex items-start gap-6">
+          {/* RIGHT: Metrics Box (Charting.ag Style - Centered above chart) */}
+          <div className="flex-1 bg-gray-800/30 rounded-lg px-6 py-3 border border-gray-700/30 flex items-start gap-6">
             {/* Price Changes */}
             <div>
               <div className="text-[10px] text-gray-400 mb-1.5">Price Changes</div>
@@ -357,7 +356,7 @@ export default function TokenPage({ params }: TokenPageProps) {
             </div>
 
             {/* Key Metrics - 11 Columns (Charting.ag Complete) */}
-            <div className="ml-auto">
+            <div>
               <div className="text-[10px] text-gray-400 mb-1.5">Key Metrics</div>
               <div className="flex items-center gap-4">
                 {/* Price */}
