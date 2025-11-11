@@ -91,11 +91,6 @@ export function TradingChartPro({
   const [mode, setMode] = useState<ChartMode>('price');
   const [showHistory, setShowHistory] = useState(false);
 
-  // Debug: Watch mode changes
-  useEffect(() => {
-    console.log('🎯 Mode state changed to:', mode);
-  }, [mode]);
-
   // Calculate price range (max/min) from OHLC data
   const priceRange = useMemo(() => {
     if (!data || data.length === 0) return { max: 0, min: 0 };
@@ -200,21 +195,34 @@ export function TradingChartPro({
 
   // Calculate circulating supply from current market cap and price
   const circulatingSupply = useMemo(() => {
-    if (!marketCap || !currentPrice || currentPrice === 0) {
-      console.log('⚠️ Cannot calculate circulating supply:', { marketCap, currentPrice });
-      return null;
-    }
-    const supply = marketCap / currentPrice;
-    console.log('✅ Circulating supply calculated:', supply, '(MCap:', marketCap, '/ Price:', currentPrice, ')');
-    return supply;
+    if (!marketCap || !currentPrice || currentPrice === 0) return null;
+    return marketCap / currentPrice;
   }, [marketCap, currentPrice]);
+
+  // Transform chart data based on mode (price vs mcap)
+  const transformedData = useMemo(() => {
+    if (!data || data.length === 0) return [];
+
+    if (mode === 'mcap' && circulatingSupply) {
+      // Transform to market cap values
+      return data.map(d => ({
+        time: d.time,
+        open: d.open * circulatingSupply,
+        high: d.high * circulatingSupply,
+        low: d.low * circulatingSupply,
+        close: d.close * circulatingSupply,
+        volume: d.volume,
+      }));
+    }
+
+    // Return original price data
+    return data;
+  }, [data, mode, circulatingSupply]);
 
   // Update chart data
   useEffect(() => {
     const chart = chartRef.current;
-    if (!chart || !data || data.length === 0) return;
-
-    console.log('📊 Chart update triggered - Mode:', mode, 'CircSupply:', circulatingSupply);
+    if (!chart || !transformedData || transformedData.length === 0) return;
 
     // Remove existing series
     if (candlestickSeriesRef.current) {
@@ -258,36 +266,14 @@ export function TradingChartPro({
 
     volumeSeriesRef.current = volumeSeries;
 
-    // Set data (time must be in seconds for lightweight-charts)
-    // Transform to market cap if mode is 'mcap' and we have circulating supply
-    const candleData = data.map((d, idx) => {
-      if (mode === 'mcap' && circulatingSupply) {
-        if (idx === 0) {
-          console.log('💰 MCap mode - Sample transformation:', {
-            originalClose: d.close,
-            transformedClose: d.close * circulatingSupply,
-            circulatingSupply
-          });
-        }
-        return {
-          time: d.time as any,
-          open: d.open * circulatingSupply,
-          high: d.high * circulatingSupply,
-          low: d.low * circulatingSupply,
-          close: d.close * circulatingSupply,
-        };
-      }
-      if (idx === 0) {
-        console.log('💵 Price mode - Original close:', d.close);
-      }
-      return {
-        time: d.time as any,  // Cast to any to handle time type mismatch
-        open: d.open,
-        high: d.high,
-        low: d.low,
-        close: d.close,
-      };
-    });
+    // Use pre-transformed data (already in price or mcap mode)
+    const candleData = transformedData.map(d => ({
+      time: d.time as any,
+      open: d.open,
+      high: d.high,
+      low: d.low,
+      close: d.close,
+    }));
 
     const volumeData = data.map(d => ({
       time: d.time as any,  // Cast to any to handle time type mismatch
@@ -489,7 +475,7 @@ export function TradingChartPro({
 
     // Fit content
     chart.timeScale().fitContent();
-  }, [data, priceRange, dlmmRange, binData, showBinDistribution, activeBinPrice, positionRanges, mode, circulatingSupply]);
+  }, [transformedData, data, priceRange, dlmmRange, binData, showBinDistribution, activeBinPrice, positionRanges]);
 
   return (
     <div className="relative">
@@ -515,10 +501,7 @@ export function TradingChartPro({
         {/* Center: Price/MCap Toggle */}
         <div className="flex gap-2">
           <button
-            onClick={() => {
-              console.log('🔘 Price button clicked');
-              setMode('price');
-            }}
+            onClick={() => setMode('price')}
             className={`px-3 py-1.5 text-xs font-medium transition-colors ${
               mode === 'price'
                 ? 'text-white border-b-2 border-[#3b82f6]'
@@ -528,11 +511,7 @@ export function TradingChartPro({
             Price
           </button>
           <button
-            onClick={() => {
-              console.log('🔘 MCap button clicked - Current mode:', mode, 'Will set to: mcap');
-              setMode('mcap');
-              console.log('🔘 After setMode - mode:', mode);
-            }}
+            onClick={() => setMode('mcap')}
             className={`px-3 py-1.5 text-xs font-medium transition-colors ${
               mode === 'mcap'
                 ? 'text-white border-b-2 border-[#3b82f6]'
