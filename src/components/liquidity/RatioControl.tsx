@@ -82,20 +82,33 @@ export function RatioControl({
         </button>
       </div>
 
-      {/* Percentage labels - charting.ag style */}
-      <div className="flex items-center justify-between text-xs">
-        <span className="text-gray-400">{tokenXSymbol} {tokenXPercentage}%</span>
-        <span className="text-gray-400">{tokenYSymbol} {tokenYPercentage}%</span>
-      </div>
+      {/* Percentage labels + Slider - charting.ag style */}
+      <div className="space-y-1">
+        {/* Percentage labels above slider */}
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-gray-400">{tokenXSymbol} {tokenXPercentage}%</span>
+          <span className="text-gray-400">{tokenYSymbol} {tokenYPercentage}%</span>
+        </div>
 
-      {/* Progress bar - charting.ag style (solid blue, no gradient) */}
-      <div className="h-1 rounded-full bg-gray-700 overflow-hidden">
-        <motion.div
-          className="h-full bg-primary"
-          initial={{ width: '100%' }}
-          animate={{ width: `${tokenXPercentage}%` }}
-          transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-        />
+        {/* Slider bar with handle */}
+        <div className="relative h-1 rounded-full bg-gray-700">
+          {/* Blue fill (tokenX percentage) */}
+          <motion.div
+            className="absolute h-full bg-primary rounded-full"
+            initial={{ width: '100%' }}
+            animate={{ width: `${tokenXPercentage}%` }}
+            transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+          />
+
+          {/* Slider handle (dot at the split point) */}
+          <motion.div
+            className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full border-2 border-primary shadow-lg"
+            initial={{ left: '100%' }}
+            animate={{ left: `${tokenXPercentage}%` }}
+            transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+            style={{ marginLeft: '-6px' }} // Center the dot on the position
+          />
+        </div>
       </div>
     </div>
   );
