@@ -96,7 +96,7 @@ export function UserPositionsPanel({
   // Show wallet connection prompt
   if (!connected) {
     return (
-      <div className="h-full flex items-center justify-center bg-background">
+      <div className="h-full flex items-center justify-center bg-gray-800/30">
         <div className="text-center">
           <div className="text-4xl mb-3">👛</div>
           <h3 className="text-sm font-semibold text-white mb-1">Connect Wallet</h3>
@@ -109,7 +109,7 @@ export function UserPositionsPanel({
   // Loading state
   if (isLoading) {
     return (
-      <div className="h-full flex flex-col bg-background">
+      <div className="h-full flex flex-col bg-gray-800/30">
         <div className="px-4 py-2 border-b border-border-light">
           <h3 className="text-sm font-semibold text-white">Active Positions</h3>
         </div>
@@ -123,7 +123,7 @@ export function UserPositionsPanel({
   // No positions - Charting.ag clean style
   if (!positions || positions.length === 0) {
     return (
-      <div className="h-full flex flex-col bg-background">
+      <div className="h-full flex flex-col bg-gray-800/30">
         {/* Header */}
         <div className="px-4 py-2.5 border-b border-border-light">
           <div className="flex items-center justify-between">
@@ -164,7 +164,7 @@ export function UserPositionsPanel({
 
   // Render positions - Clean Charting.ag Style
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="h-full flex flex-col bg-gray-800/30">
       {/* Header */}
       <div className="px-4 py-2.5 border-b border-border-light flex items-center justify-between">
         <div className="flex items-center gap-6">
