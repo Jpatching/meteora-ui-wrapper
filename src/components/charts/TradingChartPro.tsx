@@ -507,26 +507,6 @@ export function TradingChartPro({
         </div>
       </div>
 
-      {/* DLMM Range Labels (charting.ag style) or Price Range Labels */}
-      {showBinDistribution && dlmmRange.max > 0 ? (
-        <>
-          <div className="absolute top-16 right-4 z-10 pointer-events-none text-xs text-[#0cbef3]">
-            max: ${dlmmRange.max.toFixed(6)}
-          </div>
-          <div className="absolute bottom-32 right-4 z-10 pointer-events-none text-xs text-[#0cbef3]">
-            min: ${dlmmRange.min.toFixed(6)}
-          </div>
-        </>
-      ) : priceRange.max > 0 ? (
-        <>
-          <div className="absolute top-16 right-4 z-10 pointer-events-none text-xs text-[#3b82f6]">
-            max: ${priceRange.max.toFixed(6)}
-          </div>
-          <div className="absolute bottom-32 right-4 z-10 pointer-events-none text-xs text-[#3b82f6]">
-            min: ${priceRange.min.toFixed(6)}
-          </div>
-        </>
-      ) : null}
 
       {/* Chart Container */}
       <div
@@ -534,6 +514,35 @@ export function TradingChartPro({
         className="relative rounded-lg overflow-hidden border border-[#2a2e3e]"
         style={{ height: `${height}px` }}
       >
+        {/* DLMM Range Labels (charting.ag style - positioned on left, next to lines) */}
+        {showBinDistribution && dlmmRange.max > 0 && priceRange.max > 0 && (
+          <>
+            {(() => {
+              // Calculate vertical position based on price range
+              const totalPriceRange = priceRange.max - priceRange.min;
+              const maxPositionPercent = ((priceRange.max - dlmmRange.max) / totalPriceRange) * 80 + 10; // 10-90% of chart height
+              const minPositionPercent = ((priceRange.max - dlmmRange.min) / totalPriceRange) * 80 + 10;
+
+              return (
+                <>
+                  <div
+                    className="absolute left-4 z-10 pointer-events-none text-xs text-[#0cbef3] bg-[#1a1e2e]/80 px-1 rounded"
+                    style={{ top: `${maxPositionPercent}%` }}
+                  >
+                    max: ${dlmmRange.max.toFixed(6)}
+                  </div>
+                  <div
+                    className="absolute left-4 z-10 pointer-events-none text-xs text-[#0cbef3] bg-[#1a1e2e]/80 px-1 rounded"
+                    style={{ top: `${minPositionPercent}%` }}
+                  >
+                    min: ${dlmmRange.min.toFixed(6)}
+                  </div>
+                </>
+              );
+            })()}
+          </>
+        )}
+
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-[#1a1e2e]/80 backdrop-blur-sm z-10">
             <div className="flex flex-col items-center gap-3">
