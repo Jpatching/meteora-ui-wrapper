@@ -16,12 +16,12 @@ const strategies = [
     label: 'Spot',
     icon: (
       <svg className="w-12 h-8" viewBox="0 0 48 32" fill="none">
-        {/* Spot: Concentrated vertical bars in center */}
-        <rect x="18" y="4" width="2" height="24" className="fill-current" opacity="0.3" />
-        <rect x="21" y="2" width="2" height="28" className="fill-current" opacity="0.5" />
-        <rect x="24" y="0" width="2" height="32" className="fill-current" />
-        <rect x="27" y="2" width="2" height="28" className="fill-current" opacity="0.5" />
-        <rect x="30" y="4" width="2" height="24" className="fill-current" opacity="0.3" />
+        {/* Spot: ALL bars same height - uniform concentrated liquidity */}
+        <rect x="18" y="8" width="2" height="16" className="fill-current" />
+        <rect x="21" y="8" width="2" height="16" className="fill-current" />
+        <rect x="24" y="8" width="2" height="16" className="fill-current" />
+        <rect x="27" y="8" width="2" height="16" className="fill-current" />
+        <rect x="30" y="8" width="2" height="16" className="fill-current" />
       </svg>
     ),
     description: 'Concentrated liquidity in a narrow price range',
