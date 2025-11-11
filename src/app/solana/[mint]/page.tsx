@@ -166,9 +166,19 @@ export default function TokenPage({ params }: TokenPageProps) {
   useEffect(() => {
     if (!isLoadingTokenPools) {
       if (rawPool) {
-        // We have a Meteora pool - enrich it with metadata
+        // We have a Meteora pool - enrich it with metadata AND Jupiter audit data
         enrichPoolWithMetadata(rawPool)
           .then(enriched => {
+            // If we have Jupiter pool data, merge the audit info into our pool
+            if (jupiterPool) {
+              console.log('🔗 Merging Jupiter audit data into pool');
+              enriched.baseAsset = {
+                ...enriched.baseAsset,
+                holderCount: (jupiterPool.baseAsset as any)?.holderCount || enriched.baseAsset.holderCount,
+                organicScore: (jupiterPool.baseAsset as any)?.organicScore,
+                audit: (jupiterPool.baseAsset as any)?.audit,
+              } as any;
+            }
             setPool(enriched);
           })
           .catch(err => {
@@ -207,7 +217,7 @@ export default function TokenPage({ params }: TokenPageProps) {
           });
       }
     }
-  }, [rawPool, isLoadingTokenPools, tokenPools.length, mint]);
+  }, [rawPool, isLoadingTokenPools, tokenPools.length, mint, jupiterPool]);
 
   // Handle loading state
   if (isLoading && !pool && !tokenInfo) {
@@ -437,17 +447,17 @@ export default function TokenPage({ params }: TokenPageProps) {
                 <div className="text-center">
                   <div className="text-xs text-gray-500 mb-1">Holders</div>
                   <div className="text-base font-bold text-white">
-                    {(jupiterPool?.baseAsset as any)?.holderCount
-                      ? formatNumber((jupiterPool?.baseAsset as any).holderCount)
-                      : (pool?.baseAsset.holderCount ? formatNumber(pool.baseAsset.holderCount) : '--')}
+                    {(pool?.baseAsset as any)?.holderCount
+                      ? formatNumber((pool.baseAsset as any).holderCount)
+                      : '--'}
                   </div>
                 </div>
                 {/* Top 10 H. */}
                 <div className="text-center">
                   <div className="text-xs text-gray-500 mb-1">Top10 H.</div>
                   <div className="text-base font-bold text-white">
-                    {(jupiterPool?.baseAsset as any)?.audit?.topHoldersPercentage !== undefined
-                      ? `${((jupiterPool?.baseAsset as any).audit.topHoldersPercentage).toFixed(2)}%`
+                    {(pool?.baseAsset as any)?.audit?.topHoldersPercentage !== undefined
+                      ? `${((pool.baseAsset as any).audit.topHoldersPercentage).toFixed(2)}%`
                       : '--'}
                   </div>
                 </div>
@@ -455,13 +465,13 @@ export default function TokenPage({ params }: TokenPageProps) {
                 <div className="text-center">
                   <div className="text-xs text-gray-500 mb-1">Dev H.</div>
                   <div className={`text-base font-bold ${
-                    (jupiterPool?.baseAsset as any)?.audit?.devBalancePercentage !== undefined &&
-                    (jupiterPool?.baseAsset as any).audit.devBalancePercentage < 10
+                    (pool?.baseAsset as any)?.audit?.devBalancePercentage !== undefined &&
+                    (pool.baseAsset as any).audit.devBalancePercentage < 10
                       ? 'text-success'
                       : 'text-white'
                   }`}>
-                    {(jupiterPool?.baseAsset as any)?.audit?.devBalancePercentage !== undefined
-                      ? `${((jupiterPool?.baseAsset as any).audit.devBalancePercentage).toFixed(0)}%`
+                    {(pool?.baseAsset as any)?.audit?.devBalancePercentage !== undefined
+                      ? `${((pool.baseAsset as any).audit.devBalancePercentage).toFixed(0)}%`
                       : '--'}
                   </div>
                 </div>
@@ -469,52 +479,44 @@ export default function TokenPage({ params }: TokenPageProps) {
                 <div className="text-center">
                   <div className="text-xs text-gray-500 mb-1">Mint</div>
                   <div className={`text-base font-bold ${
-                    (jupiterPool?.baseAsset as any)?.audit?.mintAuthorityDisabled === true
+                    (pool?.baseAsset as any)?.audit?.mintAuthorityDisabled === true
                       ? 'text-success'
-                      : (jupiterPool?.baseAsset as any)?.audit?.mintAuthorityDisabled === false
+                      : (pool?.baseAsset as any)?.audit?.mintAuthorityDisabled === false
                         ? 'text-warning'
-                        : pool?.baseAsset.audit?.mintAuthorityDisabled
-                          ? 'text-success'
-                          : 'text-warning'
+                        : 'text-warning'
                   }`}>
-                    {(jupiterPool?.baseAsset as any)?.audit?.mintAuthorityDisabled !== undefined
-                      ? ((jupiterPool?.baseAsset as any).audit.mintAuthorityDisabled ? 'No' : 'Yes')
-                      : pool?.baseAsset.audit?.mintAuthorityDisabled !== undefined
-                        ? (pool.baseAsset.audit.mintAuthorityDisabled ? 'No' : 'Yes')
-                        : '--'}
+                    {(pool?.baseAsset as any)?.audit?.mintAuthorityDisabled !== undefined
+                      ? ((pool.baseAsset as any).audit.mintAuthorityDisabled ? 'No' : 'Yes')
+                      : '--'}
                   </div>
                 </div>
                 {/* Freeze */}
                 <div className="text-center">
                   <div className="text-xs text-gray-500 mb-1">Freeze</div>
                   <div className={`text-base font-bold ${
-                    (jupiterPool?.baseAsset as any)?.audit?.freezeAuthorityDisabled === true
+                    (pool?.baseAsset as any)?.audit?.freezeAuthorityDisabled === true
                       ? 'text-success'
-                      : (jupiterPool?.baseAsset as any)?.audit?.freezeAuthorityDisabled === false
+                      : (pool?.baseAsset as any)?.audit?.freezeAuthorityDisabled === false
                         ? 'text-warning'
-                        : pool?.baseAsset.audit?.freezeAuthorityDisabled
-                          ? 'text-success'
-                          : 'text-warning'
+                        : 'text-warning'
                   }`}>
-                    {(jupiterPool?.baseAsset as any)?.audit?.freezeAuthorityDisabled !== undefined
-                      ? ((jupiterPool?.baseAsset as any).audit.freezeAuthorityDisabled ? 'No' : 'Yes')
-                      : pool?.baseAsset.audit?.freezeAuthorityDisabled !== undefined
-                        ? (pool.baseAsset.audit.freezeAuthorityDisabled ? 'No' : 'Yes')
-                        : '--'}
+                    {(pool?.baseAsset as any)?.audit?.freezeAuthorityDisabled !== undefined
+                      ? ((pool.baseAsset as any).audit.freezeAuthorityDisabled ? 'No' : 'Yes')
+                      : '--'}
                   </div>
                 </div>
                 {/* Score */}
                 <div className="text-center">
                   <div className="text-xs text-gray-500 mb-1">Score</div>
                   <div className={`text-base font-bold ${
-                    (jupiterPool?.baseAsset as any)?.organicScore
-                      ? (jupiterPool?.baseAsset as any).organicScore >= 70
+                    (pool?.baseAsset as any)?.organicScore
+                      ? (pool.baseAsset as any).organicScore >= 70
                         ? 'text-success'
                         : 'text-white'
                       : 'text-error'
                   }`}>
-                    {(jupiterPool?.baseAsset as any)?.organicScore
-                      ? Math.round((jupiterPool?.baseAsset as any).organicScore)
+                    {(pool?.baseAsset as any)?.organicScore
+                      ? Math.round((pool.baseAsset as any).organicScore)
                       : '--'}
                   </div>
                 </div>
