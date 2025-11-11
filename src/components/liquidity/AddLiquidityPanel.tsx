@@ -51,7 +51,7 @@ export function AddLiquidityPanel({
 
   // Strategy state
   const [strategy, setStrategy] = useState<StrategyType>('curve');
-  const [ratio, setRatio] = useState<RatioType>('one-side');
+  const [ratio, setRatio] = useState<RatioType>('one-side-x');
 
   // Price range state - handle case where currentPrice is 0 or NaN (no liquidity pool)
   const safeCurrentPrice = Number(currentPrice) > 0 ? Number(currentPrice) : 1; // Default to 1:1 if no price
@@ -71,9 +71,9 @@ export function AddLiquidityPanel({
   // Slippage state
   const [slippage, setSlippage] = useState(1); // Default 1%
 
-  // Calculate ratio percentages based on strategy
-  const tokenXPercentage = ratio === 'one-side' ? 100 : 50;
-  const tokenYPercentage = ratio === 'one-side' ? 0 : 50;
+  // Calculate ratio percentages based on ratio selection
+  const tokenXPercentage = ratio === 'one-side-x' ? 100 : ratio === '50-50' ? 50 : 0;
+  const tokenYPercentage = ratio === 'one-side-y' ? 100 : ratio === '50-50' ? 50 : 0;
 
   // Check if price range includes current price (important for empty pools)
   const priceRangeIncludesActive = minPrice <= safeCurrentPrice && maxPrice >= safeCurrentPrice;
