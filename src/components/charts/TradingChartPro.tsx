@@ -306,7 +306,6 @@ export function TradingChartPro({
         topColor: 'rgba(59, 130, 246, 0.15)',      // Blue with 15% opacity (top)
         bottomColor: 'rgba(59, 130, 246, 0.05)',   // Blue with 5% opacity (bottom - gradient)
         lineColor: 'transparent',                   // No border line
-        lineWidth: 0,
         crosshairMarkerVisible: false,
         lastValueVisible: false,
         priceLineVisible: false,
