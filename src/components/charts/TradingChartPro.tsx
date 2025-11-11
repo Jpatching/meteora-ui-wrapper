@@ -91,6 +91,11 @@ export function TradingChartPro({
   const [mode, setMode] = useState<ChartMode>('price');
   const [showHistory, setShowHistory] = useState(false);
 
+  // Debug: Watch mode changes
+  useEffect(() => {
+    console.log('🎯 Mode state changed to:', mode);
+  }, [mode]);
+
   // Calculate price range (max/min) from OHLC data
   const priceRange = useMemo(() => {
     if (!data || data.length === 0) return { max: 0, min: 0 };
@@ -505,7 +510,10 @@ export function TradingChartPro({
         {/* Center: Price/MCap Toggle */}
         <div className="flex gap-2">
           <button
-            onClick={() => setMode('price')}
+            onClick={() => {
+              console.log('🔘 Price button clicked');
+              setMode('price');
+            }}
             className={`px-3 py-1.5 text-xs font-medium transition-colors ${
               mode === 'price'
                 ? 'text-white border-b-2 border-[#3b82f6]'
@@ -515,7 +523,11 @@ export function TradingChartPro({
             Price
           </button>
           <button
-            onClick={() => setMode('mcap')}
+            onClick={() => {
+              console.log('🔘 MCap button clicked - Current mode:', mode, 'Will set to: mcap');
+              setMode('mcap');
+              console.log('🔘 After setMode - mode:', mode);
+            }}
             className={`px-3 py-1.5 text-xs font-medium transition-colors ${
               mode === 'mcap'
                 ? 'text-white border-b-2 border-[#3b82f6]'
