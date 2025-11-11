@@ -96,6 +96,8 @@ interface DEXScreenerResponse {
  */
 export async function getPoolAddressForToken(tokenAddress: string): Promise<string | null> {
   try {
+    console.log(`[DEXScreener] 🔍 Looking up pool for token: ${tokenAddress}`);
+
     const response = await fetch(
       `https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`,
       {
@@ -106,31 +108,34 @@ export async function getPoolAddressForToken(tokenAddress: string): Promise<stri
     );
 
     if (!response.ok) {
-      console.warn(`[DEXScreener] API error (${response.status})`);
+      console.error(`[DEXScreener] ❌ API error (${response.status})`);
       return null;
     }
 
     const data: DEXScreenerResponse = await response.json();
 
     if (!data.pairs || data.pairs.length === 0) {
-      console.warn(`[DEXScreener] No pairs found for token ${tokenAddress}`);
+      console.warn(`[DEXScreener] ⚠️ No pairs found for token ${tokenAddress}`);
       return null;
     }
+
+    console.log(`[DEXScreener] Found ${data.pairs.length} pairs for token ${tokenAddress}`);
 
     // Sort by liquidity (descending) and pick the best pool
-    const bestPair = data.pairs
-      .filter(pair => pair.liquidity?.usd && pair.liquidity.usd > 1000) // Min $1k liquidity
-      .sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0))[0];
+    const liquidPairs = data.pairs.filter(pair => pair.liquidity?.usd && pair.liquidity.usd > 100); // Lower threshold
 
-    if (!bestPair) {
-      console.warn(`[DEXScreener] No liquid pairs found for token ${tokenAddress}`);
+    if (liquidPairs.length === 0) {
+      console.warn(`[DEXScreener] ⚠️ No liquid pairs found for token ${tokenAddress} (min $100 liquidity)`);
+      console.log(`[DEXScreener] All pairs:`, data.pairs.map(p => ({ dex: p.dexId, liq: p.liquidity?.usd })));
       return null;
     }
 
-    console.log(`[DEXScreener] Found pool ${bestPair.pairAddress} for token ${tokenAddress} (${bestPair.dexId}, $${bestPair.liquidity?.usd?.toFixed(0)} liquidity)`);
+    const bestPair = liquidPairs.sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0))[0];
+
+    console.log(`[DEXScreener] ✅ Found pool ${bestPair.pairAddress} for token ${tokenAddress} (${bestPair.dexId}, $${bestPair.liquidity?.usd?.toFixed(0)} liquidity)`);
     return bestPair.pairAddress;
   } catch (error) {
-    console.error('[DEXScreener] Error fetching pool address:', error);
+    console.error('[DEXScreener] ❌ Error fetching pool address:', error);
     return null;
   }
 }
