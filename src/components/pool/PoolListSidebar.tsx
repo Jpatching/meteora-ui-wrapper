@@ -17,7 +17,7 @@ export function PoolListSidebar({ currentPool, network }: PoolListSidebarProps) 
   const router = useRouter();
   const [filter, setFilter] = useState<FilterType>('all');
   const [showAll, setShowAll] = useState(false);
-  const { pools, loading } = useRelatedPools({ currentPool, network, limit: 20 });
+  const { pools, loading } = useRelatedPools({ currentPool, network, limit: 100 });
 
   // Filter pools by protocol
   const filteredPools = pools.filter((pool) => {
@@ -28,9 +28,9 @@ export function PoolListSidebar({ currentPool, network }: PoolListSidebarProps) 
     return true;
   });
 
-  // Limit to 3 pools by default (charting.ag style)
-  const displayPools = showAll ? filteredPools : filteredPools.slice(0, 3);
-  const hasMore = filteredPools.length > 3;
+  // Limit to 5 pools by default, show all on expand
+  const displayPools = showAll ? filteredPools : filteredPools.slice(0, 5);
+  const hasMore = filteredPools.length > 5;
 
   const formatNumber = (num: number) => {
     if (num >= 1_000_000) return `$${(num / 1_000_000).toFixed(2)}M`;
