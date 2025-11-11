@@ -178,13 +178,13 @@ export function useRelatedPools({
 
         console.log(`✅ After filtering: ${related.length} related pools found`);
 
-        // Sort: Current pool FIRST, then by TVL descending
+        // Sort: Current pool FIRST, then by 24h volume (most active pools)
         related.sort((a: Pool, b: Pool) => {
           // Current pool always comes first
           if (a.id === currentPool.id) return -1;
           if (b.id === currentPool.id) return 1;
-          // Others sorted by liquidity
-          return (b.baseAsset.liquidity || 0) - (a.baseAsset.liquidity || 0);
+          // Others sorted by 24h volume (most active/traded pools first)
+          return (b.volume24h || 0) - (a.volume24h || 0);
         });
 
         // Limit results (current pool + top N others)
