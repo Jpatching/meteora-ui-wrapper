@@ -308,119 +308,119 @@ export default function TokenPage({ params }: TokenPageProps) {
           </div>
 
           {/* RIGHT: Metrics Box (Charting.ag Style - Centered above chart) */}
-          <div className="flex-1 bg-gray-800/30 rounded-lg px-6 py-3 border border-gray-700/30 flex items-start gap-6">
+          <div className="flex-1 bg-gray-800/30 rounded-lg px-8 py-3 border border-gray-700/30 flex items-start justify-between">
             {/* Price Changes */}
             <div>
-              <div className="text-[10px] text-gray-400 mb-1.5">Price Changes</div>
-              <div className="flex items-center gap-3">
+              <div className="text-xs text-gray-400 mb-2">Price Changes</div>
+              <div className="flex items-center gap-4">
                 <div className="text-center">
-                  <div className="text-[9px] text-gray-500 mb-0.5">5M</div>
-                  <div className="text-xs font-semibold text-success">+0.1%</div>
+                  <div className="text-[10px] text-gray-500 mb-0.5">5M</div>
+                  <div className="text-sm font-semibold text-success">+0.1%</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-[9px] text-gray-500 mb-0.5">1H</div>
-                  <div className="text-xs font-semibold text-success">+2.5%</div>
+                  <div className="text-[10px] text-gray-500 mb-0.5">1H</div>
+                  <div className="text-sm font-semibold text-success">+2.5%</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-[9px] text-gray-500 mb-0.5">6H</div>
-                  <div className="text-xs font-semibold text-success">+2.2%</div>
+                  <div className="text-[10px] text-gray-500 mb-0.5">6H</div>
+                  <div className="text-sm font-semibold text-success">+2.2%</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-[9px] text-gray-500 mb-0.5">24H</div>
-                  <div className="text-xs font-semibold text-error">-7.8%</div>
+                  <div className="text-[10px] text-gray-500 mb-0.5">24H</div>
+                  <div className="text-sm font-semibold text-error">-7.8%</div>
                 </div>
               </div>
             </div>
 
             {/* Volume Changes */}
             <div>
-              <div className="text-[10px] text-gray-400 mb-1.5">Volume Changes</div>
-              <div className="flex items-center gap-3">
+              <div className="text-xs text-gray-400 mb-2">Volume Changes</div>
+              <div className="flex items-center gap-4">
                 <div className="text-center">
-                  <div className="text-[9px] text-gray-500 mb-0.5">5M</div>
-                  <div className="text-xs font-semibold text-error">-0.3%</div>
+                  <div className="text-[10px] text-gray-500 mb-0.5">5M</div>
+                  <div className="text-sm font-semibold text-error">-0.3%</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-[9px] text-gray-500 mb-0.5">1H</div>
-                  <div className="text-xs font-semibold text-success">+82.6%</div>
+                  <div className="text-[10px] text-gray-500 mb-0.5">1H</div>
+                  <div className="text-sm font-semibold text-success">+82.6%</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-[9px] text-gray-500 mb-0.5">6H</div>
-                  <div className="text-xs font-semibold text-error">-11.1%</div>
+                  <div className="text-[10px] text-gray-500 mb-0.5">6H</div>
+                  <div className="text-sm font-semibold text-error">-11.1%</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-[9px] text-gray-500 mb-0.5">24H</div>
-                  <div className="text-xs font-semibold text-error">-40.7%</div>
+                  <div className="text-[10px] text-gray-500 mb-0.5">24H</div>
+                  <div className="text-sm font-semibold text-error">-40.7%</div>
                 </div>
               </div>
             </div>
 
             {/* Key Metrics - 11 Columns (Charting.ag Complete) */}
             <div>
-              <div className="text-[10px] text-gray-400 mb-1.5">Key Metrics</div>
-              <div className="flex items-center gap-4">
+              <div className="text-xs text-gray-400 mb-2">Key Metrics</div>
+              <div className="flex items-center gap-5">
                 {/* Price */}
                 <div className="text-center">
-                  <div className="text-[9px] text-gray-500 mb-0.5">Price</div>
-                  <div className="text-xs font-semibold text-white">${(pool?.baseAsset.usdPrice || 0).toFixed(4)}</div>
+                  <div className="text-[10px] text-gray-500 mb-0.5">Price</div>
+                  <div className="text-sm font-semibold text-white">${(pool?.baseAsset.usdPrice || 0).toFixed(4)}</div>
                 </div>
                 {/* 24h Vol */}
                 <div className="text-center">
-                  <div className="text-[9px] text-gray-500 mb-0.5">24h Vol</div>
-                  <div className="text-xs font-semibold text-white">
+                  <div className="text-[10px] text-gray-500 mb-0.5">24h Vol</div>
+                  <div className="text-sm font-semibold text-white">
                     ${((pool?.volume24h || 0) / 1_000_000).toFixed(2)}M
                   </div>
                 </div>
                 {/* MCap */}
                 <div className="text-center">
-                  <div className="text-[9px] text-gray-500 mb-0.5">MCap</div>
-                  <div className="text-xs font-semibold text-white">
+                  <div className="text-[10px] text-gray-500 mb-0.5">MCap</div>
+                  <div className="text-sm font-semibold text-white">
                     ${((pool?.baseAsset.mcap || 0) / 1_000_000).toFixed(2)}M
                   </div>
                 </div>
                 {/* FDV */}
                 <div className="text-center">
-                  <div className="text-[9px] text-gray-500 mb-0.5">FDV</div>
-                  <div className="text-xs font-semibold text-white">
+                  <div className="text-[10px] text-gray-500 mb-0.5">FDV</div>
+                  <div className="text-sm font-semibold text-white">
                     ${((pool?.baseAsset.fdv || 0) / 1_000_000).toFixed(2)}M
                   </div>
                 </div>
                 {/* Liquidity */}
                 <div className="text-center">
-                  <div className="text-[9px] text-gray-500 mb-0.5">Liquidity</div>
-                  <div className="text-xs font-semibold text-white">
+                  <div className="text-[10px] text-gray-500 mb-0.5">Liquidity</div>
+                  <div className="text-sm font-semibold text-white">
                     ${((pool?.baseAsset.liquidity || 0) / 1_000_000).toFixed(2)}M
                   </div>
                 </div>
                 {/* Holders */}
                 <div className="text-center">
-                  <div className="text-[9px] text-gray-500 mb-0.5">Holders</div>
-                  <div className="text-xs font-semibold text-white">--</div>
+                  <div className="text-[10px] text-gray-500 mb-0.5">Holders</div>
+                  <div className="text-sm font-semibold text-white">--</div>
                 </div>
                 {/* Top 10 H. */}
                 <div className="text-center">
-                  <div className="text-[9px] text-gray-500 mb-0.5">Top10 H.</div>
-                  <div className="text-xs font-semibold text-white">--</div>
+                  <div className="text-[10px] text-gray-500 mb-0.5">Top10 H.</div>
+                  <div className="text-sm font-semibold text-white">--</div>
                 </div>
                 {/* Dev H. */}
                 <div className="text-center">
-                  <div className="text-[9px] text-gray-500 mb-0.5">Dev H.</div>
-                  <div className="text-xs font-semibold text-white">--</div>
+                  <div className="text-[10px] text-gray-500 mb-0.5">Dev H.</div>
+                  <div className="text-sm font-semibold text-white">--</div>
                 </div>
                 {/* Mint */}
                 <div className="text-center">
-                  <div className="text-[9px] text-gray-500 mb-0.5">Mint</div>
-                  <div className="text-xs font-semibold text-success">No</div>
+                  <div className="text-[10px] text-gray-500 mb-0.5">Mint</div>
+                  <div className="text-sm font-semibold text-success">No</div>
                 </div>
                 {/* Freeze */}
                 <div className="text-center">
-                  <div className="text-[9px] text-gray-500 mb-0.5">Freeze</div>
-                  <div className="text-xs font-semibold text-success">No</div>
+                  <div className="text-[10px] text-gray-500 mb-0.5">Freeze</div>
+                  <div className="text-sm font-semibold text-success">No</div>
                 </div>
                 {/* Score */}
                 <div className="text-center">
-                  <div className="text-[9px] text-gray-500 mb-0.5">Score</div>
-                  <div className="text-xs font-semibold text-success">--</div>
+                  <div className="text-[10px] text-gray-500 mb-0.5">Score</div>
+                  <div className="text-sm font-semibold text-success">--</div>
                 </div>
               </div>
             </div>
