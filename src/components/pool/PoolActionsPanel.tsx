@@ -47,7 +47,7 @@ export function PoolActionsPanel({
   ];
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="h-full flex flex-col bg-gray-800/30">
       {/* Tab Header - Clean, no outer border */}
       <div className="border-b border-border-light bg-background-secondary/20">
         <div className="grid grid-cols-4">
