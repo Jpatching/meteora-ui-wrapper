@@ -180,6 +180,9 @@ export type Pool = {
   volume24h: number | undefined;
   isUnreliable: boolean | undefined;
   updatedAt: string;
+  apr?: number | undefined;
+  binStep?: number | undefined;
+  baseFee?: number | undefined;
 
   baseAsset: {
     id: string;

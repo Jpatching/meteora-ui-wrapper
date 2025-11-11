@@ -283,11 +283,10 @@ export function transformBackendPoolToPool(
 
     streamed: false,
 
-    // Add custom metadata (not in Pool type but needed by components)
-    // @ts-ignore - Adding custom properties for component use
+    // Meteora-specific fields
     binStep,
-    // @ts-ignore
-    baseFee,
+    baseFee: baseFee / 100, // Convert percentage to decimal (0.2% -> 0.002)
+    apr: backendPool.apr,
   };
 }
 

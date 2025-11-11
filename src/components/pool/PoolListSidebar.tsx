@@ -99,10 +99,10 @@ export function PoolListSidebar({ currentPool, network }: PoolListSidebarProps) 
               const isActive = pool.id === currentPool.id;
 
               // Calculate 24h fees (volume * fee)
-              const fee24h = (pool.volume24h || 0) * ((pool as any).baseFee || 0.002);
-              const feePercentage = ((pool as any).baseFee || 0.002) * 100;
-              const binStep = (pool as any).binStep || 0;
-              const apr = (pool as any).apr || 0;
+              const fee24h = (pool.volume24h || 0) * (pool.baseFee || 0.002);
+              const feePercentage = (pool.baseFee || 0.002) * 100;
+              const binStep = pool.binStep || 0;
+              const apr = (pool.apr || 0) * 100; // Convert decimal to percentage (0.0759 -> 7.59%)
 
               return (
                 <button
