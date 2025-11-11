@@ -58,27 +58,103 @@ export function useRelatedPools({
 
         const data = await response.json();
 
+        console.log(`📊 Backend returned ${data.data?.length || 0} pools for symbol "${baseTokenSymbol}"`, data);
+
         if (!data.success || !data.data) {
+          console.warn('⚠️ No data returned from backend search');
           setPools([]);
           setLoading(false);
           return;
         }
 
         // Transform backend pools to Pool format
-        const transformed = data.data.map((p: any) => transformBackendPoolToPool(p, p.protocol));
+        // Backend returns DBPool format directly from search API
+        const transformed = data.data.map((p: any) => {
+          // Backend search returns DBPool objects, need to convert to BackendDLMMPool/BackendDAMMPool first
+          const isDLMM = p.protocol === 'dlmm';
+
+          // Build BackendDLMMPool or BackendDAMMPool
+          let backendPool: any;
+          if (isDLMM) {
+            backendPool = {
+              address: p.pool_address,
+              name: p.pool_name,
+              bin_step: p.metadata?.bin_step || 0,
+              base_fee_percentage: p.metadata?.base_fee_percentage || '0',
+              liquidity: p.tvl?.toString() || '0',
+              trade_volume_24h: p.volume_24h || 0,
+              mint_x: p.token_a_mint,
+              mint_y: p.token_b_mint,
+              reserve_x: '0',
+              reserve_y: '0',
+              current_price: p.metadata?.current_price || 0,
+              apr: p.apr || 0,
+              apy: p.apr || 0,
+              fees_24h: p.fees_24h || 0,
+              token_a_symbol: p.token_a_symbol,
+              token_b_symbol: p.token_b_symbol,
+            };
+          } else {
+            backendPool = {
+              pool_address: p.pool_address,
+              pool_name: p.pool_name,
+              base_fee: p.metadata?.base_fee || 0.25,
+              tvl: p.tvl || 0,
+              volume24h: p.volume_24h || 0,
+              token_a_mint: p.token_a_mint,
+              token_b_mint: p.token_b_mint,
+              token_a_symbol: p.token_a_symbol || '',
+              token_b_symbol: p.token_b_symbol || '',
+              token_a_amount: 0,
+              token_b_amount: 0,
+              apr: p.apr || 0,
+              pool_type: p.metadata?.pool_type || 0,
+            };
+          }
+
+          return transformBackendPoolToPool(backendPool, p.protocol);
+        });
+        console.log(`🔄 Transformed ${transformed.length} pools`);
+
+        // Log first pool for debugging
+        if (transformed.length > 0) {
+          console.log('📋 First transformed pool sample:', {
+            id: transformed[0].id,
+            baseAsset: {
+              id: transformed[0].baseAsset.id,
+              symbol: transformed[0].baseAsset.symbol,
+            },
+            quoteAsset: {
+              id: transformed[0].quoteAsset?.id,
+              symbol: transformed[0].quoteAsset?.symbol,
+            },
+          });
+        }
 
         // Filter for pools that contain the EXACT SAME TOKEN MINT and are ACTIVE
         // Using mint address ensures 100% accuracy - no symbol collisions
-        const related = transformed.filter((pool: Pool) => {
+        console.log(`🔎 Filtering for pools containing token: ${baseTokenMint}`);
+        console.log(`   Current pool ID to skip: ${currentPool.id}`);
+
+        const related = transformed.filter((pool: Pool, index: number) => {
           // Skip the current pool itself
-          if (pool.id === currentPool.id) return false;
+          if (pool.id === currentPool.id) {
+            console.log(`⏭️  Pool ${index + 1}: ${pool.id} - Skipping (current pool)`);
+            return false;
+          }
 
           // Check if pool contains the exact token mint (as token_x OR token_y)
           const containsToken =
             pool.baseAsset.id === baseTokenMint ||
             pool.quoteAsset?.id === baseTokenMint;
 
-          if (!containsToken) return false;
+          if (!containsToken) {
+            console.log(`❌ Pool ${index + 1}: ${pool.id} (${pool.baseAsset.symbol}-${pool.quoteAsset?.symbol}) - Token mismatch`);
+            console.log(`   Base: ${pool.baseAsset.id}`);
+            console.log(`   Quote: ${pool.quoteAsset?.id}`);
+            console.log(`   Looking for: ${baseTokenMint}`);
+            return false;
+          }
 
           // Filter out dead/empty pools with no liquidity
           const hasLiquidity = (pool.baseAsset.liquidity || 0) > 0;
@@ -89,8 +165,16 @@ export function useRelatedPools({
           // Pool must have either liquidity OR volume to be considered active
           const isActive = hasLiquidity || hasVolume;
 
-          return isActive;
+          if (!isActive) {
+            console.log(`❌ Pool ${index + 1}: ${pool.id} (${pool.baseAsset.symbol}-${pool.quoteAsset?.symbol}) - Inactive (liquidity: ${pool.baseAsset.liquidity}, volume: ${pool.volume24h})`);
+            return false;
+          }
+
+          console.log(`✅ Pool ${index + 1}: ${pool.id} (${pool.baseAsset.symbol}-${pool.quoteAsset?.symbol}) - MATCH! (liquidity: ${pool.baseAsset.liquidity?.toFixed(2)}, volume: ${pool.volume24h?.toFixed(2)})`);
+          return true;
         });
+
+        console.log(`✅ After filtering: ${related.length} related pools found`);
 
         // Sort by TVL descending
         related.sort((a: Pool, b: Pool) => (b.baseAsset.liquidity || 0) - (a.baseAsset.liquidity || 0));
