@@ -98,37 +98,27 @@ export function PoolListSidebar({ currentPool, network }: PoolListSidebarProps) 
             {displayPools.map((pool) => {
               const isActive = pool.id === currentPool.id;
 
+              // Calculate 24h fees (volume * fee)
+              const fee24h = (pool.volume24h || 0) * ((pool as any).baseFee || 0.002);
+              const feePercentage = ((pool as any).baseFee || 0.002) * 100;
+              const binStep = (pool as any).binStep || 0;
+              const apr = (pool as any).apr || 0;
+
               return (
                 <button
                   key={pool.id}
-                  onClick={() => router.push(`/pool/${pool.id}`)}
-                  className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-background-secondary transition-colors border-l-2 ${
+                  onClick={() => router.push(`/solana/${pool.baseAsset.id}`)}
+                  className={`w-full px-4 py-3 hover:bg-background-secondary transition-colors border-l-2 ${
                     isActive
                       ? 'bg-background-secondary border-primary'
                       : 'border-transparent'
                   }`}
                 >
-                  {/* Token Icons */}
-                  <div className="flex items-center -space-x-1 flex-shrink-0">
-                    <TokenIcon
-                      src={pool.baseAsset.icon}
-                      symbol={pool.baseAsset.symbol}
-                      size="sm"
-                    />
-                    {pool.quoteAsset && (
-                      <TokenIcon
-                        src={pool.quoteAsset.icon}
-                        symbol={pool.quoteAsset.symbol}
-                        size="sm"
-                      />
-                    )}
-                  </div>
-
-                  {/* Pool Info */}
-                  <div className="flex-1 min-w-0 text-left">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-semibold text-white truncate">
-                        {pool.baseAsset.symbol}-{pool.quoteAsset?.symbol || 'USDC'}
+                  <div className="w-full">
+                    {/* Header: Pair + Badge */}
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-sm font-semibold text-white">
+                        {pool.baseAsset.symbol}-{pool.quoteAsset?.symbol || 'SOL'}
                       </span>
                       <span
                         className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
@@ -141,28 +131,38 @@ export function PoolListSidebar({ currentPool, network }: PoolListSidebarProps) 
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-3 text-xs text-gray-400">
-                      <span>TVL: {formatNumber(pool.baseAsset.liquidity || 0)}</span>
-                      <span>24h Vol: {formatNumber(pool.volume24h || 0)}</span>
+                    {/* Row 1: TVL | 24h Vol | 24h Fee */}
+                    <div className="grid grid-cols-3 gap-2 mb-2">
+                      <div>
+                        <div className="text-[10px] text-gray-500 mb-0.5">TVL</div>
+                        <div className="text-xs font-semibold text-white">{formatNumber(pool.baseAsset.liquidity || 0)}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-gray-500 mb-0.5">24h Vol</div>
+                        <div className="text-xs font-semibold text-white">{formatNumber(pool.volume24h || 0)}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-gray-500 mb-0.5">24h Fee</div>
+                        <div className="text-xs font-semibold text-white">{formatNumber(fee24h)}</div>
+                      </div>
+                    </div>
+
+                    {/* Row 2: Fee | BinStep | APR */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <div className="text-[10px] text-gray-500 mb-0.5">Fee</div>
+                        <div className="text-xs font-semibold text-white">{feePercentage.toFixed(2)}%</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-gray-500 mb-0.5">BinStep</div>
+                        <div className="text-xs font-semibold text-white">{binStep}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-gray-500 mb-0.5">APR</div>
+                        <div className="text-xs font-semibold text-success">{apr.toFixed(2)}%</div>
+                      </div>
                     </div>
                   </div>
-
-                  {/* Arrow */}
-                  {!isActive && (
-                    <svg
-                      className="w-4 h-4 text-gray-600 flex-shrink-0"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  )}
                 </button>
               );
             })}
