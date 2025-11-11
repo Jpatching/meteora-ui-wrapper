@@ -385,7 +385,7 @@ export function AddLiquidityPanel({
           <div className="flex items-center justify-between">
             <label className="text-xs font-medium text-gray-300">{tokenYSymbol}</label>
             <span className="text-xs text-gray-500">
-              Balance: {tokenYBalance ? tokenYBalance.uiAmount.toFixed(4) : '0.00'}
+              Balance: {tokenYBalance?.uiAmount?.toFixed(4) ?? '0.00'}
             </span>
           </div>
           <div className="relative">
