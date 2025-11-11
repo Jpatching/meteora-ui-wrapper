@@ -684,7 +684,7 @@ export default function TokenPage({ params }: TokenPageProps) {
                 binStep={selectedPool?.binStep || pool?.binStep || 20}
                 baseFee={selectedPool?.baseFee || pool?.baseFee || 0.2}
                 poolType={selectedPool?.type || pool?.type || 'unknown'}
-                pool={selectedPool || pool}
+                pool={selectedPool || pool || undefined}
               />
             </div>
           </div>
