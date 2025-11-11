@@ -16,7 +16,7 @@ type FilterType = 'all' | 'dlmm' | 'dyn2' | 'pump';
 export function PoolListSidebar({ currentPool, network }: PoolListSidebarProps) {
   const router = useRouter();
   const [filter, setFilter] = useState<FilterType>('all');
-  const [showAll, setShowAll] = useState(false);
+  const [displayCount, setDisplayCount] = useState(5); // Track how many to show
   const { pools, loading } = useRelatedPools({ currentPool, network, limit: 100 });
 
   // Filter pools by protocol
@@ -28,9 +28,20 @@ export function PoolListSidebar({ currentPool, network }: PoolListSidebarProps) 
     return true;
   });
 
-  // Limit to 5 pools by default, show all on expand
-  const displayPools = showAll ? filteredPools : filteredPools.slice(0, 5);
-  const hasMore = filteredPools.length > 5;
+  // Show pools up to displayCount (pagination style)
+  const displayPools = filteredPools.slice(0, displayCount);
+  const hasMore = filteredPools.length > displayCount;
+
+  // Reset displayCount when filter changes
+  const handleFilterChange = (newFilter: FilterType) => {
+    setFilter(newFilter);
+    setDisplayCount(5); // Reset to initial count
+  };
+
+  // Load 5 more pools
+  const loadMore = () => {
+    setDisplayCount(prev => prev + 5);
+  };
 
   const formatNumber = (num: number | undefined) => {
     if (!num || isNaN(num)) return '$0';
@@ -59,7 +70,7 @@ export function PoolListSidebar({ currentPool, network }: PoolListSidebarProps) 
           ].map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setFilter(tab.key)}
+              onClick={() => handleFilterChange(tab.key)}
               className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
                 filter === tab.key
                   ? 'bg-primary text-white'
@@ -156,17 +167,17 @@ export function PoolListSidebar({ currentPool, network }: PoolListSidebarProps) 
               );
             })}
 
-            {/* View More / View Less Button (Charting.ag style) */}
+            {/* Load More Button (Pagination style) */}
             {hasMore && (
               <button
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  setShowAll(!showAll);
+                  loadMore();
                 }}
                 className="w-full px-4 py-3 text-sm font-medium text-primary hover:bg-background-secondary transition-colors border-t border-border-light"
               >
-                {showAll ? '← View Less' : `View All ${filteredPools.length} Pools →`}
+                Load More ({filteredPools.length - displayCount} remaining) →
               </button>
             )}
           </div>
