@@ -71,9 +71,6 @@ export function ChartDetailsPanel({ pool }: ChartDetailsPanelProps) {
         })) || []
     : [];
 
-  const priceChange = pool.baseAsset.stats24h?.priceChange || 0;
-  const isPositive = priceChange >= 0;
-
   // Handle add liquidity from chart overlay
   const handleAddLiquidity = (minPrice: number, maxPrice: number, amount: number) => {
     if (!publicKey) {
@@ -106,67 +103,6 @@ export function ChartDetailsPanel({ pool }: ChartDetailsPanelProps) {
 
   return (
     <div className="h-full flex flex-col overflow-hidden relative">
-      {/* Token Header - Very Compact */}
-      <div className="px-4 py-3 border-b border-border-light">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            {pool.baseAsset.icon && (
-              <img
-                src={pool.baseAsset.icon}
-                alt={pool.baseAsset.symbol}
-                className="w-8 h-8 rounded-full"
-              />
-            )}
-            <div>
-              <div className="flex items-center gap-1.5">
-                <h2 className="text-lg font-bold text-foreground">
-                  {pool.baseAsset.symbol}
-                </h2>
-                <span className="text-xs text-foreground-muted">/ SOL</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Price */}
-          <div className="text-right">
-            <div className="text-lg font-bold text-foreground font-mono">
-              {pool.baseAsset.usdPrice ? formatUSD(pool.baseAsset.usdPrice, 6) : '$0.00'}
-            </div>
-            <div className={`text-xs font-semibold ${isPositive ? 'text-success' : 'text-error'}`}>
-              {isPositive ? '+' : ''}{priceChange.toFixed(2)}% (24h)
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Stats Row - Compact */}
-        <div className="grid grid-cols-4 gap-2 text-xs">
-          <div>
-            <div className="text-foreground-muted">MCap</div>
-            <div className="font-semibold font-mono text-foreground">
-              {pool.baseAsset.mcap ? formatUSD(pool.baseAsset.mcap) : 'N/A'}
-            </div>
-          </div>
-          <div>
-            <div className="text-foreground-muted">24h Vol</div>
-            <div className="font-semibold font-mono text-foreground">
-              {pool.volume24h ? formatUSD(pool.volume24h) : 'N/A'}
-            </div>
-          </div>
-          <div>
-            <div className="text-foreground-muted">Liquidity</div>
-            <div className="font-semibold font-mono text-foreground">
-              {pool.baseAsset.liquidity ? formatUSD(pool.baseAsset.liquidity) : 'N/A'}
-            </div>
-          </div>
-          <div>
-            <div className="text-foreground-muted">Holders</div>
-            <div className="font-semibold font-mono text-foreground">
-              {pool.baseAsset.holderCount ? formatNumber(pool.baseAsset.holderCount) : 'N/A'}
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Chart Section - Full Height */}
       <div className="flex-1 overflow-hidden relative min-h-0">
         {/* Liquidity Overlay Toggle Button */}
