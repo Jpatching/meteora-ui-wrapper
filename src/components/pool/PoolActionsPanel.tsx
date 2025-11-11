@@ -9,8 +9,9 @@ import { useState } from 'react';
 import { AddLiquidityPanel } from '@/components/liquidity/AddLiquidityPanel';
 import { DAMMv2AddLiquidityPanel } from '@/components/liquidity/DAMMv2AddLiquidityPanel';
 import { RemoveLiquidityPanel } from '@/components/liquidity/RemoveLiquidityPanel';
-import { SwapPanel } from '@/components/swap/SwapPanel';
 import { ClaimFeesPanel } from '@/components/liquidity/ClaimFeesPanel';
+import { LiquidityDistributionPanel } from '@/components/pool/LiquidityDistributionPanel';
+import { Pool } from '@/lib/jupiter/types';
 
 interface PoolActionsPanelProps {
   poolAddress: string;
@@ -22,9 +23,10 @@ interface PoolActionsPanelProps {
   binStep: number;
   baseFee?: number;
   poolType: string;
+  pool?: Pool; // Full pool object for liquidity distribution
 }
 
-type TabType = 'add' | 'remove' | 'swap' | 'claim';
+type TabType = 'add' | 'remove' | 'liquidity' | 'claim';
 
 export function PoolActionsPanel({
   poolAddress,
@@ -36,14 +38,15 @@ export function PoolActionsPanel({
   binStep,
   baseFee,
   poolType,
+  pool,
 }: PoolActionsPanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>('add');
 
   const tabs: { id: TabType; label: string; icon: string }[] = [
-    { id: 'add', label: 'Add Liquidity', icon: '➕' },
+    { id: 'add', label: 'Add', icon: '➕' },
     { id: 'remove', label: 'Remove', icon: '➖' },
-    { id: 'swap', label: 'Swap', icon: '🔄' },
-    { id: 'claim', label: 'Claim Fees', icon: '💰' },
+    { id: 'liquidity', label: 'Liquidity', icon: '📊' },
+    { id: 'claim', label: 'Claim', icon: '💰' },
   ];
 
   return (
@@ -128,15 +131,18 @@ export function PoolActionsPanel({
           </div>
         )}
 
-        {activeTab === 'swap' && (
-          <SwapPanel
-            poolAddress={poolAddress}
-            tokenXMint={tokenXMint}
-            tokenYMint={tokenYMint}
-            tokenXSymbol={tokenXSymbol}
-            tokenYSymbol={tokenYSymbol}
-            poolType={poolType}
-          />
+        {activeTab === 'liquidity' && pool && (
+          <LiquidityDistributionPanel pool={pool} />
+        )}
+
+        {activeTab === 'liquidity' && !pool && (
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">📊</div>
+            <h3 className="text-lg font-semibold text-white mb-2">Loading</h3>
+            <p className="text-sm text-gray-400">
+              Fetching liquidity distribution...
+            </p>
+          </div>
         )}
 
         {activeTab === 'claim' && poolType === 'dlmm' && (

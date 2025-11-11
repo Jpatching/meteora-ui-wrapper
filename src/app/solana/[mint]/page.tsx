@@ -684,15 +684,9 @@ export default function TokenPage({ params }: TokenPageProps) {
                 binStep={selectedPool?.binStep || pool?.binStep || 20}
                 baseFee={selectedPool?.baseFee || pool?.baseFee || 0.2}
                 poolType={selectedPool?.type || pool?.type || 'unknown'}
+                pool={selectedPool || pool}
               />
             </div>
-
-            {/* Liquidity Distribution - Only if Meteora pool exists */}
-            {hasMeteoraPool && (selectedPool || pool) && (
-              <div className="flex-shrink-0 mt-2">
-                <LiquidityDistributionPanel pool={selectedPool || pool} />
-              </div>
-            )}
           </div>
         </div>
       </div>
