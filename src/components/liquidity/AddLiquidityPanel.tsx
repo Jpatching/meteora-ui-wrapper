@@ -287,6 +287,58 @@ export function AddLiquidityPanel({
         </div>
       </div>
 
+      {/* Token Input - charting.ag style (boxed, comes RIGHT after header) */}
+      <div className="bg-background-secondary/20 border border-border-light rounded-lg p-3">
+        <div className="flex items-center gap-2">
+          <TokenIcon src={tokenYIcon} symbol={tokenYSymbol} size="sm" />
+          <span className="text-sm font-medium text-white mr-auto">{tokenYSymbol}</span>
+          <div className="text-right">
+            <input
+              type="number"
+              value={tokenXAmount}
+              onChange={(e) => setTokenXAmount(e.target.value)}
+              disabled={loading}
+              placeholder="0.00"
+              step="0.01"
+              min="0"
+              className="w-24 px-2 py-1 bg-transparent text-white text-right text-base font-medium focus:outline-none"
+            />
+            <div className="text-xs text-gray-500">$0.00</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Balance + 50% + Max - OUTSIDE the box, separate line */}
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-gray-400">
+          Balance: {tokenYBalance ? tokenYBalance.uiAmount.toFixed(2) : '0'} {tokenYSymbol}
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              if (tokenYBalance) {
+                setTokenXAmount((tokenYBalance.uiAmount * 0.5).toFixed(6));
+              }
+            }}
+            disabled={loading || !tokenYBalance}
+            className="text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+          >
+            50%
+          </button>
+          <button
+            onClick={() => {
+              if (tokenYBalance) {
+                setTokenXAmount(tokenYBalance.uiAmount.toFixed(6));
+              }
+            }}
+            disabled={loading || !tokenYBalance}
+            className="text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+          >
+            Max
+          </button>
+        </div>
+      </div>
+
       {/* Strategy Selector - Clean, no box */}
       <div>
         <h3 className="text-sm font-medium text-white mb-2">Strategy</h3>
@@ -326,59 +378,6 @@ export function AddLiquidityPanel({
           poolAddress={poolAddress}
           binStep={binStep}
         />
-      </div>
-
-      {/* Token Input - charting.ag style (shows quote token = tokenY) */}
-      <div className="bg-background-secondary/20 border border-border-light rounded-lg p-3">
-        {/* Token Icon + Input */}
-        <div className="flex items-center gap-2 mb-2">
-          <TokenIcon src={tokenYIcon} symbol={tokenYSymbol} size="sm" />
-          <span className="text-sm font-medium text-white mr-auto">{tokenYSymbol}</span>
-          <div className="text-right">
-            <input
-              type="number"
-              value={tokenXAmount}
-              onChange={(e) => setTokenXAmount(e.target.value)}
-              disabled={loading}
-              placeholder="0.00"
-              step="0.01"
-              min="0"
-              className="w-24 px-2 py-1 bg-transparent text-white text-right text-base font-medium focus:outline-none"
-            />
-            <div className="text-xs text-gray-500">$0.00</div>
-          </div>
-        </div>
-
-        {/* Balance + 50% + Max */}
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-gray-400">
-            Balance: {tokenYBalance ? tokenYBalance.uiAmount.toFixed(2) : '0'} {tokenYSymbol}
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                if (tokenYBalance) {
-                  setTokenXAmount((tokenYBalance.uiAmount * 0.5).toFixed(6));
-                }
-              }}
-              disabled={loading || !tokenYBalance}
-              className="text-gray-400 hover:text-white transition-colors disabled:opacity-50"
-            >
-              50%
-            </button>
-            <button
-              onClick={() => {
-                if (tokenYBalance) {
-                  setTokenXAmount(tokenYBalance.uiAmount.toFixed(6));
-                }
-              }}
-              disabled={loading || !tokenYBalance}
-              className="text-gray-400 hover:text-white transition-colors disabled:opacity-50"
-            >
-              Max
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* Token Y Amount - Only for 50:50 (hidden for now, can add later) */}
