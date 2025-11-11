@@ -243,109 +243,91 @@ export default function TokenPage({ params }: TokenPageProps) {
             </div>
           </div>
 
-          {/* Token Header with Metadata & Social Links */}
-          <div className="px-4 py-2 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              {/* Larger Token Icons */}
-              <div className="flex items-center -space-x-2">
-                {displayToken.icon && (
-                  <img src={displayToken.icon} alt={displayToken.symbol} className="w-12 h-12 rounded-full border-2 border-background" />
-                )}
-                {pool?.quoteAsset?.icon && (
-                  <img src={pool.quoteAsset.icon} alt={pool.quoteAsset.symbol} className="w-12 h-12 rounded-full border-2 border-background" />
-                )}
-              </div>
+          {/* Token Header - Single Row (Charting.ag Style) */}
+          <div className="px-4 py-2 flex items-center gap-3">
+            {/* Token Icon - Single main icon */}
+            {displayToken.icon && (
+              <img src={displayToken.icon} alt={displayToken.symbol} className="w-10 h-10 rounded-full" />
+            )}
 
-              {/* Token Name + Copyable CA */}
-              <div className="flex flex-col gap-0.5">
-                <h1 className="text-xl font-bold text-white">{displayToken.symbol}</h1>
-                <button
-                  onClick={() => {
-                    const address = displayToken.id || displayToken.address;
-                    navigator.clipboard.writeText(address);
-                    toast.success('Contract address copied!', {
-                      duration: 2000,
-                      style: {
-                        background: '#1f2937',
-                        color: '#fff',
-                        border: '1px solid #374151',
-                      },
-                    });
-                  }}
-                  className="text-xs text-gray-400 hover:text-gray-300 transition-colors flex items-center gap-1 group"
-                  title="Click to copy address"
+            {/* Token Symbol - Large, Bold */}
+            <h1 className="text-xl font-bold text-white">{displayToken.symbol}</h1>
+
+            {/* Token Name - Gray, Smaller */}
+            {displayToken.name && (
+              <span className="text-sm text-gray-400">{displayToken.name}</span>
+            )}
+
+            {/* Dropdown Icon (Optional - for future use) */}
+            <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+
+            {/* Contract Address - Copyable */}
+            <button
+              onClick={() => {
+                const address = displayToken.id || displayToken.address;
+                navigator.clipboard.writeText(address);
+                toast.success('Contract address copied!', {
+                  duration: 2000,
+                  style: {
+                    background: '#1f2937',
+                    color: '#fff',
+                    border: '1px solid #374151',
+                  },
+                });
+              }}
+              className="text-sm text-gray-400 hover:text-gray-300 transition-colors flex items-center gap-1.5 group"
+              title="Click to copy address"
+            >
+              <span className="font-mono">{(displayToken.id || displayToken.address).slice(0, 6)}...{(displayToken.id || displayToken.address).slice(-4)}</span>
+              <svg className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </button>
+
+            {/* Social Icons - No Box, Just Icons */}
+            <div className="flex items-center gap-2 ml-auto">
+              {displayToken.website && (
+                <a
+                  href={displayToken.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-400 hover:text-gray-300 transition-colors"
+                  title="Website"
                 >
-                  <span className="font-mono">{(displayToken.id || displayToken.address).slice(0, 4)}...{(displayToken.id || displayToken.address).slice(-4)}</span>
-                  <svg className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
                   </svg>
-                </button>
-              </div>
-
-              {/* Protocol Badge with Meteora Logo (only if pool exists) */}
-              {pool?.type && (
-                <div className="flex items-center gap-1.5 px-2 py-1 rounded-full border border-orange-500 bg-transparent">
-                  {/* Real Meteora Logo */}
-                  <img src="/meteora.png" alt="Meteora" className="w-4 h-4" />
-                  {/* Protocol Type */}
-                  <span className="text-xs font-bold uppercase text-white">
-                    {pool.type === 'dlmm' ? 'DLMM' : 'DYN2'}
-                  </span>
-                </div>
+                </a>
               )}
-
-              {!hasMeteoraPool && (
-                <div className="px-3 py-1.5 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
-                  <span className="text-xs text-yellow-400">⚠️ No Meteora Pools</span>
-                </div>
+              {displayToken.twitter && (
+                <a
+                  href={displayToken.twitter}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-400 hover:text-gray-300 transition-colors"
+                  title="Twitter"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                  </svg>
+                </a>
+              )}
+              {displayToken.telegram && (
+                <a
+                  href={displayToken.telegram}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-400 hover:text-gray-300 transition-colors"
+                  title="Telegram"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z" />
+                  </svg>
+                </a>
               )}
             </div>
-
-            {/* Social Links Tile */}
-            {(displayToken.twitter || displayToken.telegram || displayToken.website) && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-background-secondary/30 rounded-lg border border-border-light">
-                <span className="text-[10px] text-gray-400 mr-1">Links:</span>
-                {displayToken.twitter && (
-                  <a
-                    href={displayToken.twitter}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-1 hover:bg-gray-700/50 rounded transition-colors"
-                    title="Twitter"
-                  >
-                    <svg className="w-4 h-4 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                    </svg>
-                  </a>
-                )}
-                {displayToken.telegram && (
-                  <a
-                    href={displayToken.telegram}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-1 hover:bg-gray-700/50 rounded transition-colors"
-                    title="Telegram"
-                  >
-                    <svg className="w-4 h-4 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z" />
-                    </svg>
-                  </a>
-                )}
-                {displayToken.website && (
-                  <a
-                    href={displayToken.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-1 hover:bg-gray-700/50 rounded transition-colors"
-                    title="Website"
-                  >
-                    <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                    </svg>
-                  </a>
-                )}
-              </div>
-            )}
           </div>
 
           {/* Price Changes & Volume Changes (Charting.ag Style) */}
