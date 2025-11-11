@@ -229,9 +229,9 @@ export function TradingChartPro({
 
     volumeSeriesRef.current = volumeSeries;
 
-    // Set data
+    // Set data (time must be in seconds for lightweight-charts)
     const candleData = data.map(d => ({
-      time: d.time,
+      time: d.time as any,  // Cast to any to handle time type mismatch
       open: d.open,
       high: d.high,
       low: d.low,
@@ -239,7 +239,7 @@ export function TradingChartPro({
     }));
 
     const volumeData = data.map(d => ({
-      time: d.time,
+      time: d.time as any,  // Cast to any to handle time type mismatch
       value: d.volume,
       color: d.close >= d.open ? CHART_COLORS.volumeUp : CHART_COLORS.volumeDown,
     }));
@@ -272,13 +272,13 @@ export function TradingChartPro({
 
       // Create horizontal lines for max/min
       const maxData = [
-        { time: data[0].time, value: priceRange.max },
-        { time: data[data.length - 1].time, value: priceRange.max },
+        { time: data[0].time as any, value: priceRange.max },
+        { time: data[data.length - 1].time as any, value: priceRange.max },
       ];
 
       const minData = [
-        { time: data[0].time, value: priceRange.min },
-        { time: data[data.length - 1].time, value: priceRange.min },
+        { time: data[0].time as any, value: priceRange.min },
+        { time: data[data.length - 1].time as any, value: priceRange.min },
       ];
 
       maxLine.setData(maxData);
@@ -338,7 +338,7 @@ export function TradingChartPro({
 
       // Set data for shaded area (fill between max and min)
       const areaData = data.map(d => ({
-        time: d.time,
+        time: d.time as any,
         value: dlmmRange.max,  // Area series uses single value, we'll use CSS to fill down
       }));
 
@@ -346,13 +346,13 @@ export function TradingChartPro({
 
       // Set data for top and bottom horizontal lines
       const topLineData = [
-        { time: data[0].time, value: dlmmRange.max },
-        { time: data[data.length - 1].time, value: dlmmRange.max },
+        { time: data[0].time as any, value: dlmmRange.max },
+        { time: data[data.length - 1].time as any, value: dlmmRange.max },
       ];
 
       const bottomLineData = [
-        { time: data[0].time, value: dlmmRange.min },
-        { time: data[data.length - 1].time, value: dlmmRange.min },
+        { time: data[0].time as any, value: dlmmRange.min },
+        { time: data[data.length - 1].time as any, value: dlmmRange.min },
       ];
 
       dlmmRangeTop.setData(topLineData);
@@ -379,8 +379,8 @@ export function TradingChartPro({
       activeBinLineRef.current = activeBinLine;
 
       const activeBinData = [
-        { time: data[0].time, value: activeBinPrice },
-        { time: data[data.length - 1].time, value: activeBinPrice },
+        { time: data[0].time as any, value: activeBinPrice },
+        { time: data[data.length - 1].time as any, value: activeBinPrice },
       ];
 
       activeBinLine.setData(activeBinData);
@@ -421,13 +421,13 @@ export function TradingChartPro({
         });
 
         const minData = [
-          { time: data[0].time, value: range.minPrice },
-          { time: data[data.length - 1].time, value: range.minPrice },
+          { time: data[0].time as any, value: range.minPrice },
+          { time: data[data.length - 1].time as any, value: range.minPrice },
         ];
 
         const maxData = [
-          { time: data[0].time, value: range.maxPrice },
-          { time: data[data.length - 1].time, value: range.maxPrice },
+          { time: data[0].time as any, value: range.maxPrice },
+          { time: data[data.length - 1].time as any, value: range.maxPrice },
         ];
 
         minLine.setData(minData);
