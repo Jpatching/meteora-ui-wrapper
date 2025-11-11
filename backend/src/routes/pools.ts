@@ -7,6 +7,7 @@
 import { Router, Request, Response } from 'express';
 import { redis, getCached, setCached, CACHE_TTL, cacheKeys } from '../config/redis';
 import { syncAllPools, getPoolsByToken, getTopPools } from '../services/poolSyncService';
+import { syncNewPools } from '../services/realtimePoolService';
 import { db } from '../config/database';
 
 const router = Router();
@@ -244,6 +245,49 @@ router.post('/sync', async (req: Request, res: Response) => {
       });
   } catch (error: any) {
     console.error('❌ Error starting sync:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/pools/sync/incremental
+ * Trigger incremental sync for NEW pools only (last 5 minutes)
+ * Much faster than full sync - perfect for real-time updates
+ * Query params: ?minutes=5 (optional, default 5)
+ */
+router.post('/sync/incremental', async (req: Request, res: Response) => {
+  try {
+    const minutes = parseInt(req.query.minutes as string) || 5;
+
+    console.log(`⚡ Incremental sync triggered (last ${minutes} minutes)`);
+
+    // Run incremental sync (fast - only new pools)
+    const result = await syncNewPools(minutes);
+
+    // Clear caches if new pools were added
+    if (result.dlmm > 0 || result.damm > 0) {
+      try {
+        await redis.del(
+          cacheKeys.poolList('dlmm', 'mainnet-beta'),
+          cacheKeys.poolList('damm-v2', 'mainnet-beta')
+        );
+        console.log('✅ Cache cleared for new pools');
+      } catch (redisError) {
+        console.error('⚠️ Redis cache clear error (non-fatal):', redisError);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Incremental sync complete`,
+      newPools: {
+        dlmm: result.dlmm,
+        dammv2: result.damm,
+        total: result.dlmm + result.damm
+      }
+    });
+  } catch (error: any) {
+    console.error('❌ Error in incremental sync:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

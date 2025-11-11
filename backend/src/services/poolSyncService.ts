@@ -9,6 +9,7 @@ import { AmmImpl } from '@meteora-ag/dynamic-amm-sdk';
 import { DynamicBondingCurveClient } from '@meteora-ag/dynamic-bonding-curve-sdk';
 import { db } from '../config/database';
 import { getTokenMetadata } from './tokenMetadataService';
+import { upsertDLMMPool, upsertDAMMPool } from './poolSyncServiceHelpers';
 
 interface DLMMPool {
   address: string;
@@ -197,10 +198,16 @@ async function fetchAllDBCPools(): Promise<DBCPool[]> {
 }
 
 /**
- * Upsert DLMM pool into database
- * NOW WITH TOKEN METADATA ENRICHMENT from Jupiter API!
+ * Upsert DLMM pool - now uses shared helper function
  */
-async function upsertDLMMPool(pool: DLMMPool, network: 'mainnet-beta' | 'devnet' = 'mainnet-beta'): Promise<void> {
+async function upsertDLMMPoolLocal(pool: DLMMPool, network: 'mainnet-beta' | 'devnet' = 'mainnet-beta'): Promise<void> {
+  return upsertDLMMPool(pool as any, network);
+}
+
+/**
+ * Legacy implementation - keeping for reference
+ */
+async function upsertDLMMPoolDeprecated(pool: DLMMPool, network: 'mainnet-beta' | 'devnet' = 'mainnet-beta'): Promise<void> {
   // Parse pool name for fallback
   const nameParts = (pool.name || '').split('-');
 
