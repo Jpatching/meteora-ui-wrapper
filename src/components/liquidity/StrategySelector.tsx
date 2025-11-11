@@ -15,8 +15,13 @@ const strategies = [
     type: 'spot' as StrategyType,
     label: 'Spot',
     icon: (
-      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-        <rect x="3" y="3" width="18" height="18" strokeWidth="2" rx="2" />
+      <svg className="w-12 h-8" viewBox="0 0 48 32" fill="none">
+        {/* Spot: Concentrated vertical bars in center */}
+        <rect x="18" y="4" width="2" height="24" className="fill-current" opacity="0.3" />
+        <rect x="21" y="2" width="2" height="28" className="fill-current" opacity="0.5" />
+        <rect x="24" y="0" width="2" height="32" className="fill-current" />
+        <rect x="27" y="2" width="2" height="28" className="fill-current" opacity="0.5" />
+        <rect x="30" y="4" width="2" height="24" className="fill-current" opacity="0.3" />
       </svg>
     ),
     description: 'Concentrated liquidity in a narrow price range',
@@ -25,8 +30,19 @@ const strategies = [
     type: 'curve' as StrategyType,
     label: 'Curve',
     icon: (
-      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-        <path d="M3 20 Q8 4, 12 12 T21 4" strokeWidth="2" strokeLinecap="round" />
+      <svg className="w-12 h-8" viewBox="0 0 48 32" fill="none">
+        {/* Curve: Bell curve shape */}
+        <rect x="4" y="24" width="2" height="4" className="fill-current" opacity="0.2" />
+        <rect x="8" y="20" width="2" height="8" className="fill-current" opacity="0.3" />
+        <rect x="12" y="16" width="2" height="12" className="fill-current" opacity="0.4" />
+        <rect x="16" y="10" width="2" height="18" className="fill-current" opacity="0.5" />
+        <rect x="20" y="4" width="2" height="24" className="fill-current" opacity="0.7" />
+        <rect x="24" y="0" width="2" height="32" className="fill-current" />
+        <rect x="28" y="4" width="2" height="24" className="fill-current" opacity="0.7" />
+        <rect x="32" y="10" width="2" height="18" className="fill-current" opacity="0.5" />
+        <rect x="36" y="16" width="2" height="12" className="fill-current" opacity="0.4" />
+        <rect x="40" y="20" width="2" height="8" className="fill-current" opacity="0.3" />
+        <rect x="44" y="24" width="2" height="4" className="fill-current" opacity="0.2" />
       </svg>
     ),
     description: 'Curved distribution following a custom shape',
@@ -35,8 +51,17 @@ const strategies = [
     type: 'bidAsk' as StrategyType,
     label: 'Bid-Ask',
     icon: (
-      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-        <path d="M3 12h8M13 12h8M7 8l-4 4 4 4M17 8l4 4-4 4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <svg className="w-12 h-8" viewBox="0 0 48 32" fill="none">
+        {/* Bid-Ask: Two groups of bars on each side */}
+        <rect x="4" y="8" width="2" height="16" className="fill-current" />
+        <rect x="8" y="10" width="2" height="12" className="fill-current" opacity="0.7" />
+        <rect x="12" y="14" width="2" height="8" className="fill-current" opacity="0.4" />
+        <rect x="16" y="18" width="2" height="4" className="fill-current" opacity="0.2" />
+
+        <rect x="30" y="18" width="2" height="4" className="fill-current" opacity="0.2" />
+        <rect x="34" y="14" width="2" height="8" className="fill-current" opacity="0.4" />
+        <rect x="38" y="10" width="2" height="12" className="fill-current" opacity="0.7" />
+        <rect x="42" y="8" width="2" height="16" className="fill-current" />
       </svg>
     ),
     description: 'Split liquidity on both sides of current price',
@@ -45,58 +70,36 @@ const strategies = [
 
 export function StrategySelector({ selected, onChange, disabled }: StrategySelectorProps) {
   return (
-    <div className="space-y-3">
-      <label className="block text-sm font-medium text-gray-300">
-        Strategy
-      </label>
-      <div className="grid grid-cols-3 gap-3">
-        {strategies.map((strategy) => {
-          const isSelected = selected === strategy.type;
+    <div className="grid grid-cols-3 gap-2">
+      {strategies.map((strategy) => {
+        const isSelected = selected === strategy.type;
 
-          return (
-            <motion.button
-              key={strategy.type}
-              onClick={() => !disabled && onChange(strategy.type)}
-              disabled={disabled}
-              whileHover={!disabled ? { scale: 1.02 } : {}}
-              whileTap={!disabled ? { scale: 0.98 } : {}}
-              className={`
-                relative flex flex-col items-center justify-center p-4 rounded-lg border-2 transition-all
-                ${isSelected
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-gray-700 bg-gray-800/50 text-gray-400 hover:border-gray-600'
-                }
-                ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-              `}
-            >
-              {/* Icon */}
-              <div className={`mb-2 ${isSelected ? 'text-primary' : 'text-gray-400'}`}>
-                {strategy.icon}
-              </div>
+        return (
+          <button
+            key={strategy.type}
+            onClick={() => !disabled && onChange(strategy.type)}
+            disabled={disabled}
+            className={`
+              flex flex-col items-center justify-center py-3 px-2 rounded-lg border transition-all
+              ${isSelected
+                ? 'border-primary bg-primary/10 text-white'
+                : 'border-border-light bg-background-secondary/30 text-gray-400 hover:border-gray-600'
+              }
+              ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+            `}
+          >
+            {/* Bar Icon */}
+            <div className={`mb-1.5 ${isSelected ? 'text-primary' : 'text-gray-500'}`}>
+              {strategy.icon}
+            </div>
 
-              {/* Label */}
-              <span className="text-sm font-semibold">
-                {strategy.label}
-              </span>
-
-              {/* Selected indicator */}
-              {isSelected && (
-                <motion.div
-                  layoutId="strategy-selected"
-                  className="absolute inset-0 rounded-lg border-2 border-primary"
-                  initial={false}
-                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                />
-              )}
-            </motion.button>
-          );
-        })}
-      </div>
-
-      {/* Description */}
-      <p className="text-xs text-gray-400 mt-2">
-        {strategies.find(s => s.type === selected)?.description}
-      </p>
+            {/* Label */}
+            <span className="text-xs font-medium">
+              {strategy.label}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }

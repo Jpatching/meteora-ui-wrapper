@@ -381,39 +381,38 @@ export function AddLiquidityPanel({
 
       {/* Token Y Amount - Only for 50:50 (hidden for now, can add later) */}
       {ratio === '50-50' && false && (
-          <div className="space-y-1.5 mt-3">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-medium text-gray-300">{tokenYSymbol}</label>
-              <span className="text-xs text-gray-500">
-                Balance: {tokenYBalance ? tokenYBalance.uiAmount.toFixed(4) : '0.00'}
-              </span>
-            </div>
-            <div className="relative">
-              <input
-                type="number"
-                value={tokenYAmount}
-                onChange={(e) => setTokenYAmount(e.target.value)}
-                disabled={loading}
-                placeholder="0.00"
-                step="0.01"
-                min="0"
-                className="w-full px-3 py-2.5 pr-16 rounded-lg bg-background border border-border-light text-white text-sm font-mono focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50 transition-all"
-              />
-              <button
-                onClick={() => {
-                  if (tokenYBalance) {
-                    setTokenYAmount(tokenYBalance.uiAmount.toFixed(6));
-                  }
-                }}
-                disabled={loading || !tokenYBalance}
-                className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 rounded text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                MAX
-              </button>
-            </div>
+        <div className="space-y-1.5 mt-3">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-medium text-gray-300">{tokenYSymbol}</label>
+            <span className="text-xs text-gray-500">
+              Balance: {tokenYBalance ? tokenYBalance.uiAmount.toFixed(4) : '0.00'}
+            </span>
           </div>
-        )}
-      </div>
+          <div className="relative">
+            <input
+              type="number"
+              value={tokenYAmount}
+              onChange={(e) => setTokenYAmount(e.target.value)}
+              disabled={loading}
+              placeholder="0.00"
+              step="0.01"
+              min="0"
+              className="w-full px-3 py-2.5 pr-16 rounded-lg bg-background border border-border-light text-white text-sm font-mono focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50 transition-all"
+            />
+            <button
+              onClick={() => {
+                if (tokenYBalance) {
+                  setTokenYAmount(tokenYBalance.uiAmount.toFixed(6));
+                }
+              }}
+              disabled={loading || !tokenYBalance}
+              className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 rounded text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              MAX
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Add Liquidity Button - Outside tile, prominent */}
       <Button
