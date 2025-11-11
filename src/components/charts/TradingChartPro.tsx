@@ -104,11 +104,22 @@ export function TradingChartPro({
 
   // Calculate DLMM liquidity range (charting.ag blue box)
   const dlmmRange = useMemo(() => {
-    if (!binData || binData.length === 0) return { max: 0, min: 0 };
+    if (!binData || binData.length === 0) {
+      console.log('📊 TradingChartPro - No bin data');
+      return { max: 0, min: 0 };
+    }
 
     const binPrices = binData.map(bin => bin.price);
     const max = Math.max(...binPrices);
     const min = Math.min(...binPrices);
+
+    console.log(`📊 TradingChartPro - DLMM Range calculated:`, {
+      binCount: binData.length,
+      minPrice: min,
+      maxPrice: max,
+      firstBinPrice: binData[0]?.price,
+      lastBinPrice: binData[binData.length - 1]?.price,
+    });
 
     return { max, min };
   }, [binData]);

@@ -49,6 +49,14 @@ export function ChartDetailsPanel({ pool }: ChartDetailsPanelProps) {
     binRange: 50,
   });
 
+  // Debug log bin data changes
+  console.log(`🔍 ChartDetailsPanel - Pool: ${pool.id.slice(0, 8)}, BinStep: ${pool.binStep}, IsDLMM: ${isDLMM}`, {
+    binsCount: binsAroundActive.length,
+    activeBinPrice: activeBin?.price,
+    firstBin: binsAroundActive[0]?.price,
+    lastBin: binsAroundActive[binsAroundActive.length - 1]?.price,
+  });
+
   // Fetch user positions to show on chart
   const { data: allPositions } = useUserPositions();
 
