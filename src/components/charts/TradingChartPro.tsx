@@ -8,9 +8,17 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { createChart, IChartApi, ISeriesApi, LineStyle } from 'lightweight-charts';
 import type { OHLCVDataPoint } from '@/lib/services/geckoterminal';
+import type { BinData } from '@/lib/meteora/binDataService';
 
 export type ChartMode = 'price' | 'mcap';
 export type TimeInterval = '1m' | '5m' | '15m' | '1h' | '4h' | '1d' | '1w';
+
+export interface PositionRange {
+  minPrice: number;
+  maxPrice: number;
+  color?: string;
+  label?: string;
+}
 
 interface TradingChartProProps {
   data: OHLCVDataPoint[];
@@ -22,6 +30,11 @@ interface TradingChartProProps {
   tokenName?: string;
   currentPrice?: number;
   marketCap?: number;
+  // DLMM-specific props
+  binData?: BinData[];
+  showBinDistribution?: boolean;
+  activeBinPrice?: number;
+  positionRanges?: PositionRange[];
 }
 
 const INTERVALS: TimeInterval[] = ['1m', '5m', '15m', '1h', '1d'];
@@ -40,6 +53,11 @@ const CHART_COLORS = {
   accent: '#3b82f6',  // Blue for active elements
   cyan: '#0cbef3',    // Cyan for current price
   rangeLineColor: '#3b82f6',
+  // DLMM overlay colors
+  activeBin: '#8b5cf6',           // Purple for active bin
+  binLiquidity: 'rgba(139, 92, 246, 0.15)',  // Purple with transparency for bin histogram
+  positionRange: 'rgba(16, 185, 129, 0.2)',  // Green for user positions
+  positionBorder: '#10b981',
 };
 
 export function TradingChartPro({
@@ -52,6 +70,10 @@ export function TradingChartPro({
   tokenName = 'Token',
   currentPrice = 0,
   marketCap,
+  binData,
+  showBinDistribution = false,
+  activeBinPrice,
+  positionRanges = [],
 }: TradingChartProProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -59,6 +81,10 @@ export function TradingChartPro({
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
   const maxLineRef = useRef<ISeriesApi<'Line'> | null>(null);
   const minLineRef = useRef<ISeriesApi<'Line'> | null>(null);
+  // DLMM overlay refs
+  const binHistogramRef = useRef<ISeriesApi<'Histogram'> | null>(null);
+  const activeBinLineRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const positionRangeLinesRef = useRef<ISeriesApi<'Line'>[]>([]);
 
   const [mode, setMode] = useState<ChartMode>('price');
   const [showHistory, setShowHistory] = useState(false);
@@ -254,9 +280,126 @@ export function TradingChartPro({
       minLine.setData(minData);
     }
 
+    // Add DLMM bin distribution histogram overlay (behind price chart)
+    if (showBinDistribution && binData && binData.length > 0 && data.length > 0) {
+      // Remove existing bin histogram
+      if (binHistogramRef.current) {
+        chart.removeSeries(binHistogramRef.current);
+        binHistogramRef.current = null;
+      }
+
+      const binHistogram = chart.addHistogramSeries({
+        color: CHART_COLORS.binLiquidity,
+        priceFormat: {
+          type: 'volume',
+        },
+        priceScaleId: 'bin-liquidity',
+        scaleMargins: {
+          top: 0.7,
+          bottom: 0.3,
+        },
+      });
+
+      binHistogramRef.current = binHistogram;
+
+      // Convert bin data to histogram format (liquidity at each price level)
+      // Map bins to time series by repeating bin price across the time range
+      const binHistogramData = binData.map((bin, index) => {
+        // Spread bins across the time range
+        const timeIndex = Math.floor((index / binData.length) * data.length);
+        const time = data[Math.min(timeIndex, data.length - 1)].time;
+
+        return {
+          time,
+          value: bin.totalLiquidity,
+          color: bin.isActive ? CHART_COLORS.activeBin : CHART_COLORS.binLiquidity,
+        };
+      });
+
+      binHistogram.setData(binHistogramData);
+    }
+
+    // Add active bin price marker (purple horizontal line)
+    if (activeBinPrice && activeBinPrice > 0 && data.length > 0) {
+      if (activeBinLineRef.current) {
+        chart.removeSeries(activeBinLineRef.current);
+        activeBinLineRef.current = null;
+      }
+
+      const activeBinLine = chart.addLineSeries({
+        color: CHART_COLORS.activeBin,
+        lineWidth: 2,
+        lineStyle: LineStyle.Dashed,
+        crosshairMarkerVisible: true,
+        lastValueVisible: true,
+        priceLineVisible: true,
+        title: 'Active Bin',
+      });
+
+      activeBinLineRef.current = activeBinLine;
+
+      const activeBinData = [
+        { time: data[0].time, value: activeBinPrice },
+        { time: data[data.length - 1].time, value: activeBinPrice },
+      ];
+
+      activeBinLine.setData(activeBinData);
+    }
+
+    // Add user position range markers (green shaded areas)
+    if (positionRanges && positionRanges.length > 0 && data.length > 0) {
+      // Clear existing position lines
+      positionRangeLinesRef.current.forEach(line => {
+        try {
+          chart.removeSeries(line);
+        } catch (e) {
+          // Already removed
+        }
+      });
+      positionRangeLinesRef.current = [];
+
+      // Add a line for each position range (min and max)
+      positionRanges.forEach((range, index) => {
+        const minLine = chart.addLineSeries({
+          color: range.color || CHART_COLORS.positionBorder,
+          lineWidth: 1,
+          lineStyle: LineStyle.Dotted,
+          crosshairMarkerVisible: false,
+          lastValueVisible: false,
+          priceLineVisible: false,
+          title: range.label || `Position ${index + 1} Min`,
+        });
+
+        const maxLine = chart.addLineSeries({
+          color: range.color || CHART_COLORS.positionBorder,
+          lineWidth: 1,
+          lineStyle: LineStyle.Dotted,
+          crosshairMarkerVisible: false,
+          lastValueVisible: false,
+          priceLineVisible: false,
+          title: range.label || `Position ${index + 1} Max`,
+        });
+
+        const minData = [
+          { time: data[0].time, value: range.minPrice },
+          { time: data[data.length - 1].time, value: range.minPrice },
+        ];
+
+        const maxData = [
+          { time: data[0].time, value: range.maxPrice },
+          { time: data[data.length - 1].time, value: range.maxPrice },
+        ];
+
+        minLine.setData(minData);
+        maxLine.setData(maxData);
+
+        positionRangeLinesRef.current.push(minLine, maxLine);
+      });
+    }
+
     // Fit content
     chart.timeScale().fitContent();
-  }, [data, priceRange]);
+  }, [data, priceRange, binData, showBinDistribution, activeBinPrice, positionRanges]);
 
   return (
     <div className="relative">

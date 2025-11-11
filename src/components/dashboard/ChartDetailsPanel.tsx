@@ -195,6 +195,11 @@ export function ChartDetailsPanel({ pool }: ChartDetailsPanelProps) {
             tokenName={pool.baseAsset.name}
             currentPrice={pool.baseAsset.usdPrice || 0}
             marketCap={pool.baseAsset.mcap}
+            // DLMM-specific overlays
+            binData={isDLMM ? binsAroundActive : undefined}
+            showBinDistribution={isDLMM && binsAroundActive.length > 0}
+            activeBinPrice={isDLMM && activeBin && typeof activeBin.price === 'number' ? activeBin.price : undefined}
+            positionRanges={positionRanges.length > 0 ? positionRanges : undefined}
           />
 
           {/* Liquidity Chart Overlay */}
