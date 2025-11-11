@@ -171,7 +171,9 @@ export function useRelatedPools({
           }
 
           if (!isCurrentPool) {
-            console.log(`✅ Pool ${index + 1}: ${pool.id} (${pool.baseAsset.symbol}-${pool.quoteAsset?.symbol}) - MATCH! (liquidity: ${pool.baseAsset.liquidity?.toFixed(2)}, volume: ${pool.volume24h?.toFixed(2)})`);
+            const liq = typeof pool.baseAsset.liquidity === 'number' ? pool.baseAsset.liquidity.toFixed(2) : pool.baseAsset.liquidity || 0;
+            const vol = typeof pool.volume24h === 'number' ? pool.volume24h.toFixed(2) : pool.volume24h || 0;
+            console.log(`✅ Pool ${index + 1}: ${pool.id} (${pool.baseAsset.symbol}-${pool.quoteAsset?.symbol}) - MATCH! (liquidity: ${liq}, volume: ${vol})`);
           }
           return true;
         });

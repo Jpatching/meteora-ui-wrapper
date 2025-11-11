@@ -32,10 +32,13 @@ export function PoolListSidebar({ currentPool, network }: PoolListSidebarProps) 
   const displayPools = showAll ? filteredPools : filteredPools.slice(0, 5);
   const hasMore = filteredPools.length > 5;
 
-  const formatNumber = (num: number) => {
-    if (num >= 1_000_000) return `$${(num / 1_000_000).toFixed(2)}M`;
-    if (num >= 1_000) return `$${(num / 1_000).toFixed(1)}K`;
-    return `$${num.toFixed(0)}`;
+  const formatNumber = (num: number | undefined) => {
+    if (!num || isNaN(num)) return '$0';
+    const value = typeof num === 'string' ? parseFloat(num) : num;
+    if (isNaN(value)) return '$0';
+    if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
+    if (value >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
+    return `$${value.toFixed(0)}`;
   };
 
   return (
