@@ -157,10 +157,6 @@ export function TradingChartPro({
       },
       rightPriceScale: {
         borderColor: CHART_COLORS.grid,
-        scaleMargins: {
-          top: 0.1,
-          bottom: 0.2, // Space for volume
-        },
       },
       height,
       width: chartContainerRef.current.clientWidth,
@@ -229,10 +225,6 @@ export function TradingChartPro({
         type: 'volume',
       },
       priceScaleId: '',
-      scaleMargins: {
-        top: 0.8,
-        bottom: 0,
-      },
     });
 
     volumeSeriesRef.current = volumeSeries;
