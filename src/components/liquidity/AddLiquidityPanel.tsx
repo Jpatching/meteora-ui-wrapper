@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey } from '@solana/web3.js';
-import { Button } from '@/components/ui';
+import { Button, TokenIcon } from '@/components/ui';
 import { StrategySelector, StrategyType } from './StrategySelector';
 import { RatioControl, RatioType } from './RatioControl';
 import { PriceRangePicker } from './PriceRangePicker';
@@ -22,6 +22,8 @@ interface AddLiquidityPanelProps {
   tokenYMint: string;
   tokenXSymbol: string;
   tokenYSymbol: string;
+  tokenXIcon?: string; // Token X logo URL
+  tokenYIcon?: string; // Token Y logo URL
   currentPrice: number;
   binStep: number;
   baseFee?: number; // Base fee percentage
@@ -34,6 +36,8 @@ export function AddLiquidityPanel({
   tokenYMint,
   tokenXSymbol,
   tokenYSymbol,
+  tokenXIcon,
+  tokenYIcon,
   currentPrice,
   binStep,
   baseFee,
@@ -255,12 +259,12 @@ export function AddLiquidityPanel({
         {/* Token Pair Display with Slippage */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5">
-              <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-[10px]">
-                {tokenXSymbol.slice(0, 1)}
-              </div>
-              <span className="text-sm font-medium text-white">{tokenXSymbol}-{tokenYSymbol}</span>
+            {/* Token Icons + Pair Name */}
+            <div className="flex items-center gap-1">
+              <TokenIcon src={tokenXIcon} symbol={tokenXSymbol} size="sm" />
+              <TokenIcon src={tokenYIcon} symbol={tokenYSymbol} size="sm" />
             </div>
+            <span className="text-sm font-medium text-white">{tokenXSymbol}-{tokenYSymbol}</span>
           </div>
 
           {/* Slippage Control */}
@@ -324,13 +328,11 @@ export function AddLiquidityPanel({
         />
       </div>
 
-      {/* Token Input - charting.ag style (compact, in header area) */}
+      {/* Token Input - charting.ag style (shows quote token = tokenY) */}
       <div className="bg-background-secondary/20 border border-border-light rounded-lg p-3">
         {/* Token Icon + Input */}
         <div className="flex items-center gap-2 mb-2">
-          <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs">
-            {tokenYSymbol.slice(0, 1)}
-          </div>
+          <TokenIcon src={tokenYIcon} symbol={tokenYSymbol} size="sm" />
           <span className="text-sm font-medium text-white mr-auto">{tokenYSymbol}</span>
           <div className="text-right">
             <input
@@ -350,27 +352,27 @@ export function AddLiquidityPanel({
         {/* Balance + 50% + Max */}
         <div className="flex items-center justify-between text-xs">
           <span className="text-gray-400">
-            Balance: {tokenXBalance ? tokenXBalance.uiAmount.toFixed(2) : '0'} {tokenYSymbol}
+            Balance: {tokenYBalance ? tokenYBalance.uiAmount.toFixed(2) : '0'} {tokenYSymbol}
           </span>
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
-                if (tokenXBalance) {
-                  setTokenXAmount((tokenXBalance.uiAmount * 0.5).toFixed(6));
+                if (tokenYBalance) {
+                  setTokenXAmount((tokenYBalance.uiAmount * 0.5).toFixed(6));
                 }
               }}
-              disabled={loading || !tokenXBalance}
+              disabled={loading || !tokenYBalance}
               className="text-gray-400 hover:text-white transition-colors disabled:opacity-50"
             >
               50%
             </button>
             <button
               onClick={() => {
-                if (tokenXBalance) {
-                  setTokenXAmount(tokenXBalance.uiAmount.toFixed(6));
+                if (tokenYBalance) {
+                  setTokenXAmount(tokenYBalance.uiAmount.toFixed(6));
                 }
               }}
-              disabled={loading || !tokenXBalance}
+              disabled={loading || !tokenYBalance}
               className="text-gray-400 hover:text-white transition-colors disabled:opacity-50"
             >
               Max
