@@ -87,8 +87,8 @@ export function PoolActionsPanel({
             tokenYMint={tokenYMint}
             tokenXSymbol={tokenXSymbol}
             tokenYSymbol={tokenYSymbol}
-            tokenXIcon={pool?.baseAsset.icon}
-            tokenYIcon={pool?.quoteAsset.icon}
+            tokenXIcon={pool?.baseAsset?.icon}
+            tokenYIcon={pool?.quoteAsset?.icon}
             currentPrice={currentPrice}
             binStep={binStep}
             baseFee={baseFee}
