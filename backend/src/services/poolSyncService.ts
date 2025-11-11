@@ -116,26 +116,26 @@ async function fetchAllDLMMPools(): Promise<DLMMPool[]> {
  * Fetching ALL pools takes 10+ minutes - instead get top 2000 by volume
  */
 async function fetchAllDAMMPools(): Promise<DAMMPool[]> {
-  console.log('🌊 Fetching TOP DAMM v2 pools from Meteora API (sorted by 24h volume)...');
+  console.log('🌊 Fetching active DAMM v2 pools from Meteora API...');
 
   try {
     let allPools: DAMMPool[] = [];
     const limit = 50; // API max per page
-    const maxPools = 2000; // Get top 2000 pools by volume (plenty for discovery)
-    const totalPages = Math.ceil(maxPools / limit);
+    const maxPages = 200; // Fetch 10,000 pools (200 pages * 50)
 
-    console.log(`📊 Fetching top ${maxPools} DAMM v2 pools sorted by 24h volume...`);
+    console.log(`📊 Fetching ${maxPages * limit} DAMM v2 pools (will filter for active pools with volume > $1k)...`);
 
     // Fetch pages in parallel batches of 20 for speed
     const batchSize = 20;
-    for (let batchStart = 1; batchStart <= totalPages; batchStart += batchSize) {
-      const batchEnd = Math.min(batchStart + batchSize - 1, totalPages);
+    for (let batchStart = 1; batchStart <= maxPages; batchStart += batchSize) {
+      const batchEnd = Math.min(batchStart + batchSize - 1, maxPages);
       const promises = [];
 
       for (let page = batchStart; page <= batchEnd; page++) {
-        // Sort by volume24h descending to get most active pools
+        // Note: Meteora API doesn't support sort_by parameter - returns in creation order
+        // We'll sort client-side after fetching
         promises.push(
-          fetch(`https://dammv2-api.meteora.ag/pools?page=${page}&limit=${limit}&sort_by=volume24h&order=desc`)
+          fetch(`https://dammv2-api.meteora.ag/pools?page=${page}&limit=${limit}`)
             .then(r => r.json())
             .then((result: any) => result.data || [])
             .catch((err) => {
@@ -147,16 +147,31 @@ async function fetchAllDAMMPools(): Promise<DAMMPool[]> {
 
       const batchResults = await Promise.all(promises);
       for (const pools of batchResults) {
-        // Filter for TVL > 0 (active pools only)
-        const activePools = pools.filter((p: any) => p.tvl > 0);
-        allPools.push(...activePools);
+        allPools.push(...pools);
       }
 
-      console.log(`   Fetched pages ${batchStart}-${batchEnd} (${allPools.length} active pools so far)`);
+      console.log(`   Fetched pages ${batchStart}-${batchEnd} (${allPools.length} total pools)`);
     }
 
-    console.log(`✅ Fetched ${allPools.length} active DAMM v2 pools (top by 24h volume)`);
-    return allPools;
+    console.log(`📊 Downloaded ${allPools.length} DAMM v2 pools, filtering for active pools...`);
+
+    // Filter for ACTIVE pools only (volume > $1000 in last 24h OR TVL > $5000)
+    const activePools = allPools.filter((p: DAMMPool) => {
+      const hasVolume = (p.volume24h || 0) > 1000; // $1k+ volume/24h
+      const hasTVL = (p.tvl || 0) > 5000; // $5k+ TVL
+      return hasVolume || hasTVL;
+    });
+
+    console.log(`✅ Filtered to ${activePools.length} active DAMM v2 pools (volume > $1k OR TVL > $5k)`);
+
+    // Sort by 24h volume descending (most active first)
+    const sorted = activePools.sort((a, b) => {
+      return (b.volume24h || 0) - (a.volume24h || 0);
+    });
+
+    console.log(`✅ Sorted pools by 24h volume (top pool: ${sorted[0]?.pool_name || 'none'} with $${sorted[0]?.volume24h?.toFixed(0) || 0} volume)`);
+
+    return sorted;
   } catch (error: any) {
     console.error('❌ Error fetching DAMM pools:', error.message);
     return [];
