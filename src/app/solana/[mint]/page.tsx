@@ -380,7 +380,7 @@ export default function TokenPage({ params }: TokenPageProps) {
         {/* Main Content Row - Token Box (Left) + Metrics Box (Center) */}
         <div className="flex-shrink-0 flex items-start gap-6 px-4 py-3 border-b border-border-light">
           {/* LEFT: Token Info Box (Charting.ag Style) */}
-          <div className="bg-background rounded-lg px-4 py-3 border border-border-light">
+          <div className="bg-gray-800/50 rounded-lg px-4 py-3 border border-gray-700/50">
             {/* Row 1: Icon + Symbol + Name + Dropdown */}
             <div className="flex items-center gap-3 mb-1">
               {displayToken.icon && (
@@ -444,7 +444,7 @@ export default function TokenPage({ params }: TokenPageProps) {
           </div>
 
           {/* RIGHT: Metrics Box (Charting.ag Style - Centered above chart) */}
-          <div className="flex-1 bg-background rounded-lg px-8 py-3 border border-border-light flex items-start justify-between">
+          <div className="flex-1 bg-gray-800/30 rounded-lg px-8 py-3 border border-gray-700/30 flex items-start justify-between">
             {/* Price Changes */}
             <div>
               <div className="text-sm font-bold text-gray-300 mb-2">Price Changes</div>
@@ -643,7 +643,7 @@ export default function TokenPage({ params }: TokenPageProps) {
           </div>
 
           {/* Center: Chart (dominates) + Positions (if pool exists) */}
-          <div className="flex-1 flex flex-col overflow-hidden min-h-0 bg-background">
+          <div className="flex-1 flex flex-col overflow-hidden min-h-0 bg-gray-800/30">
             {/* Chart - Always shown */}
             <div className={hasMeteoraPool ? "flex-[3] overflow-hidden min-h-0" : "flex-1 overflow-hidden min-h-0"}>
               <ChartDetailsPanel pool={chartPool} />
@@ -663,7 +663,7 @@ export default function TokenPage({ params }: TokenPageProps) {
           </div>
 
           {/* Right Sidebar (400px) - Always show trading panel */}
-          <div className="w-[400px] flex-shrink-0 border-l border-border-light overflow-y-auto bg-background">
+          <div className="w-[400px] flex-shrink-0 border-l border-border-light overflow-y-auto bg-gray-800/30">
             {/* Pool Actions Panel - Always shown */}
             <div className="flex-shrink-0">
               <PoolActionsPanel
