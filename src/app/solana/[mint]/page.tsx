@@ -23,6 +23,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useAllPublicPools } from '@/lib/hooks/usePublicPools';
 import toast from 'react-hot-toast';
+import { formatNumber } from '@/lib/format/number';
 
 interface TokenPageProps {
   params: Promise<{ mint: string }>;
@@ -395,7 +396,9 @@ export default function TokenPage({ params }: TokenPageProps) {
                 {/* Holders */}
                 <div className="text-center">
                   <div className="text-xs text-gray-500 mb-1">Holders</div>
-                  <div className="text-base font-bold text-white">--</div>
+                  <div className="text-base font-bold text-white">
+                    {pool?.baseAsset.holderCount ? formatNumber(pool.baseAsset.holderCount) : '--'}
+                  </div>
                 </div>
                 {/* Top 10 H. */}
                 <div className="text-center">
@@ -410,12 +413,20 @@ export default function TokenPage({ params }: TokenPageProps) {
                 {/* Mint */}
                 <div className="text-center">
                   <div className="text-xs text-gray-500 mb-1">Mint</div>
-                  <div className="text-base font-bold text-success">No</div>
+                  <div className={`text-base font-bold ${pool?.baseAsset.audit?.mintAuthorityDisabled ? 'text-success' : 'text-warning'}`}>
+                    {pool?.baseAsset.audit?.mintAuthorityDisabled !== undefined
+                      ? (pool.baseAsset.audit.mintAuthorityDisabled ? 'No' : 'Yes')
+                      : '--'}
+                  </div>
                 </div>
                 {/* Freeze */}
                 <div className="text-center">
                   <div className="text-xs text-gray-500 mb-1">Freeze</div>
-                  <div className="text-base font-bold text-success">No</div>
+                  <div className={`text-base font-bold ${pool?.baseAsset.audit?.freezeAuthorityDisabled ? 'text-success' : 'text-warning'}`}>
+                    {pool?.baseAsset.audit?.freezeAuthorityDisabled !== undefined
+                      ? (pool.baseAsset.audit.freezeAuthorityDisabled ? 'No' : 'Yes')
+                      : '--'}
+                  </div>
                 </div>
                 {/* Score */}
                 <div className="text-center">
