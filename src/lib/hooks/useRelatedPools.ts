@@ -45,22 +45,20 @@ export function useRelatedPools({
 
         const allPools: Pool[] = [...dlmmTransformed, ...dammTransformed];
 
-        // Filter for pools that share base or quote token
+        // Filter for pools that share the SAME BASE TOKEN ONLY (not quote token)
+        // Example: TRUMP-USDC pool should show TRUMP-SOL, TRUMP-BONK, etc. (all TRUMP pools)
         const related = allPools.filter((pool) => {
           // Skip the current pool itself
           if (pool.id === currentPool.id) return false;
 
-          // Check if shares base token
+          // Only show pools that have the same base token
+          // This means TRUMP-USDC will show: TRUMP-SOL, TRUMP-BONK, etc.
+          // NOT: YZY-USDC, LIBRA-USDC (which share quote token)
           const sharesBaseToken =
             pool.baseAsset.id === currentPool.baseAsset.id ||
             pool.quoteAsset?.id === currentPool.baseAsset.id;
 
-          // Check if shares quote token
-          const sharesQuoteToken =
-            pool.baseAsset.id === currentPool.quoteAsset?.id ||
-            pool.quoteAsset?.id === currentPool.quoteAsset?.id;
-
-          return sharesBaseToken || sharesQuoteToken;
+          return sharesBaseToken;
         });
 
         // Sort by TVL descending
