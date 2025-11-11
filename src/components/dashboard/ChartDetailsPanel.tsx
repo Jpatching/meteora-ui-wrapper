@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { Pool } from '@/lib/jupiter/types';
 import { TradingChart, ChartType, TimeInterval } from '@/components/charts/TradingChart';
+import { TradingChartPro } from '@/components/charts/TradingChartPro';
 import { LiquidityChartOverlay } from '@/components/charts/LiquidityChartOverlay';
 import { useGeckoTerminalChartData } from '@/hooks/queries/useGeckoTerminalChartData';
 import { useBinData } from '@/lib/hooks/useBinData';
@@ -183,21 +184,17 @@ export function ChartDetailsPanel({ pool }: ChartDetailsPanelProps) {
         )}
 
         {/* Chart fills available height */}
-        <div className="h-full w-full">
-          <TradingChart
+        <div className="h-full w-full p-4">
+          <TradingChartPro
             data={chartDataPoints}
-            chartType={chartType}
             interval={interval}
             height={600}
-            showVolume={true}
             loading={isLoading}
             onIntervalChange={setInterval}
-            onChartTypeChange={setChartType}
-            // DLMM-specific props
-            binData={isDLMM ? binsAroundActive : undefined}
-            showBinHistogram={isDLMM && binsAroundActive.length > 0}
-            activeBinPrice={isDLMM && activeBin && typeof activeBin.price === 'number' ? activeBin.price : undefined}
-            positionRanges={positionRanges.length > 0 ? positionRanges : undefined}
+            tokenSymbol={pool.baseAsset.symbol}
+            tokenName={pool.baseAsset.name}
+            currentPrice={pool.baseAsset.usdPrice || 0}
+            marketCap={pool.baseAsset.mcap}
           />
 
           {/* Liquidity Chart Overlay */}
