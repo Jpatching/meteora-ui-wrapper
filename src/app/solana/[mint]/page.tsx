@@ -617,8 +617,8 @@ export default function TokenPage({ params }: TokenPageProps) {
 
         {/* Main Content: 3-Column Layout - ALWAYS show chart */}
         <div className="flex flex-1 overflow-hidden min-h-0">
-          {/* Left Sidebar (280px) - Related Pools List or Create Pool CTA */}
-          <div className="w-[280px] flex-shrink-0 border-r border-border-light overflow-hidden">
+          {/* Left Sidebar - Shrinkable with min-width */}
+          <div className="w-[280px] min-w-[200px] border-r border-border-light overflow-hidden">
             {hasMeteoraPool ? (
               <PoolListSidebar
                 currentPool={pool}
@@ -650,8 +650,8 @@ export default function TokenPage({ params }: TokenPageProps) {
             )}
           </div>
 
-          {/* Center: Chart (dominates) + Positions (if pool exists) */}
-          <div className="flex-1 flex flex-col overflow-hidden min-h-0 bg-gray-800/30">
+          {/* Center: Chart (dominates) + Positions (if pool exists) - Keeps larger size */}
+          <div className="flex-[2] min-w-[600px] flex flex-col overflow-hidden min-h-0 bg-gray-800/30">
             {/* Chart - Always shown - Use selected pool for chart data */}
             <div className={hasMeteoraPool ? "flex-[3] overflow-hidden min-h-0" : "flex-1 overflow-hidden min-h-0"}>
               <ChartDetailsPanel pool={selectedPool || chartPool} />
@@ -670,8 +670,8 @@ export default function TokenPage({ params }: TokenPageProps) {
             )}
           </div>
 
-          {/* Right Sidebar (400px) - Always show trading panel */}
-          <div className="w-[400px] flex-shrink-0 border-l border-border-light overflow-y-auto bg-gray-800/30">
+          {/* Right Sidebar - Shrinkable with min-width */}
+          <div className="w-[400px] min-w-[300px] border-l border-border-light overflow-y-auto bg-gray-800/30">
             {/* Pool Actions Panel - Always shown */}
             <div className="flex-shrink-0">
               <PoolActionsPanel
