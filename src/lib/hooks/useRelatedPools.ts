@@ -137,10 +137,10 @@ export function useRelatedPools({
         console.log(`   Current pool ID to skip: ${currentPool.id}`);
 
         const related = transformed.filter((pool: Pool, index: number) => {
-          // Skip the current pool itself
-          if (pool.id === currentPool.id) {
-            console.log(`⏭️  Pool ${index + 1}: ${pool.id} - Skipping (current pool)`);
-            return false;
+          // INCLUDE the current pool (will be sorted to top later)
+          const isCurrentPool = pool.id === currentPool.id;
+          if (isCurrentPool) {
+            console.log(`⭐ Pool ${index + 1}: ${pool.id} - Current pool (will show first)`);
           }
 
           // Check if pool contains the exact token mint (as token_x OR token_y)
@@ -170,16 +170,24 @@ export function useRelatedPools({
             return false;
           }
 
-          console.log(`✅ Pool ${index + 1}: ${pool.id} (${pool.baseAsset.symbol}-${pool.quoteAsset?.symbol}) - MATCH! (liquidity: ${pool.baseAsset.liquidity?.toFixed(2)}, volume: ${pool.volume24h?.toFixed(2)})`);
+          if (!isCurrentPool) {
+            console.log(`✅ Pool ${index + 1}: ${pool.id} (${pool.baseAsset.symbol}-${pool.quoteAsset?.symbol}) - MATCH! (liquidity: ${pool.baseAsset.liquidity?.toFixed(2)}, volume: ${pool.volume24h?.toFixed(2)})`);
+          }
           return true;
         });
 
         console.log(`✅ After filtering: ${related.length} related pools found`);
 
-        // Sort by TVL descending
-        related.sort((a: Pool, b: Pool) => (b.baseAsset.liquidity || 0) - (a.baseAsset.liquidity || 0));
+        // Sort: Current pool FIRST, then by TVL descending
+        related.sort((a: Pool, b: Pool) => {
+          // Current pool always comes first
+          if (a.id === currentPool.id) return -1;
+          if (b.id === currentPool.id) return 1;
+          // Others sorted by liquidity
+          return (b.baseAsset.liquidity || 0) - (a.baseAsset.liquidity || 0);
+        });
 
-        // Limit results
+        // Limit results (current pool + top N others)
         const limited = related.slice(0, limit);
 
         // Enrich with token metadata (logos, etc.)
