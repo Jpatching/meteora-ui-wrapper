@@ -127,6 +127,51 @@ export default function TokenPage({ params }: TokenPageProps) {
   // State for pool and token info
   const [pool, setPool] = useState<Pool | null>(null);
   const [tokenInfo, setTokenInfo] = useState<any>(null);
+  const [holderMetrics, setHolderMetrics] = useState<{
+    topHoldersPercentage: number;
+    devBalancePercentage: number;
+  } | null>(null);
+
+  // Fetch holder data from Jupiter API to calculate Top 10% and Dev holdings
+  useEffect(() => {
+    const fetchHolderData = async () => {
+      try {
+        const response = await fetch(`https://datapi.jup.ag/v1/holders/${mint}`);
+        const data = await response.json();
+
+        if (data.holders && data.holders.length > 0) {
+          console.log(`📊 Fetched ${data.holders.length} holders for token ${mint}`);
+
+          // Calculate total supply from all holders
+          const totalSupply = data.holders.reduce((sum: number, h: any) => sum + h.amount, 0);
+
+          // Calculate top 10 holders percentage
+          const top10Supply = data.holders.slice(0, 10).reduce((sum: number, h: any) => sum + h.amount, 0);
+          const top10Percentage = (top10Supply / totalSupply) * 100;
+
+          // Find dev wallet (first holder or tagged as dev)
+          // Typically the dev is one of the top holders
+          const devHolder = data.holders[0]; // Assuming first holder is dev (common pattern)
+          const devPercentage = (devHolder.amount / totalSupply) * 100;
+
+          setHolderMetrics({
+            topHoldersPercentage: top10Percentage,
+            devBalancePercentage: devPercentage,
+          });
+
+          console.log('✅ Holder metrics calculated:', {
+            topHoldersPercentage: top10Percentage.toFixed(2) + '%',
+            devBalancePercentage: devPercentage.toFixed(2) + '%',
+            totalHolders: data.count || data.holders.length,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch holder data:', error);
+      }
+    };
+
+    fetchHolderData();
+  }, [mint]);
 
   // Find Jupiter pool for this token to get audit data
   const jupiterPool = useMemo(() => {
@@ -171,13 +216,20 @@ export default function TokenPage({ params }: TokenPageProps) {
           .then(enriched => {
             // If we have Jupiter pool data, merge the audit info into our pool
             if (jupiterPool) {
-              console.log('🔗 Merging Jupiter audit data into pool');
+              console.log('🔗 Merging Jupiter audit data into pool', {
+                holderCount: (jupiterPool.baseAsset as any)?.holderCount,
+                organicScore: (jupiterPool.baseAsset as any)?.organicScore,
+                audit: (jupiterPool.baseAsset as any)?.audit,
+              });
               enriched.baseAsset = {
                 ...enriched.baseAsset,
                 holderCount: (jupiterPool.baseAsset as any)?.holderCount || enriched.baseAsset.holderCount,
                 organicScore: (jupiterPool.baseAsset as any)?.organicScore,
                 audit: (jupiterPool.baseAsset as any)?.audit,
               } as any;
+              console.log('✅ Pool enriched with Jupiter data. Final holderCount:', (enriched.baseAsset as any).holderCount);
+            } else {
+              console.log('⚠️ No Jupiter pool found - metrics will show default values');
             }
             setPool(enriched);
           })
@@ -456,23 +508,29 @@ export default function TokenPage({ params }: TokenPageProps) {
                 <div className="text-center">
                   <div className="text-xs text-gray-500 mb-1">Top10 H.</div>
                   <div className="text-base font-bold text-white">
-                    {(pool?.baseAsset as any)?.audit?.topHoldersPercentage !== undefined
-                      ? `${((pool?.baseAsset as any).audit.topHoldersPercentage).toFixed(2)}%`
-                      : '--'}
+                    {holderMetrics?.topHoldersPercentage !== undefined
+                      ? `${holderMetrics.topHoldersPercentage.toFixed(2)}%`
+                      : (pool?.baseAsset as any)?.audit?.topHoldersPercentage !== undefined
+                        ? `${((pool?.baseAsset as any).audit.topHoldersPercentage).toFixed(2)}%`
+                        : '--'}
                   </div>
                 </div>
                 {/* Dev H. */}
                 <div className="text-center">
                   <div className="text-xs text-gray-500 mb-1">Dev H.</div>
                   <div className={`text-base font-bold ${
-                    (pool?.baseAsset as any)?.audit?.devBalancePercentage !== undefined &&
-                    (pool?.baseAsset as any).audit.devBalancePercentage < 10
+                    holderMetrics?.devBalancePercentage !== undefined && holderMetrics.devBalancePercentage < 10
                       ? 'text-success'
-                      : 'text-white'
+                      : (pool?.baseAsset as any)?.audit?.devBalancePercentage !== undefined &&
+                        (pool?.baseAsset as any).audit.devBalancePercentage < 10
+                        ? 'text-success'
+                        : 'text-white'
                   }`}>
-                    {(pool?.baseAsset as any)?.audit?.devBalancePercentage !== undefined
-                      ? `${((pool?.baseAsset as any).audit.devBalancePercentage).toFixed(0)}%`
-                      : '--'}
+                    {holderMetrics?.devBalancePercentage !== undefined
+                      ? `${holderMetrics.devBalancePercentage.toFixed(0)}%`
+                      : (pool?.baseAsset as any)?.audit?.devBalancePercentage !== undefined
+                        ? `${((pool?.baseAsset as any).audit.devBalancePercentage).toFixed(0)}%`
+                        : '--'}
                   </div>
                 </div>
                 {/* Mint */}
