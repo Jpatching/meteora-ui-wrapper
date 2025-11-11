@@ -56,16 +56,18 @@ const strategies = [
     label: 'Bid-Ask',
     icon: (
       <svg className="w-12 h-8" viewBox="0 0 48 32" fill="none">
-        {/* Bid-Ask: Two groups of bars on each side */}
-        <rect x="4" y="8" width="2" height="16" className="fill-current" />
-        <rect x="8" y="10" width="2" height="12" className="fill-current" opacity="0.7" />
-        <rect x="12" y="14" width="2" height="8" className="fill-current" opacity="0.4" />
-        <rect x="16" y="18" width="2" height="4" className="fill-current" opacity="0.2" />
+        {/* Bid-Ask: Left side descending, right side ascending - matching charting.ag */}
+        {/* Left side (Bid): tallest to shortest */}
+        <rect x="8" y="8" width="2" height="16" className="fill-current" />
+        <rect x="11" y="10" width="2" height="12" className="fill-current" />
+        <rect x="14" y="12" width="2" height="8" className="fill-current" />
+        <rect x="17" y="14" width="2" height="4" className="fill-current" />
 
-        <rect x="30" y="18" width="2" height="4" className="fill-current" opacity="0.2" />
-        <rect x="34" y="14" width="2" height="8" className="fill-current" opacity="0.4" />
-        <rect x="38" y="10" width="2" height="12" className="fill-current" opacity="0.7" />
-        <rect x="42" y="8" width="2" height="16" className="fill-current" />
+        {/* Right side (Ask): shortest to tallest */}
+        <rect x="29" y="14" width="2" height="4" className="fill-current" />
+        <rect x="32" y="12" width="2" height="8" className="fill-current" />
+        <rect x="35" y="10" width="2" height="12" className="fill-current" />
+        <rect x="38" y="8" width="2" height="16" className="fill-current" />
       </svg>
     ),
     description: 'Split liquidity on both sides of current price',
