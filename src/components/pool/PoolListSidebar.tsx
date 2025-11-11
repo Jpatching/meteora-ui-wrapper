@@ -53,7 +53,7 @@ export function PoolListSidebar({ currentPool, network }: PoolListSidebarProps) 
   };
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="h-full flex flex-col bg-gray-800/30">
       {/* Header */}
       <div className="px-4 py-3 border-b border-border-light">
         <h3 className="text-sm font-semibold text-white">Pools</h3>
