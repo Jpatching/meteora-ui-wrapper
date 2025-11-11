@@ -229,6 +229,20 @@ export default function TokenPage({ params }: TokenPageProps) {
       <div className="flex flex-col h-screen overflow-hidden bg-background">
         {/* Top Bar - Token Info + Price Changes (Charting.ag Style) */}
         <div className="flex-shrink-0 border-b border-border-light">
+          {/* Breadcrumb Navigation (Charting.ag Style) */}
+          <div className="px-4 pt-2 pb-1">
+            <div className="flex items-center gap-2 text-sm">
+              <Link
+                href="/"
+                className="text-gray-400 hover:text-white transition-colors cursor-pointer"
+              >
+                Dashboard
+              </Link>
+              <span className="text-gray-600">›</span>
+              <span className="text-white font-medium">{displayToken.symbol}</span>
+            </div>
+          </div>
+
           {/* Token Header with Metadata & Social Links */}
           <div className="px-4 py-2 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
