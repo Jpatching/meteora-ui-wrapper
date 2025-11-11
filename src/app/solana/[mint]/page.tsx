@@ -131,6 +131,7 @@ export default function TokenPage({ params }: TokenPageProps) {
     topHoldersPercentage: number;
     devBalancePercentage: number;
   } | null>(null);
+  const [jupiterTokenData, setJupiterTokenData] = useState<any>(null);
 
   // Fetch token info and holder data from Jupiter API
   useEffect(() => {
@@ -142,10 +143,15 @@ export default function TokenPage({ params }: TokenPageProps) {
 
         if (tokenInfoData.pools && tokenInfoData.pools.length > 0) {
           const tokenData = tokenInfoData.pools[0].baseAsset;
+          setJupiterTokenData(tokenData); // Store for direct access to all metrics
+
           console.log('📊 Jupiter token data:', {
             dev: tokenData.dev,
             topHoldersPercentage: tokenData.audit?.topHoldersPercentage,
             holderCount: tokenData.holderCount,
+            mintAuthority: tokenData.mintAuthority,
+            freezeAuthority: tokenData.audit?.freezeAuthorityDisabled,
+            organicScore: tokenData.organicScore,
           });
 
           // Jupiter already provides topHoldersPercentage in audit object
@@ -526,8 +532,8 @@ export default function TokenPage({ params }: TokenPageProps) {
                 <div className="text-center">
                   <div className="text-xs text-gray-500 mb-1">Holders</div>
                   <div className="text-base font-bold text-white">
-                    {(pool?.baseAsset as any)?.holderCount
-                      ? formatNumber((pool?.baseAsset as any).holderCount)
+                    {jupiterTokenData?.holderCount
+                      ? formatNumber(jupiterTokenData.holderCount)
                       : '--'}
                   </div>
                 </div>
@@ -536,9 +542,9 @@ export default function TokenPage({ params }: TokenPageProps) {
                   <div className="text-xs text-gray-500 mb-1">Top10 H.</div>
                   <div className="text-base font-bold text-white">
                     {holderMetrics?.topHoldersPercentage !== undefined
-                      ? `${holderMetrics.topHoldersPercentage.toFixed(2)}%`
+                      ? `${Math.round(holderMetrics.topHoldersPercentage)}%`
                       : (pool?.baseAsset as any)?.audit?.topHoldersPercentage !== undefined
-                        ? `${((pool?.baseAsset as any).audit.topHoldersPercentage).toFixed(2)}%`
+                        ? `${Math.round((pool?.baseAsset as any).audit.topHoldersPercentage)}%`
                         : '--'}
                   </div>
                 </div>
@@ -564,14 +570,12 @@ export default function TokenPage({ params }: TokenPageProps) {
                 <div className="text-center">
                   <div className="text-xs text-gray-500 mb-1">Mint</div>
                   <div className={`text-base font-bold ${
-                    (pool?.baseAsset as any)?.audit?.mintAuthorityDisabled === true
+                    !jupiterTokenData?.mintAuthority
                       ? 'text-success'
-                      : (pool?.baseAsset as any)?.audit?.mintAuthorityDisabled === false
-                        ? 'text-warning'
-                        : 'text-warning'
+                      : 'text-warning'
                   }`}>
-                    {(pool?.baseAsset as any)?.audit?.mintAuthorityDisabled !== undefined
-                      ? ((pool?.baseAsset as any).audit.mintAuthorityDisabled ? 'No' : 'Yes')
+                    {jupiterTokenData !== null
+                      ? (!jupiterTokenData?.mintAuthority ? 'No' : 'Yes')
                       : '--'}
                   </div>
                 </div>
@@ -579,14 +583,12 @@ export default function TokenPage({ params }: TokenPageProps) {
                 <div className="text-center">
                   <div className="text-xs text-gray-500 mb-1">Freeze</div>
                   <div className={`text-base font-bold ${
-                    (pool?.baseAsset as any)?.audit?.freezeAuthorityDisabled === true
+                    jupiterTokenData?.audit?.freezeAuthorityDisabled === true
                       ? 'text-success'
-                      : (pool?.baseAsset as any)?.audit?.freezeAuthorityDisabled === false
-                        ? 'text-warning'
-                        : 'text-warning'
+                      : 'text-warning'
                   }`}>
-                    {(pool?.baseAsset as any)?.audit?.freezeAuthorityDisabled !== undefined
-                      ? ((pool?.baseAsset as any).audit.freezeAuthorityDisabled ? 'No' : 'Yes')
+                    {jupiterTokenData?.audit?.freezeAuthorityDisabled !== undefined
+                      ? (jupiterTokenData.audit.freezeAuthorityDisabled ? 'No' : 'Yes')
                       : '--'}
                   </div>
                 </div>
@@ -594,14 +596,14 @@ export default function TokenPage({ params }: TokenPageProps) {
                 <div className="text-center">
                   <div className="text-xs text-gray-500 mb-1">Score</div>
                   <div className={`text-base font-bold ${
-                    (pool?.baseAsset as any)?.organicScore
-                      ? (pool?.baseAsset as any).organicScore >= 70
+                    jupiterTokenData?.organicScore
+                      ? jupiterTokenData.organicScore >= 70
                         ? 'text-success'
                         : 'text-white'
                       : 'text-error'
                   }`}>
-                    {(pool?.baseAsset as any)?.organicScore
-                      ? Math.round((pool?.baseAsset as any).organicScore)
+                    {jupiterTokenData?.organicScore
+                      ? Math.round(jupiterTokenData.organicScore)
                       : '--'}
                   </div>
                 </div>
