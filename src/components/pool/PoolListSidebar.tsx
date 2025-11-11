@@ -115,18 +115,15 @@ export function PoolListSidebar({ currentPool, network }: PoolListSidebarProps) 
                   }`}
                 >
                   <div className="w-full">
-                    {/* Header: Pair + Badge */}
+                    {/* Header: Pair + Meteora Logo + Badge */}
                     <div className="flex items-center gap-2 mb-3">
                       <span className="text-sm font-semibold text-white">
                         {pool.baseAsset.symbol}-{pool.quoteAsset?.symbol || 'SOL'}
                       </span>
-                      <span
-                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
-                          pool.type === 'dlmm'
-                            ? 'bg-purple-500/20 text-purple-300'
-                            : 'bg-blue-500/20 text-blue-300'
-                        }`}
-                      >
+                      {/* Meteora Logo */}
+                      <img src="/meteora.png" alt="Meteora" className="w-3.5 h-3.5" />
+                      {/* Protocol Badge - Orange Circle */}
+                      <span className="flex items-center justify-center w-11 h-4 rounded-full border border-orange-500 text-[9px] font-bold text-white uppercase">
                         {pool.type === 'dlmm' ? 'DLMM' : 'DYN2'}
                       </span>
                     </div>
