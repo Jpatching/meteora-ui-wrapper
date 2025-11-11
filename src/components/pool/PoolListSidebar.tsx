@@ -143,7 +143,7 @@ export function PoolListSidebar({ currentPool, network }: PoolListSidebarProps) 
 
                     <div className="flex items-center gap-3 text-xs text-gray-400">
                       <span>TVL: {formatNumber(pool.baseAsset.liquidity || 0)}</span>
-                      <span>Vol: {formatNumber(pool.volume24h || 0)}</span>
+                      <span>24h Vol: {formatNumber(pool.volume24h || 0)}</span>
                     </div>
                   </div>
 
