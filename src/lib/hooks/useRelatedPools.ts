@@ -59,12 +59,16 @@ export function useRelatedPools({
           throw new Error('Failed to fetch pools from Meteora APIs');
         }
 
-        const [dlmmPools, dammPools] = await Promise.all([
+        const [dlmmData, dammData] = await Promise.all([
           dlmmResponse.ok ? dlmmResponse.json() : [],
-          dammResponse.ok ? dammResponse.json() : []
+          dammResponse.ok ? dammResponse.json() : { data: [] }
         ]);
 
-        console.log(`📊 Meteora APIs returned ${dlmmPools.length || 0} DLMM + ${dammPools.length || 0} DAMM v2 pools`);
+        // DLMM API returns array directly, DAMM v2 returns {data: [...]}
+        const dlmmPools = Array.isArray(dlmmData) ? dlmmData : [];
+        const dammPools = dammData.data || [];
+
+        console.log(`📊 Meteora APIs returned ${dlmmPools.length} DLMM + ${dammPools.length} DAMM v2 pools`);
 
         // Filter pools containing the token BEFORE transformation (more efficient)
         const dlmmFiltered = dlmmPools.filter((p: any) =>
