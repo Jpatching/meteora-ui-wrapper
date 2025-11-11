@@ -22,6 +22,7 @@ import { enrichPoolWithMetadata } from '@/lib/services/tokenMetadata';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useAllPublicPools } from '@/lib/hooks/usePublicPools';
+import toast from 'react-hot-toast';
 
 interface TokenPageProps {
   params: Promise<{ mint: string }>;
@@ -230,50 +231,62 @@ export default function TokenPage({ params }: TokenPageProps) {
         <div className="flex-shrink-0 border-b border-border-light">
           {/* Token Header with Metadata & Social Links */}
           <div className="px-4 py-2 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              {/* Token Icons + Name */}
-              <div className="flex items-center gap-2">
-                <div className="flex items-center -space-x-1">
-                  {displayToken.icon && (
-                    <img src={displayToken.icon} alt={displayToken.symbol} className="w-8 h-8 rounded-full border-2 border-background" />
-                  )}
-                  {pool?.quoteAsset?.icon && (
-                    <img src={pool.quoteAsset.icon} alt={pool.quoteAsset.symbol} className="w-8 h-8 rounded-full border-2 border-background" />
-                  )}
-                </div>
-                <div>
-                  <h1 className="text-lg font-bold text-white">{displayToken.symbol}</h1>
-                  <p className="text-[10px] text-gray-500">{(displayToken.id || displayToken.address).slice(0, 8)}...{(displayToken.id || displayToken.address).slice(-6)}</p>
-                </div>
+            <div className="flex items-center gap-3">
+              {/* Larger Token Icons */}
+              <div className="flex items-center -space-x-2">
+                {displayToken.icon && (
+                  <img src={displayToken.icon} alt={displayToken.symbol} className="w-12 h-12 rounded-full border-2 border-background" />
+                )}
+                {pool?.quoteAsset?.icon && (
+                  <img src={pool.quoteAsset.icon} alt={pool.quoteAsset.symbol} className="w-12 h-12 rounded-full border-2 border-background" />
+                )}
               </div>
 
-              {/* Metadata Tile */}
-              <div className="flex items-center gap-3 px-3 py-1.5 bg-background-secondary/30 rounded-lg border border-border-light">
-                {displayToken.name && (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-gray-400">Name:</span>
-                    <span className="text-xs font-medium text-white">{displayToken.name}</span>
-                  </div>
-                )}
-                {pool?.type && (
-                  <>
-                    <div className="h-3 w-px bg-border-light"></div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] text-gray-400">Type:</span>
-                      <span className={`text-xs font-bold uppercase ${
-                        pool.type === 'dlmm' ? 'text-purple-400' : 'text-blue-400'
-                      }`}>
-                        {pool.type === 'dlmm' ? 'DLMM' : 'DYN2'}
-                      </span>
-                    </div>
-                  </>
-                )}
-                {!hasMeteoraPool && (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-yellow-400">⚠️ No Meteora Pools Yet</span>
-                  </div>
-                )}
+              {/* Token Name + Copyable CA */}
+              <div className="flex flex-col gap-0.5">
+                <h1 className="text-xl font-bold text-white">{displayToken.symbol}</h1>
+                <button
+                  onClick={() => {
+                    const address = displayToken.id || displayToken.address;
+                    navigator.clipboard.writeText(address);
+                    toast.success('Contract address copied!', {
+                      duration: 2000,
+                      style: {
+                        background: '#1f2937',
+                        color: '#fff',
+                        border: '1px solid #374151',
+                      },
+                    });
+                  }}
+                  className="text-xs text-gray-400 hover:text-gray-300 transition-colors flex items-center gap-1 group"
+                  title="Click to copy address"
+                >
+                  <span className="font-mono">{(displayToken.id || displayToken.address).slice(0, 4)}...{(displayToken.id || displayToken.address).slice(-4)}</span>
+                  <svg className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                </button>
               </div>
+
+              {/* Protocol Badge with Meteora Logo (only if pool exists) */}
+              {pool?.type && (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border-2 border-orange-500/50 bg-orange-500/10">
+                  {/* Meteora Logo */}
+                  <div className="w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center">
+                    <span className="text-[10px] font-bold text-white">M</span>
+                  </div>
+                  {/* Protocol Type */}
+                  <span className="text-sm font-bold uppercase text-orange-400">
+                    {pool.type === 'dlmm' ? 'DLMM' : 'DYN2'}
+                  </span>
+                </div>
+              )}
+
+              {!hasMeteoraPool && (
+                <div className="px-3 py-1.5 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+                  <span className="text-xs text-yellow-400">⚠️ No Meteora Pools</span>
+                </div>
+              )}
             </div>
 
             {/* Social Links Tile */}
