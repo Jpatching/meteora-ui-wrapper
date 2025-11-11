@@ -16,8 +16,8 @@ interface TokenMetadata {
 // Cache for token metadata (in-memory for O(1) lookups)
 const metadataCache = new Map<string, TokenMetadata>();
 
-// Backend API endpoint
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+// Backend API endpoint - fallback to production if env not set
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://alsk-production.up.railway.app';
 
 /**
  * Resolve IPFS URLs to accessible HTTP URLs with fallback gateways
@@ -244,10 +244,15 @@ export async function enrichPoolsWithMetadata(pools: any[]): Promise<any[]> {
     }
   });
 
-  // Load all metadata at once
-  await getMultipleTokenMetadata(Array.from(addresses));
+  // Load all metadata at once - GRACEFULLY handle failures
+  try {
+    await getMultipleTokenMetadata(Array.from(addresses));
+  } catch (error) {
+    console.warn('⚠️ Metadata batch fetch failed, pools will show without icons:', error);
+    // Continue anyway - pools already have symbol/name from backend
+  }
 
-  // Enrich all pools
+  // Enrich all pools (enrichPoolWithMetadata handles missing metadata gracefully)
   return Promise.all(pools.map(pool => enrichPoolWithMetadata(pool)));
 }
 

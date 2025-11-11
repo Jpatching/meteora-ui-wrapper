@@ -8,7 +8,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Pool } from '@/lib/jupiter/types';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://alsk-production.up.railway.app';
 
 // Database pool schema (from PostgreSQL)
 export interface DBPool {

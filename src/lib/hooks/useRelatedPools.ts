@@ -142,9 +142,15 @@ export function useRelatedPools({
         // Limit results (current pool + top N others)
         const limited = related.slice(0, limit);
 
-        // Enrich with token metadata (logos, etc.)
-        const enriched = await enrichPoolsWithMetadata(limited);
-        setPools(enriched);
+        // Enrich with token metadata (logos, etc.) - OPTIONAL, don't fail if this fails
+        try {
+          const enriched = await enrichPoolsWithMetadata(limited);
+          setPools(enriched);
+        } catch (enrichError) {
+          console.warn('⚠️ Failed to enrich pools with metadata, using base data:', enrichError);
+          // Use pools without enrichment (symbols already correct from backend)
+          setPools(limited);
+        }
         setLoading(false);
       } catch (err) {
         console.error('Error fetching related pools:', err);
