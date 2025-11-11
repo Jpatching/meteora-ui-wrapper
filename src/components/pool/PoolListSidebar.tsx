@@ -156,7 +156,11 @@ export function PoolListSidebar({ currentPool, network }: PoolListSidebarProps) 
             {/* View More / View Less Button (Charting.ag style) */}
             {hasMore && (
               <button
-                onClick={() => setShowAll(!showAll)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowAll(!showAll);
+                }}
                 className="w-full px-4 py-3 text-sm font-medium text-primary hover:bg-background-secondary transition-colors border-t border-border-light"
               >
                 {showAll ? '← View Less' : `View All ${filteredPools.length} Pools →`}
