@@ -130,7 +130,10 @@ export default function TokenPage({ params }: TokenPageProps) {
 
   // Find Jupiter pool for this token to get audit data
   const jupiterPool = useMemo(() => {
-    if (!jupiterData) return null;
+    if (!jupiterData) {
+      console.log('⚠️ No Jupiter data available yet');
+      return null;
+    }
 
     const allPools = [
       ...(jupiterData.recent?.pools || []),
@@ -138,8 +141,25 @@ export default function TokenPage({ params }: TokenPageProps) {
       ...(jupiterData.graduated?.pools || []),
     ];
 
+    console.log(`🔍 Searching for token ${mint} in ${allPools.length} Jupiter pools`);
+
     // Find pool where our token is the base asset
-    return allPools.find(p => p.baseAsset.id === mint);
+    const foundPool = allPools.find(p => p.baseAsset.id === mint);
+
+    if (foundPool) {
+      console.log('✅ Found Jupiter pool with audit data:', {
+        holderCount: (foundPool.baseAsset as any)?.holderCount,
+        topHolders: (foundPool.baseAsset as any)?.audit?.topHoldersPercentage,
+        devHoldings: (foundPool.baseAsset as any)?.audit?.devBalancePercentage,
+        mintDisabled: (foundPool.baseAsset as any)?.audit?.mintAuthorityDisabled,
+        freezeDisabled: (foundPool.baseAsset as any)?.audit?.freezeAuthorityDisabled,
+        organicScore: (foundPool.baseAsset as any)?.organicScore,
+      });
+    } else {
+      console.log(`⚠️ Token ${mint} not found in Jupiter pools`);
+    }
+
+    return foundPool || null;
   }, [jupiterData, mint]);
 
   // Handle pool selection and enrichment
