@@ -448,7 +448,7 @@ export default function TokenPage({ params }: TokenPageProps) {
                   <div className="text-xs text-gray-500 mb-1">Holders</div>
                   <div className="text-base font-bold text-white">
                     {(pool?.baseAsset as any)?.holderCount
-                      ? formatNumber((pool.baseAsset as any).holderCount)
+                      ? formatNumber((pool?.baseAsset as any).holderCount)
                       : '--'}
                   </div>
                 </div>
@@ -457,7 +457,7 @@ export default function TokenPage({ params }: TokenPageProps) {
                   <div className="text-xs text-gray-500 mb-1">Top10 H.</div>
                   <div className="text-base font-bold text-white">
                     {(pool?.baseAsset as any)?.audit?.topHoldersPercentage !== undefined
-                      ? `${((pool.baseAsset as any).audit.topHoldersPercentage).toFixed(2)}%`
+                      ? `${((pool?.baseAsset as any).audit.topHoldersPercentage).toFixed(2)}%`
                       : '--'}
                   </div>
                 </div>
@@ -466,12 +466,12 @@ export default function TokenPage({ params }: TokenPageProps) {
                   <div className="text-xs text-gray-500 mb-1">Dev H.</div>
                   <div className={`text-base font-bold ${
                     (pool?.baseAsset as any)?.audit?.devBalancePercentage !== undefined &&
-                    (pool.baseAsset as any).audit.devBalancePercentage < 10
+                    (pool?.baseAsset as any).audit.devBalancePercentage < 10
                       ? 'text-success'
                       : 'text-white'
                   }`}>
                     {(pool?.baseAsset as any)?.audit?.devBalancePercentage !== undefined
-                      ? `${((pool.baseAsset as any).audit.devBalancePercentage).toFixed(0)}%`
+                      ? `${((pool?.baseAsset as any).audit.devBalancePercentage).toFixed(0)}%`
                       : '--'}
                   </div>
                 </div>
@@ -486,7 +486,7 @@ export default function TokenPage({ params }: TokenPageProps) {
                         : 'text-warning'
                   }`}>
                     {(pool?.baseAsset as any)?.audit?.mintAuthorityDisabled !== undefined
-                      ? ((pool.baseAsset as any).audit.mintAuthorityDisabled ? 'No' : 'Yes')
+                      ? ((pool?.baseAsset as any).audit.mintAuthorityDisabled ? 'No' : 'Yes')
                       : '--'}
                   </div>
                 </div>
@@ -501,7 +501,7 @@ export default function TokenPage({ params }: TokenPageProps) {
                         : 'text-warning'
                   }`}>
                     {(pool?.baseAsset as any)?.audit?.freezeAuthorityDisabled !== undefined
-                      ? ((pool.baseAsset as any).audit.freezeAuthorityDisabled ? 'No' : 'Yes')
+                      ? ((pool?.baseAsset as any).audit.freezeAuthorityDisabled ? 'No' : 'Yes')
                       : '--'}
                   </div>
                 </div>
@@ -510,13 +510,13 @@ export default function TokenPage({ params }: TokenPageProps) {
                   <div className="text-xs text-gray-500 mb-1">Score</div>
                   <div className={`text-base font-bold ${
                     (pool?.baseAsset as any)?.organicScore
-                      ? (pool.baseAsset as any).organicScore >= 70
+                      ? (pool?.baseAsset as any).organicScore >= 70
                         ? 'text-success'
                         : 'text-white'
                       : 'text-error'
                   }`}>
                     {(pool?.baseAsset as any)?.organicScore
-                      ? Math.round((pool.baseAsset as any).organicScore)
+                      ? Math.round((pool?.baseAsset as any).organicScore)
                       : '--'}
                   </div>
                 </div>
