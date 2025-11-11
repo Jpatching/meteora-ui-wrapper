@@ -117,7 +117,7 @@ export function AddLiquidityPanel({
     if (newRatio === '50-50' && tokenXAmount) {
       // If switching to 50-50, set equal value amounts
       setTokenYAmount(tokenXAmount);
-    } else if (newRatio === 'one-side') {
+    } else if (newRatio === 'one-side-x' || newRatio === 'one-side-y') {
       // If switching to one-side, clear Y amount
       setTokenYAmount('0');
     }
