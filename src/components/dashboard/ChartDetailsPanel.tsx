@@ -186,6 +186,7 @@ export function ChartDetailsPanel({ pool }: ChartDetailsPanelProps) {
         {/* Chart fills available height */}
         <div className="h-full w-full p-4">
           <TradingChartPro
+            key={pool.id} // Force re-render when pool changes
             data={chartDataPoints}
             interval={interval}
             height={600}
