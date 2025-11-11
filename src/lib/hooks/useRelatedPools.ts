@@ -41,12 +41,13 @@ export function useRelatedPools({
       try {
         const { transformBackendPoolToPool } = await import('./useBackendPools');
 
-        // Get token symbol for search (e.g., "TRUMP" from TRUMP-USDC pool)
-        const baseTokenSymbol = currentPool.baseAsset.symbol;
+        // Get the exact token mint address (contract address)
+        const baseTokenMint = currentPool.baseAsset.id;
 
-        // Search backend API for all pools containing this token
+        // Search backend API using the MINT ADDRESS for exact matching
+        // This ensures we get ALL pools containing this exact token, not symbol matches
         const response = await fetch(
-          `https://alsk-production.up.railway.app/api/pools/search?q=${encodeURIComponent(baseTokenSymbol)}&network=${network}&limit=100`
+          `https://alsk-production.up.railway.app/api/pools/search?q=${encodeURIComponent(baseTokenMint)}&network=${network}&limit=100`
         );
 
         if (!response.ok) {
@@ -64,18 +65,18 @@ export function useRelatedPools({
         // Transform backend pools to Pool format
         const transformed = data.data.map((p: any) => transformBackendPoolToPool(p, p.protocol));
 
-        // Filter for pools that share the SAME BASE TOKEN and are ACTIVE (not dead)
-        // Example: TRUMP-USDC pool should show TRUMP-SOL, TRUMP-BONK, etc. (all TRUMP pools)
+        // Filter for pools that contain the EXACT SAME TOKEN MINT and are ACTIVE
+        // Using mint address ensures 100% accuracy - no symbol collisions
         const related = transformed.filter((pool: Pool) => {
           // Skip the current pool itself
           if (pool.id === currentPool.id) return false;
 
-          // Only show pools that have the same base token
-          const sharesBaseToken =
-            pool.baseAsset.id === currentPool.baseAsset.id ||
-            pool.quoteAsset?.id === currentPool.baseAsset.id;
+          // Check if pool contains the exact token mint (as token_x OR token_y)
+          const containsToken =
+            pool.baseAsset.id === baseTokenMint ||
+            pool.quoteAsset?.id === baseTokenMint;
 
-          if (!sharesBaseToken) return false;
+          if (!containsToken) return false;
 
           // Filter out dead/empty pools with no liquidity
           const hasLiquidity = (pool.baseAsset.liquidity || 0) > 0;
@@ -108,7 +109,7 @@ export function useRelatedPools({
     };
 
     fetchRelatedPools();
-  }, [currentPool?.id, currentPool?.baseAsset.symbol, network, limit]);
+  }, [currentPool?.id, currentPool?.baseAsset.id, network, limit]);
 
   return {
     pools,
