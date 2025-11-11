@@ -77,7 +77,7 @@ export interface BackendDAMMPool {
 }
 
 // Transform database pool to DLMM frontend format
-function transformDBPoolToDLMM(pool: DBPool): BackendDLMMPool {
+export function transformDBPoolToDLMM(pool: DBPool): BackendDLMMPool {
   // PostgreSQL returns DECIMAL as string - convert to numbers
   const tvl = typeof pool.tvl === 'string' ? parseFloat(pool.tvl) : pool.tvl;
   const volume24h = typeof pool.volume_24h === 'string' ? parseFloat(pool.volume_24h) : pool.volume_24h;
@@ -115,7 +115,7 @@ function transformDBPoolToDLMM(pool: DBPool): BackendDLMMPool {
 }
 
 // Transform database pool to DAMM frontend format
-function transformDBPoolToDAMM(pool: DBPool): BackendDAMMPool {
+export function transformDBPoolToDAMM(pool: DBPool): BackendDAMMPool {
   // PostgreSQL returns DECIMAL as string - convert to numbers
   const tvl = typeof pool.tvl === 'string' ? parseFloat(pool.tvl) : pool.tvl;
   const volume24h = typeof pool.volume_24h === 'string' ? parseFloat(pool.volume_24h) : pool.volume_24h;
@@ -136,6 +136,21 @@ function transformDBPoolToDAMM(pool: DBPool): BackendDAMMPool {
     apr: apr,
     pool_type: pool.metadata.pool_type || 0,
   };
+}
+
+/**
+ * Transform DBPool to BackendPool (intermediate step)
+ * EXPORTED for use in useRelatedPools
+ */
+export function transformDBPoolToBackend(
+  dbPool: DBPool,
+  protocol: 'dlmm' | 'damm-v2'
+): BackendDLMMPool | BackendDAMMPool {
+  if (protocol === 'dlmm') {
+    return transformDBPoolToDLMM(dbPool);
+  } else {
+    return transformDBPoolToDAMM(dbPool);
+  }
 }
 
 /**

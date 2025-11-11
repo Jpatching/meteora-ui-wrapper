@@ -56,7 +56,7 @@ export default function TokenPage({ params }: TokenPageProps) {
 
           // Filter pools where our token is actually one of the pair tokens
           const relevantPools = data.data.filter((pool: any) =>
-            pool.token_x_mint === mint || pool.token_y_mint === mint
+            pool.token_a_mint === mint || pool.token_b_mint === mint
           );
 
           console.log(`📊 ${relevantPools.length} pools contain token ${mint}`);
@@ -64,27 +64,27 @@ export default function TokenPage({ params }: TokenPageProps) {
           // Transform backend pools to our Pool format
           // IMPORTANT: Ensure our token is always the baseAsset
           const pools = relevantPools.map((pool: any) => {
-            const isTokenX = pool.token_x_mint === mint;
+            const isTokenA = pool.token_a_mint === mint;
 
             return {
               id: pool.pool_address,
               type: pool.protocol === 'dlmm' ? 'dlmm' : 'damm-v2',
               baseAsset: {
-                id: isTokenX ? pool.token_x_mint : pool.token_y_mint,
-                symbol: isTokenX ? (pool.token_x_symbol || 'UNKNOWN') : (pool.token_y_symbol || 'UNKNOWN'),
-                name: isTokenX ? (pool.token_x_name || 'Unknown Token') : (pool.token_y_name || 'Unknown Token'),
-                icon: isTokenX ? (pool.token_x_logo || '') : (pool.token_y_logo || ''),
-                liquidity: isTokenX ? (pool.token_x_reserve || 0) : (pool.token_y_reserve || 0),
-                usdPrice: isTokenX ? (pool.token_x_price || 0) : (pool.token_y_price || 0),
+                id: isTokenA ? pool.token_a_mint : pool.token_b_mint,
+                symbol: isTokenA ? (pool.token_a_symbol || 'UNKNOWN') : (pool.token_b_symbol || 'UNKNOWN'),
+                name: isTokenA ? (pool.token_a_name || 'Unknown Token') : (pool.token_b_name || 'Unknown Token'),
+                icon: '', // Will be enriched later
+                liquidity: 0, // Not directly available
+                usdPrice: 0, // Not directly available
               },
               quoteAsset: {
-                id: isTokenX ? pool.token_y_mint : pool.token_x_mint,
-                symbol: isTokenX ? (pool.token_y_symbol || 'UNKNOWN') : (pool.token_x_symbol || 'UNKNOWN'),
-                icon: isTokenX ? (pool.token_y_logo || '') : (pool.token_x_logo || ''),
-                name: isTokenX ? (pool.token_y_name || 'Unknown') : (pool.token_x_name || 'Unknown'),
+                id: isTokenA ? pool.token_b_mint : pool.token_a_mint,
+                symbol: isTokenA ? (pool.token_b_symbol || 'UNKNOWN') : (pool.token_a_symbol || 'UNKNOWN'),
+                icon: '', // Will be enriched later
+                name: isTokenA ? (pool.token_b_name || 'Unknown') : (pool.token_a_name || 'Unknown'),
               },
-              volume24h: pool.volume_24h || 0,
-              tvl: pool.tvl || 0,
+              volume24h: typeof pool.volume_24h === 'string' ? parseFloat(pool.volume_24h) : pool.volume_24h || 0,
+              tvl: typeof pool.tvl === 'string' ? parseFloat(pool.tvl) : pool.tvl || 0,
             };
           });
 

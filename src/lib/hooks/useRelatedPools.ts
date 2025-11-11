@@ -39,7 +39,7 @@ export function useRelatedPools({
       setError(null);
 
       try {
-        const { transformBackendPoolToPool } = await import('./useBackendPools');
+        const { transformBackendPoolToPool, transformDBPoolToBackend } = await import('./useBackendPools');
 
         // Get token symbol for search (same method as working searchbar)
         const baseTokenSymbol = currentPool.baseAsset.symbol;
@@ -49,8 +49,9 @@ export function useRelatedPools({
 
         // Fetch from backend database (synced every 30 min with ~10k active pools)
         // Backend has BOTH DLMM and DAMM v2 pools searchable via symbol
+        const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://alsk-production.up.railway.app';
         const response = await fetch(
-          `https://alsk-production.up.railway.app/api/pools/search?q=${encodeURIComponent(baseTokenSymbol)}&network=${network}&limit=100`
+          `${BACKEND_URL}/api/pools/search?q=${encodeURIComponent(baseTokenSymbol)}&network=${network}&limit=100`
         );
 
         if (!response.ok) {
@@ -58,12 +59,15 @@ export function useRelatedPools({
         }
 
         const data = await response.json();
-        const pools = data.data || [];
+        const dbPools = data.data || [];
 
-        console.log(`📊 Backend returned ${pools.length} pools for "${baseTokenSymbol}"`);
+        console.log(`📊 Backend returned ${dbPools.length} pools for "${baseTokenSymbol}"`);
 
-        // Transform backend pools to Pool format (already in DBPool format)
-        const transformed = pools.map((p: any) => transformBackendPoolToPool(p, p.protocol));
+        // Transform DBPool → BackendPool → Pool format
+        const transformed = dbPools.map((dbPool: any) => {
+          const backendPool = transformDBPoolToBackend(dbPool, dbPool.protocol);
+          return transformBackendPoolToPool(backendPool, dbPool.protocol);
+        });
         console.log(`🔄 Transformed ${transformed.length} pools`);
 
         // Log first pool for debugging
