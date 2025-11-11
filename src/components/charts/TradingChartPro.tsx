@@ -81,15 +81,17 @@ export function TradingChartPro({
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
   const maxLineRef = useRef<ISeriesApi<'Line'> | null>(null);
   const minLineRef = useRef<ISeriesApi<'Line'> | null>(null);
-  // DLMM overlay refs
-  const binHistogramRef = useRef<ISeriesApi<'Histogram'> | null>(null);
+  // DLMM overlay refs (charting.ag blue box style)
+  const dlmmRangeAreaRef = useRef<ISeriesApi<'Area'> | null>(null);
+  const dlmmRangeTopRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const dlmmRangeBottomRef = useRef<ISeriesApi<'Line'> | null>(null);
   const activeBinLineRef = useRef<ISeriesApi<'Line'> | null>(null);
   const positionRangeLinesRef = useRef<ISeriesApi<'Line'>[]>([]);
 
   const [mode, setMode] = useState<ChartMode>('price');
   const [showHistory, setShowHistory] = useState(false);
 
-  // Calculate price range (max/min)
+  // Calculate price range (max/min) from OHLC data
   const priceRange = useMemo(() => {
     if (!data || data.length === 0) return { max: 0, min: 0 };
 
@@ -99,6 +101,17 @@ export function TradingChartPro({
 
     return { max, min };
   }, [data]);
+
+  // Calculate DLMM liquidity range (charting.ag blue box)
+  const dlmmRange = useMemo(() => {
+    if (!binData || binData.length === 0) return { max: 0, min: 0 };
+
+    const binPrices = binData.map(bin => bin.price);
+    const max = Math.max(...binPrices);
+    const min = Math.min(...binPrices);
+
+    return { max, min };
+  }, [binData]);
 
   // Initialize chart
   useEffect(() => {
@@ -280,43 +293,78 @@ export function TradingChartPro({
       minLine.setData(minData);
     }
 
-    // Add DLMM bin distribution histogram overlay (behind price chart)
-    if (showBinDistribution && binData && binData.length > 0 && data.length > 0) {
-      // Remove existing bin histogram
-      if (binHistogramRef.current) {
-        chart.removeSeries(binHistogramRef.current);
-        binHistogramRef.current = null;
+    // Add DLMM liquidity range box (charting.ag blue shaded area)
+    if (showBinDistribution && dlmmRange.max > 0 && dlmmRange.min > 0 && data.length > 0) {
+      // Remove existing DLMM range visuals
+      if (dlmmRangeAreaRef.current) {
+        chart.removeSeries(dlmmRangeAreaRef.current);
+        dlmmRangeAreaRef.current = null;
+      }
+      if (dlmmRangeTopRef.current) {
+        chart.removeSeries(dlmmRangeTopRef.current);
+        dlmmRangeTopRef.current = null;
+      }
+      if (dlmmRangeBottomRef.current) {
+        chart.removeSeries(dlmmRangeBottomRef.current);
+        dlmmRangeBottomRef.current = null;
       }
 
-      const binHistogram = chart.addHistogramSeries({
-        color: CHART_COLORS.binLiquidity,
-        priceFormat: {
-          type: 'volume',
-        },
-        priceScaleId: 'bin-liquidity',
-        scaleMargins: {
-          top: 0.7,
-          bottom: 0.3,
-        },
+      // Create shaded area series (blue transparent fill)
+      const dlmmRangeArea = chart.addAreaSeries({
+        topColor: 'rgba(59, 130, 246, 0.15)',      // Blue with 15% opacity (top)
+        bottomColor: 'rgba(59, 130, 246, 0.05)',   // Blue with 5% opacity (bottom - gradient)
+        lineColor: 'transparent',                   // No border line
+        lineWidth: 0,
+        crosshairMarkerVisible: false,
+        lastValueVisible: false,
+        priceLineVisible: false,
       });
 
-      binHistogramRef.current = binHistogram;
+      dlmmRangeAreaRef.current = dlmmRangeArea;
 
-      // Convert bin data to histogram format (liquidity at each price level)
-      // Map bins to time series by repeating bin price across the time range
-      const binHistogramData = binData.map((bin, index) => {
-        // Spread bins across the time range
-        const timeIndex = Math.floor((index / binData.length) * data.length);
-        const time = data[Math.min(timeIndex, data.length - 1)].time;
-
-        return {
-          time,
-          value: bin.totalLiquidity,
-          color: bin.isActive ? CHART_COLORS.activeBin : CHART_COLORS.binLiquidity,
-        };
+      // Create horizontal lines for top and bottom of range (cyan/blue dotted)
+      const dlmmRangeTop = chart.addLineSeries({
+        color: '#0cbef3',  // Cyan color matching charting.ag
+        lineWidth: 1,
+        lineStyle: LineStyle.Dotted,
+        crosshairMarkerVisible: false,
+        lastValueVisible: true,
+        priceLineVisible: false,
       });
 
-      binHistogram.setData(binHistogramData);
+      const dlmmRangeBottom = chart.addLineSeries({
+        color: '#0cbef3',  // Cyan color matching charting.ag
+        lineWidth: 1,
+        lineStyle: LineStyle.Dotted,
+        crosshairMarkerVisible: false,
+        lastValueVisible: true,
+        priceLineVisible: false,
+      });
+
+      dlmmRangeTopRef.current = dlmmRangeTop;
+      dlmmRangeBottomRef.current = dlmmRangeBottom;
+
+      // Set data for shaded area (fill between max and min)
+      const areaData = data.map(d => ({
+        time: d.time,
+        value: dlmmRange.max,  // Area series uses single value, we'll use CSS to fill down
+      }));
+
+      dlmmRangeArea.setData(areaData);
+
+      // Set data for top and bottom horizontal lines
+      const topLineData = [
+        { time: data[0].time, value: dlmmRange.max },
+        { time: data[data.length - 1].time, value: dlmmRange.max },
+      ];
+
+      const bottomLineData = [
+        { time: data[0].time, value: dlmmRange.min },
+        { time: data[data.length - 1].time, value: dlmmRange.min },
+      ];
+
+      dlmmRangeTop.setData(topLineData);
+      dlmmRangeBottom.setData(bottomLineData);
     }
 
     // Add active bin price marker (purple horizontal line)
@@ -399,7 +447,7 @@ export function TradingChartPro({
 
     // Fit content
     chart.timeScale().fitContent();
-  }, [data, priceRange, binData, showBinDistribution, activeBinPrice, positionRanges]);
+  }, [data, priceRange, dlmmRange, binData, showBinDistribution, activeBinPrice, positionRanges]);
 
   return (
     <div className="relative">
@@ -468,8 +516,17 @@ export function TradingChartPro({
         </div>
       </div>
 
-      {/* Max/Min Price Labels - Right Side */}
-      {priceRange.max > 0 && (
+      {/* DLMM Range Labels (charting.ag style) or Price Range Labels */}
+      {showBinDistribution && dlmmRange.max > 0 ? (
+        <>
+          <div className="absolute top-16 right-4 z-10 pointer-events-none text-xs text-[#0cbef3]">
+            max: ${dlmmRange.max.toFixed(6)}
+          </div>
+          <div className="absolute bottom-32 right-4 z-10 pointer-events-none text-xs text-[#0cbef3]">
+            min: ${dlmmRange.min.toFixed(6)}
+          </div>
+        </>
+      ) : priceRange.max > 0 ? (
         <>
           <div className="absolute top-16 right-4 z-10 pointer-events-none text-xs text-[#3b82f6]">
             max: ${priceRange.max.toFixed(6)}
@@ -478,7 +535,7 @@ export function TradingChartPro({
             min: ${priceRange.min.toFixed(6)}
           </div>
         </>
-      )}
+      ) : null}
 
       {/* Chart Container */}
       <div
