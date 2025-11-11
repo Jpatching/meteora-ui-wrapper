@@ -25,6 +25,7 @@ interface AddLiquidityPanelProps {
   currentPrice: number;
   binStep: number;
   baseFee?: number; // Base fee percentage
+  poolType?: string; // Pool type for header (dlmm, damm-v2, etc.)
 }
 
 export function AddLiquidityPanel({
@@ -36,6 +37,7 @@ export function AddLiquidityPanel({
   currentPrice,
   binStep,
   baseFee,
+  poolType = 'dlmm',
 }: AddLiquidityPanelProps) {
   const { publicKey, connected } = useWallet();
   const { network } = useNetwork();
@@ -65,6 +67,9 @@ export function AddLiquidityPanel({
 
   // Loading state
   const [loading, setLoading] = useState(false);
+
+  // Slippage state
+  const [slippage, setSlippage] = useState(1); // Default 1%
 
   // Calculate ratio percentages based on strategy
   const tokenXPercentage = ratio === 'one-side' ? 100 : 50;
@@ -237,8 +242,46 @@ export function AddLiquidityPanel({
 
   const activeBinId = calculateActiveBinId();
 
+  // Get pool type display name
+  const poolTypeDisplay = poolType === 'damm-v2' ? 'DYN2' : poolType.toUpperCase();
+
   return (
     <div className="space-y-4">
+      {/* Header - Pool Type + Token Pair + Slippage (charting.ag style) */}
+      <div className="bg-background-secondary/30 border border-border-light rounded-lg p-3">
+        {/* Pool Type Label */}
+        <div className="text-sm font-bold text-white mb-3">{poolTypeDisplay}</div>
+
+        {/* Token Pair Display with Slippage */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs">
+                {tokenXSymbol.slice(0, 1)}
+              </div>
+              <span className="text-sm font-medium text-white">{tokenXSymbol}-{tokenYSymbol}</span>
+            </div>
+          </div>
+
+          {/* Slippage Control */}
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <input
+              type="number"
+              value={slippage}
+              onChange={(e) => setSlippage(Math.max(0.1, Math.min(50, parseFloat(e.target.value) || 1)))}
+              className="w-12 px-2 py-0.5 bg-background text-white text-xs rounded border border-border-light focus:outline-none focus:border-primary"
+              step="0.1"
+              min="0.1"
+              max="50"
+            />
+            <span className="text-xs text-gray-400">%</span>
+          </div>
+        </div>
+      </div>
       {/* Strategy Selector - Tile */}
       <div className="bg-background-secondary/30 border border-border-light rounded-lg p-4">
         <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Strategy</h3>

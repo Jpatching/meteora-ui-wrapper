@@ -90,6 +90,7 @@ export function PoolActionsPanel({
             currentPrice={currentPrice}
             binStep={binStep}
             baseFee={baseFee}
+            poolType={poolType}
           />
         )}
 
