@@ -246,17 +246,17 @@ export function AddLiquidityPanel({
   const poolTypeDisplay = poolType === 'damm-v2' ? 'DYN2' : poolType.toUpperCase();
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Header - Pool Type + Token Pair + Slippage (charting.ag style) */}
-      <div className="bg-background-secondary/30 border border-border-light rounded-lg p-3">
+      <div>
         {/* Pool Type Label */}
-        <div className="text-sm font-bold text-white mb-3">{poolTypeDisplay}</div>
+        <div className="text-sm font-bold text-white mb-2">{poolTypeDisplay}</div>
 
         {/* Token Pair Display with Slippage */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5">
-              <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs">
+              <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-[10px]">
                 {tokenXSymbol.slice(0, 1)}
               </div>
               <span className="text-sm font-medium text-white">{tokenXSymbol}-{tokenYSymbol}</span>
@@ -264,8 +264,8 @@ export function AddLiquidityPanel({
           </div>
 
           {/* Slippage Control */}
-          <div className="flex items-center gap-2">
-            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="flex items-center gap-1.5">
+            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
@@ -273,7 +273,7 @@ export function AddLiquidityPanel({
               type="number"
               value={slippage}
               onChange={(e) => setSlippage(Math.max(0.1, Math.min(50, parseFloat(e.target.value) || 1)))}
-              className="w-12 px-2 py-0.5 bg-background text-white text-xs rounded border border-border-light focus:outline-none focus:border-primary"
+              className="w-10 px-1.5 py-0.5 bg-background text-white text-xs rounded border border-border-light focus:outline-none focus:border-primary"
               step="0.1"
               min="0.1"
               max="50"
@@ -282,9 +282,10 @@ export function AddLiquidityPanel({
           </div>
         </div>
       </div>
-      {/* Strategy Selector - Tile */}
-      <div className="bg-background-secondary/30 border border-border-light rounded-lg p-4">
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Strategy</h3>
+
+      {/* Strategy Selector - Clean, no box */}
+      <div>
+        <h3 className="text-sm font-medium text-white mb-2">Strategy</h3>
         <StrategySelector
           selected={strategy}
           onChange={handleStrategyChange}
@@ -292,9 +293,9 @@ export function AddLiquidityPanel({
         />
       </div>
 
-      {/* Ratio Control - Tile */}
-      <div className="bg-background-secondary/30 border border-border-light rounded-lg p-4">
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Ratio</h3>
+      {/* Ratio Control - Clean, no box */}
+      <div>
+        <h3 className="text-sm font-medium text-white mb-2">Ratio</h3>
         <RatioControl
           selected={ratio}
           onChange={handleRatioChange}
@@ -306,9 +307,9 @@ export function AddLiquidityPanel({
         />
       </div>
 
-      {/* Price Range Picker - Tile */}
-      <div className="bg-background-secondary/30 border border-border-light rounded-lg p-4">
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Price Range</h3>
+      {/* Price Range Picker - Clean, no box */}
+      <div>
+        <h3 className="text-sm font-medium text-white mb-2">Price Range</h3>
         <PriceRangePicker
           currentPrice={safeCurrentPrice}
           minPrice={minPrice}
@@ -323,19 +324,15 @@ export function AddLiquidityPanel({
         />
       </div>
 
-      {/* Deposit Amount - Tile */}
-      <div className="bg-background-secondary/30 border border-border-light rounded-lg p-4">
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Amount</h3>
-
-        {/* Token X Amount */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-medium text-gray-300">{tokenXSymbol}</label>
-            <span className="text-xs text-gray-500">
-              Balance: {tokenXBalance ? tokenXBalance.uiAmount.toFixed(4) : '0.00'}
-            </span>
+      {/* Token Input - charting.ag style (compact, in header area) */}
+      <div className="bg-background-secondary/20 border border-border-light rounded-lg p-3">
+        {/* Token Icon + Input */}
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs">
+            {tokenYSymbol.slice(0, 1)}
           </div>
-          <div className="relative">
+          <span className="text-sm font-medium text-white mr-auto">{tokenYSymbol}</span>
+          <div className="text-right">
             <input
               type="number"
               value={tokenXAmount}
@@ -344,8 +341,29 @@ export function AddLiquidityPanel({
               placeholder="0.00"
               step="0.01"
               min="0"
-              className="w-full px-3 py-2.5 pr-16 rounded-lg bg-background border border-border-light text-white text-sm font-mono focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50 transition-all"
+              className="w-24 px-2 py-1 bg-transparent text-white text-right text-base font-medium focus:outline-none"
             />
+            <div className="text-xs text-gray-500">$0.00</div>
+          </div>
+        </div>
+
+        {/* Balance + 50% + Max */}
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-gray-400">
+            Balance: {tokenXBalance ? tokenXBalance.uiAmount.toFixed(2) : '0'} {tokenYSymbol}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                if (tokenXBalance) {
+                  setTokenXAmount((tokenXBalance.uiAmount * 0.5).toFixed(6));
+                }
+              }}
+              disabled={loading || !tokenXBalance}
+              className="text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+            >
+              50%
+            </button>
             <button
               onClick={() => {
                 if (tokenXBalance) {
@@ -353,15 +371,16 @@ export function AddLiquidityPanel({
                 }
               }}
               disabled={loading || !tokenXBalance}
-              className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 rounded text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="text-gray-400 hover:text-white transition-colors disabled:opacity-50"
             >
-              MAX
+              Max
             </button>
           </div>
         </div>
+      </div>
 
-        {/* Token Y Amount - Only for 50:50 */}
-        {ratio === '50-50' && (
+      {/* Token Y Amount - Only for 50:50 (hidden for now, can add later) */}
+      {ratio === '50-50' && false && (
           <div className="space-y-1.5 mt-3">
             <div className="flex items-center justify-between">
               <label className="text-xs font-medium text-gray-300">{tokenYSymbol}</label>
