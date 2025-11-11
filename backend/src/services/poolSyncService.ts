@@ -277,10 +277,16 @@ async function upsertDLMMPoolDeprecated(pool: DLMMPool, network: 'mainnet-beta' 
 }
 
 /**
- * Upsert DAMM pool into database
- * NOW WITH TOKEN METADATA ENRICHMENT from Jupiter API!
+ * Upsert DAMM pool - now uses shared helper function
  */
-async function upsertDAMMPool(pool: DAMMPool, network: 'mainnet-beta' | 'devnet' = 'mainnet-beta'): Promise<void> {
+async function upsertDAMMPoolLocal(pool: DAMMPool, network: 'mainnet-beta' | 'devnet' = 'mainnet-beta'): Promise<void> {
+  return upsertDAMMPool(pool as any, network);
+}
+
+/**
+ * Legacy implementation - keeping for reference
+ */
+async function upsertDAMMPoolDeprecated(pool: DAMMPool, network: 'mainnet-beta' | 'devnet' = 'mainnet-beta'): Promise<void> {
   // Parse pool name for fallback
   const nameParts = (pool.pool_name || '').split('-');
 
