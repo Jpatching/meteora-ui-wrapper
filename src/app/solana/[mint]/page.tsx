@@ -134,26 +134,33 @@ export default function TokenPage({ params }: TokenPageProps) {
             setPool(rawPool); // Use raw pool if enrichment fails
           });
       } else if (tokenPools.length === 0) {
-        // No Meteora pools - fetch token metadata from Jupiter
-        fetch(`https://tokens.jup.ag/token/${mint}`)
-          .then(res => res.json())
-          .then(data => {
+        // No Meteora pools - fetch token metadata AND price from Jupiter
+        Promise.all([
+          fetch(`https://tokens.jup.ag/token/${mint}`).then(res => res.json()),
+          fetch(`https://api.jup.ag/price/v2?ids=${mint}`).then(res => res.json())
+        ])
+          .then(([tokenData, priceData]) => {
+            const price = priceData?.data?.[mint]?.price || 0;
+            console.log(`📊 Token ${mint} price: $${price}`);
+
             setTokenInfo({
               address: mint,
-              symbol: data.symbol || 'UNKNOWN',
-              name: data.name || 'Unknown Token',
-              icon: data.logoURI || '',
-              decimals: data.decimals || 9,
+              symbol: tokenData.symbol || 'UNKNOWN',
+              name: tokenData.name || 'Unknown Token',
+              icon: tokenData.logoURI || '',
+              decimals: tokenData.decimals || 9,
+              usdPrice: price,
             });
           })
           .catch(err => {
-            console.error('Failed to fetch token metadata:', err);
+            console.error('Failed to fetch token metadata/price:', err);
             setTokenInfo({
               address: mint,
               symbol: 'TOKEN',
               name: 'Unknown Token',
               icon: '',
               decimals: 9,
+              usdPrice: 0,
             });
           });
       }
@@ -197,7 +204,7 @@ export default function TokenPage({ params }: TokenPageProps) {
       icon: tokenInfo.icon,
       decimals: tokenInfo.decimals || 9,
       tokenProgram: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
-      usdPrice: 0,
+      usdPrice: tokenInfo.usdPrice || 0,
       liquidity: 0,
     },
     quoteAsset: {
