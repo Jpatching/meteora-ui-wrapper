@@ -47,86 +47,24 @@ export function useRelatedPools({
 
         console.log(`🔍 Searching for pools with token: ${baseTokenSymbol} (${baseTokenMint})`);
 
-        // Fetch from REAL Meteora APIs (not backend cache)
-        const [dlmmResponse, dammResponse] = await Promise.all([
-          // DLMM API
-          fetch('https://dlmm-api.meteora.ag/pair/all'),
-          // DAMM v2 API
-          fetch('https://dammv2-api.meteora.ag/pools')
-        ]);
+        // Fetch from backend database (synced every 30 min with ~10k active pools)
+        // Backend has BOTH DLMM and DAMM v2 pools searchable via symbol
+        const response = await fetch(
+          `https://alsk-production.up.railway.app/api/pools/search?q=${encodeURIComponent(baseTokenSymbol)}&network=${network}&limit=100`
+        );
 
-        if (!dlmmResponse.ok && !dammResponse.ok) {
-          throw new Error('Failed to fetch pools from Meteora APIs');
+        if (!response.ok) {
+          throw new Error(`Backend search failed: ${response.status}`);
         }
 
-        const [dlmmData, dammData] = await Promise.all([
-          dlmmResponse.ok ? dlmmResponse.json() : [],
-          dammResponse.ok ? dammResponse.json() : { data: [] }
-        ]);
+        const data = await response.json();
+        const pools = data.data || [];
 
-        // DLMM API returns array directly, DAMM v2 returns {data: [...]}
-        const dlmmPools = Array.isArray(dlmmData) ? dlmmData : [];
-        const dammPools = dammData.data || [];
+        console.log(`📊 Backend returned ${pools.length} pools for "${baseTokenSymbol}"`);
 
-        console.log(`📊 Meteora APIs returned ${dlmmPools.length} DLMM + ${dammPools.length} DAMM v2 pools`);
-
-        // Filter pools containing the token BEFORE transformation (more efficient)
-        const dlmmFiltered = dlmmPools.filter((p: any) =>
-          p.mint_x === baseTokenMint || p.mint_y === baseTokenMint ||
-          p.name?.toUpperCase().includes(baseTokenSymbol.toUpperCase())
-        );
-
-        const dammFiltered = dammPools.filter((p: any) =>
-          p.token_a_mint === baseTokenMint || p.token_b_mint === baseTokenMint ||
-          p.pool_name?.toUpperCase().includes(baseTokenSymbol.toUpperCase())
-        );
-
-        console.log(`🔎 Filtered to ${dlmmFiltered.length} DLMM + ${dammFiltered.length} DAMM v2 pools containing "${baseTokenSymbol}"`);
-
-        // Transform Meteora API pools to our Pool format
-        const dlmmTransformed = dlmmFiltered.map((p: any) => {
-          const backendPool = {
-            address: p.address,
-            name: p.name,
-            bin_step: p.bin_step || 0,
-            base_fee_percentage: p.base_fee_percentage || '0',
-            liquidity: p.liquidity || '0',
-            trade_volume_24h: p.trade_volume_24h || 0,
-            mint_x: p.mint_x,
-            mint_y: p.mint_y,
-            reserve_x: p.reserve_x || '0',
-            reserve_y: p.reserve_y || '0',
-            current_price: p.current_price || 0,
-            apr: p.apr || 0,
-            apy: p.apy || 0,
-            fees_24h: p.fees_24h || 0,
-            token_a_symbol: p.name?.split('-')[0],
-            token_b_symbol: p.name?.split('-')[1],
-          };
-          return transformBackendPoolToPool(backendPool, 'dlmm');
-        });
-
-        const dammTransformed = dammFiltered.map((p: any) => {
-          const backendPool = {
-            pool_address: p.pool_address,
-            pool_name: p.pool_name,
-            base_fee: p.base_fee || 0.25,
-            tvl: p.tvl || 0,
-            volume24h: p.volume24h || 0,
-            token_a_mint: p.token_a_mint,
-            token_b_mint: p.token_b_mint,
-            token_a_symbol: p.token_a_symbol || p.pool_name?.split('-')[0] || '',
-            token_b_symbol: p.token_b_symbol || p.pool_name?.split('-')[1] || '',
-            token_a_amount: p.token_a_amount || 0,
-            token_b_amount: p.token_b_amount || 0,
-            apr: p.apr || 0,
-            pool_type: p.pool_type || 0,
-          };
-          return transformBackendPoolToPool(backendPool, 'damm-v2');
-        });
-
-        const transformed = [...dlmmTransformed, ...dammTransformed];
-        console.log(`🔄 Transformed ${dlmmTransformed.length} DLMM + ${dammTransformed.length} DAMM v2 = ${transformed.length} total pools`);
+        // Transform backend pools to Pool format (already in DBPool format)
+        const transformed = pools.map((p: any) => transformBackendPoolToPool(p, p.protocol));
+        console.log(`🔄 Transformed ${transformed.length} pools`);
 
         // Log first pool for debugging
         if (transformed.length > 0) {
