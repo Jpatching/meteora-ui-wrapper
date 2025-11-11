@@ -418,7 +418,7 @@ export default function TokenPage({ params }: TokenPageProps) {
                   <div className="text-xs text-gray-500 mb-1">Holders</div>
                   <div className="text-base font-bold text-white">
                     {(jupiterPool?.baseAsset as any)?.holderCount
-                      ? formatNumber((jupiterPool.baseAsset as any).holderCount)
+                      ? formatNumber((jupiterPool?.baseAsset as any).holderCount)
                       : (pool?.baseAsset.holderCount ? formatNumber(pool.baseAsset.holderCount) : '--')}
                   </div>
                 </div>
@@ -427,7 +427,7 @@ export default function TokenPage({ params }: TokenPageProps) {
                   <div className="text-xs text-gray-500 mb-1">Top10 H.</div>
                   <div className="text-base font-bold text-white">
                     {(jupiterPool?.baseAsset as any)?.audit?.topHoldersPercentage !== undefined
-                      ? `${((jupiterPool.baseAsset as any).audit.topHoldersPercentage).toFixed(2)}%`
+                      ? `${((jupiterPool?.baseAsset as any).audit.topHoldersPercentage).toFixed(2)}%`
                       : '--'}
                   </div>
                 </div>
@@ -436,12 +436,12 @@ export default function TokenPage({ params }: TokenPageProps) {
                   <div className="text-xs text-gray-500 mb-1">Dev H.</div>
                   <div className={`text-base font-bold ${
                     (jupiterPool?.baseAsset as any)?.audit?.devBalancePercentage !== undefined &&
-                    (jupiterPool.baseAsset as any).audit.devBalancePercentage < 10
+                    (jupiterPool?.baseAsset as any).audit.devBalancePercentage < 10
                       ? 'text-success'
                       : 'text-white'
                   }`}>
                     {(jupiterPool?.baseAsset as any)?.audit?.devBalancePercentage !== undefined
-                      ? `${((jupiterPool.baseAsset as any).audit.devBalancePercentage).toFixed(0)}%`
+                      ? `${((jupiterPool?.baseAsset as any).audit.devBalancePercentage).toFixed(0)}%`
                       : '--'}
                   </div>
                 </div>
@@ -458,7 +458,7 @@ export default function TokenPage({ params }: TokenPageProps) {
                           : 'text-warning'
                   }`}>
                     {(jupiterPool?.baseAsset as any)?.audit?.mintAuthorityDisabled !== undefined
-                      ? ((jupiterPool.baseAsset as any).audit.mintAuthorityDisabled ? 'No' : 'Yes')
+                      ? ((jupiterPool?.baseAsset as any).audit.mintAuthorityDisabled ? 'No' : 'Yes')
                       : pool?.baseAsset.audit?.mintAuthorityDisabled !== undefined
                         ? (pool.baseAsset.audit.mintAuthorityDisabled ? 'No' : 'Yes')
                         : '--'}
@@ -477,7 +477,7 @@ export default function TokenPage({ params }: TokenPageProps) {
                           : 'text-warning'
                   }`}>
                     {(jupiterPool?.baseAsset as any)?.audit?.freezeAuthorityDisabled !== undefined
-                      ? ((jupiterPool.baseAsset as any).audit.freezeAuthorityDisabled ? 'No' : 'Yes')
+                      ? ((jupiterPool?.baseAsset as any).audit.freezeAuthorityDisabled ? 'No' : 'Yes')
                       : pool?.baseAsset.audit?.freezeAuthorityDisabled !== undefined
                         ? (pool.baseAsset.audit.freezeAuthorityDisabled ? 'No' : 'Yes')
                         : '--'}
@@ -488,13 +488,13 @@ export default function TokenPage({ params }: TokenPageProps) {
                   <div className="text-xs text-gray-500 mb-1">Score</div>
                   <div className={`text-base font-bold ${
                     (jupiterPool?.baseAsset as any)?.organicScore
-                      ? (jupiterPool.baseAsset as any).organicScore >= 70
+                      ? (jupiterPool?.baseAsset as any).organicScore >= 70
                         ? 'text-success'
                         : 'text-white'
                       : 'text-error'
                   }`}>
                     {(jupiterPool?.baseAsset as any)?.organicScore
-                      ? Math.round((jupiterPool.baseAsset as any).organicScore)
+                      ? Math.round((jupiterPool?.baseAsset as any).organicScore)
                       : '--'}
                   </div>
                 </div>
