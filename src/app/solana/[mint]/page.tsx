@@ -47,7 +47,7 @@ export default function TokenPage({ params }: TokenPageProps) {
       setIsLoadingTokenPools(true);
       try {
         const response = await fetch(
-          `https://alsk-production.up.railway.app/api/pools/search?q=${mint}&network=${network}&limit=100`
+          `https://alsk-production.up.railway.app/api/pools/search?q=${mint}&network=${network}&limit=1000`
         );
         const data = await response.json();
 

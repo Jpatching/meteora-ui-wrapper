@@ -49,9 +49,10 @@ export function useRelatedPools({
 
         // Fetch from backend database (synced every 30 min with ~10k active pools)
         // Backend has BOTH DLMM and DAMM v2 pools searchable via symbol
+        // Use limit=1000 to get all related pools (backend has ~590 DAMM v2 + ~10k DLMM)
         const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://alsk-production.up.railway.app';
         const response = await fetch(
-          `${BACKEND_URL}/api/pools/search?q=${encodeURIComponent(baseTokenSymbol)}&network=${network}&limit=100`
+          `${BACKEND_URL}/api/pools/search?q=${encodeURIComponent(baseTokenSymbol)}&network=${network}&limit=1000`
         );
 
         if (!response.ok) {
