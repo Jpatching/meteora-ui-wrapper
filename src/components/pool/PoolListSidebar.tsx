@@ -9,11 +9,12 @@ import { TokenIcon } from '@/components/ui/TokenIcon';
 interface PoolListSidebarProps {
   currentPool: Pool;
   network: 'devnet' | 'mainnet-beta';
+  onSelectPool?: (pool: Pool) => void;
 }
 
 type FilterType = 'all' | 'dlmm' | 'dyn2' | 'pump';
 
-export function PoolListSidebar({ currentPool, network }: PoolListSidebarProps) {
+export function PoolListSidebar({ currentPool, network, onSelectPool }: PoolListSidebarProps) {
   const router = useRouter();
   const [filter, setFilter] = useState<FilterType>('all');
   const [displayCount, setDisplayCount] = useState(5); // Track how many to show
@@ -107,7 +108,7 @@ export function PoolListSidebar({ currentPool, network }: PoolListSidebarProps) 
               return (
                 <button
                   key={pool.id}
-                  onClick={() => router.push(`/solana/${pool.baseAsset.id}`)}
+                  onClick={() => onSelectPool?.(pool)}
                   className={`w-full px-4 py-3 hover:bg-background-secondary transition-colors border-l-2 ${
                     isActive
                       ? 'bg-background-secondary border-primary'

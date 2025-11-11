@@ -126,6 +126,7 @@ export default function TokenPage({ params }: TokenPageProps) {
 
   // State for pool and token info
   const [pool, setPool] = useState<Pool | null>(null);
+  const [selectedPool, setSelectedPool] = useState<Pool | null>(null); // Selected pool from sidebar
   const [tokenInfo, setTokenInfo] = useState<any>(null);
   const [holderMetrics, setHolderMetrics] = useState<{
     topHoldersPercentage: number;
@@ -265,10 +266,12 @@ export default function TokenPage({ params }: TokenPageProps) {
               console.log('⚠️ No Jupiter pool found - metrics will show default values');
             }
             setPool(enriched);
+            if (!selectedPool) setSelectedPool(enriched); // Set initial selected pool
           })
           .catch(err => {
             console.error('Failed to enrich pool metadata:', err);
             setPool(rawPool); // Use raw pool if enrichment fails
+            if (!selectedPool) setSelectedPool(rawPool);
           });
       } else if (tokenPools.length === 0) {
         // No Meteora pools - fetch token metadata AND price from Jupiter
@@ -617,7 +620,11 @@ export default function TokenPage({ params }: TokenPageProps) {
           {/* Left Sidebar (280px) - Related Pools List or Create Pool CTA */}
           <div className="w-[280px] flex-shrink-0 border-r border-border-light overflow-hidden">
             {hasMeteoraPool ? (
-              <PoolListSidebar currentPool={pool} network={network} />
+              <PoolListSidebar
+                currentPool={pool}
+                network={network}
+                onSelectPool={(pool) => setSelectedPool(pool)}
+              />
             ) : (
               <div className="p-4 flex flex-col h-full">
                 <h3 className="text-sm font-semibold text-white mb-3">No Meteora Pools Yet</h3>
@@ -667,15 +674,15 @@ export default function TokenPage({ params }: TokenPageProps) {
             {/* Pool Actions Panel - Always shown */}
             <div className="flex-shrink-0">
               <PoolActionsPanel
-                poolAddress={pool?.id || mint}
-                tokenXMint={displayToken.id || displayToken.address}
-                tokenYMint={pool?.quoteAsset?.id || 'So11111111111111111111111111111111111111112'}
-                tokenXSymbol={displayToken.symbol}
-                tokenYSymbol={pool?.quoteAsset?.symbol || 'SOL'}
-                currentPrice={displayToken.usdPrice || 0}
-                binStep={(pool as any)?.binStep || 20}
-                baseFee={(pool as any)?.baseFee || 0.2}
-                poolType={pool?.type || 'unknown'}
+                poolAddress={selectedPool?.id || pool?.id || mint}
+                tokenXMint={selectedPool?.baseAsset.id || displayToken.id || displayToken.address}
+                tokenYMint={selectedPool?.quoteAsset?.id || pool?.quoteAsset?.id || 'So11111111111111111111111111111111111111112'}
+                tokenXSymbol={selectedPool?.baseAsset.symbol || displayToken.symbol}
+                tokenYSymbol={selectedPool?.quoteAsset?.symbol || pool?.quoteAsset?.symbol || 'SOL'}
+                currentPrice={selectedPool?.baseAsset.usdPrice || displayToken.usdPrice || 0}
+                binStep={selectedPool?.binStep || pool?.binStep || 20}
+                baseFee={selectedPool?.baseFee || pool?.baseFee || 0.2}
+                poolType={selectedPool?.type || pool?.type || 'unknown'}
               />
             </div>
 
