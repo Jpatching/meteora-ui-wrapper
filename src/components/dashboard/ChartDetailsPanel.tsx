@@ -60,6 +60,14 @@ export function ChartDetailsPanel({ pool, liquidityRange }: ChartDetailsPanelPro
             // Check if current price is inside the configured range
             const isInRange = currentPrice >= liquidityRange.minPrice && currentPrice <= liquidityRange.maxPrice;
 
+            console.log('🎨 Chart Range Color:', {
+              currentPrice,
+              minPrice: liquidityRange.minPrice,
+              maxPrice: liquidityRange.maxPrice,
+              isInRange,
+              color: isInRange ? 'BLUE' : 'RED',
+            });
+
             // Blue if in range, red if out of range
             return isInRange ? '#3b82f6' : '#ef4444';
           })(),
@@ -67,6 +75,8 @@ export function ChartDetailsPanel({ pool, liquidityRange }: ChartDetailsPanelPro
         },
       ]
     : [];
+
+  console.log('📊 ChartDetailsPanel positionRanges:', positionRanges);
 
   return (
     <div className="h-full flex flex-col overflow-hidden relative">
