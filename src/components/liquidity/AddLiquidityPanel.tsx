@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey } from '@solana/web3.js';
 import { Button, TokenIcon } from '@/components/ui';
@@ -28,6 +28,7 @@ interface AddLiquidityPanelProps {
   binStep: number;
   baseFee?: number; // Base fee percentage
   poolType?: string; // Pool type for header (dlmm, damm-v2, etc.)
+  onPriceRangeChange?: (range: { minPrice: number; maxPrice: number } | null) => void;
 }
 
 export function AddLiquidityPanel({
@@ -42,6 +43,7 @@ export function AddLiquidityPanel({
   binStep,
   baseFee,
   poolType = 'dlmm',
+  onPriceRangeChange,
 }: AddLiquidityPanelProps) {
   const { publicKey, connected } = useWallet();
   const { network } = useNetwork();
@@ -78,6 +80,13 @@ export function AddLiquidityPanel({
   // Calculate ratio percentages based on ratio selection
   const tokenXPercentage = ratio === 'one-side-x' ? 100 : ratio === '50-50' ? 50 : 0;
   const tokenYPercentage = ratio === 'one-side-y' ? 100 : ratio === '50-50' ? 50 : 0;
+
+  // Notify parent of price range changes (for chart overlay)
+  useEffect(() => {
+    if (onPriceRangeChange) {
+      onPriceRangeChange({ minPrice, maxPrice });
+    }
+  }, [minPrice, maxPrice, onPriceRangeChange]);
 
   // Check if price range includes current price (important for empty pools)
   const priceRangeIncludesActive = minPrice <= safeCurrentPrice && maxPrice >= safeCurrentPrice;

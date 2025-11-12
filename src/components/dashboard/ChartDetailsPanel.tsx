@@ -16,9 +16,10 @@ import { useWallet } from '@solana/wallet-adapter-react';
 
 export interface ChartDetailsPanelProps {
   pool: Pool;
+  liquidityRange?: { minPrice: number; maxPrice: number } | null;
 }
 
-export function ChartDetailsPanel({ pool }: ChartDetailsPanelProps) {
+export function ChartDetailsPanel({ pool, liquidityRange }: ChartDetailsPanelProps) {
   const [chartType, setChartType] = useState<ChartType>('candlestick');
   const [interval, setInterval] = useState<TimeInterval>('15m');
   const { publicKey } = useWallet();
@@ -51,15 +52,27 @@ export function ChartDetailsPanel({ pool }: ChartDetailsPanelProps) {
   // Fetch user positions to show on chart
   const { data: allPositions } = useUserPositions();
 
-  // Build position ranges from user's positions
-  const positionRanges = isDLMM && publicKey
-    ? allPositions
-        ?.filter(p => p.poolAddress === pool.id)
-        .map(p => ({
-          minPrice: p.lowerBinId,  // Using bin IDs as price proxies
-          maxPrice: p.upperBinId,
-          color: '#8b5cf6', // Purple color for position ranges
-        })) || []
+  // Build position ranges from user's positions + liquidity range being configured
+  const positionRanges = isDLMM
+    ? [
+        // Add liquidity range being configured (RED - most important, shown on top)
+        ...(liquidityRange ? [{
+          minPrice: liquidityRange.minPrice,
+          maxPrice: liquidityRange.maxPrice,
+          color: '#ef4444', // Red color for active configuration
+          label: 'Configuring',
+        }] : []),
+        // Add existing user positions (Purple - existing positions)
+        ...(publicKey && allPositions
+          ? allPositions
+              .filter(p => p.poolAddress === pool.id)
+              .map(p => ({
+                minPrice: p.lowerBinId,
+                maxPrice: p.upperBinId,
+                color: '#8b5cf6', // Purple for existing positions
+              }))
+          : []),
+      ]
     : [];
 
   return (

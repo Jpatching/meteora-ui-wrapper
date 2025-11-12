@@ -127,6 +127,9 @@ export default function TokenPage({ params }: TokenPageProps) {
   // State for pool and token info
   const [pool, setPool] = useState<Pool | null>(null);
   const [selectedPool, setSelectedPool] = useState<Pool | null>(null); // Selected pool from sidebar
+
+  // State for liquidity range being configured (to show on chart)
+  const [liquidityRange, setLiquidityRange] = useState<{ minPrice: number; maxPrice: number } | null>(null);
   const [tokenInfo, setTokenInfo] = useState<any>(null);
   const [holderMetrics, setHolderMetrics] = useState<{
     topHoldersPercentage: number;
@@ -654,7 +657,10 @@ export default function TokenPage({ params }: TokenPageProps) {
           <div className="flex-[2] min-w-[600px] flex flex-col overflow-hidden min-h-0 bg-gray-800/30">
             {/* Chart - Always shown - Use selected pool for chart data */}
             <div className={hasMeteoraPool ? "flex-[3] overflow-hidden min-h-0" : "flex-1 overflow-hidden min-h-0"}>
-              <ChartDetailsPanel pool={selectedPool || chartPool} />
+              <ChartDetailsPanel
+                pool={selectedPool || chartPool}
+                liquidityRange={liquidityRange}
+              />
             </div>
 
             {/* Active Positions - Only if Meteora pool exists */}
@@ -685,6 +691,7 @@ export default function TokenPage({ params }: TokenPageProps) {
                 baseFee={selectedPool?.baseFee || pool?.baseFee || 0.2}
                 poolType={selectedPool?.type || pool?.type || 'unknown'}
                 pool={selectedPool || pool || undefined}
+                onLiquidityRangeChange={setLiquidityRange}
               />
             </div>
           </div>

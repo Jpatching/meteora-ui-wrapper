@@ -24,6 +24,7 @@ interface PoolActionsPanelProps {
   baseFee?: number;
   poolType: string;
   pool?: Pool; // Full pool object for liquidity distribution
+  onLiquidityRangeChange?: (range: { minPrice: number; maxPrice: number } | null) => void;
 }
 
 type TabType = 'add' | 'remove' | 'liquidity' | 'claim';
@@ -39,6 +40,7 @@ export function PoolActionsPanel({
   baseFee,
   poolType,
   pool,
+  onLiquidityRangeChange,
 }: PoolActionsPanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>('add');
 
@@ -93,6 +95,7 @@ export function PoolActionsPanel({
             binStep={binStep}
             baseFee={baseFee}
             poolType={poolType}
+            onPriceRangeChange={onLiquidityRangeChange}
           />
         )}
 
