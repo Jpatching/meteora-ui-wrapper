@@ -83,6 +83,12 @@ export function AddLiquidityPanel({
 
   // Notify parent of price range changes (for chart overlay)
   useEffect(() => {
+    console.log('📢 AddLiquidityPanel - Calling onPriceRangeChange:', {
+      hasCallback: !!onPriceRangeChange,
+      minPrice,
+      maxPrice,
+      safeCurrentPrice,
+    });
     if (onPriceRangeChange) {
       onPriceRangeChange({ minPrice, maxPrice });
     }
