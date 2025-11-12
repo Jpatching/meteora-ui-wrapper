@@ -11,8 +11,6 @@ import { TradingChart, ChartType, TimeInterval } from '@/components/charts/Tradi
 import { TradingChartPro } from '@/components/charts/TradingChartPro';
 import { useGeckoTerminalChartData } from '@/hooks/queries/useGeckoTerminalChartData';
 import { useBinData } from '@/lib/hooks/useBinData';
-import { useUserPositions } from '@/lib/hooks/useUserPositions';
-import { useWallet } from '@solana/wallet-adapter-react';
 
 export interface ChartDetailsPanelProps {
   pool: Pool;
@@ -22,7 +20,6 @@ export interface ChartDetailsPanelProps {
 export function ChartDetailsPanel({ pool, liquidityRange }: ChartDetailsPanelProps) {
   const [chartType, setChartType] = useState<ChartType>('candlestick');
   const [interval, setInterval] = useState<TimeInterval>('15m');
-  const { publicKey } = useWallet();
 
   const { data: chartDataPoints, loading: isLoading } = useGeckoTerminalChartData({
     pool,
@@ -49,14 +46,10 @@ export function ChartDetailsPanel({ pool, liquidityRange }: ChartDetailsPanelPro
     lastBin: binsAroundActive[binsAroundActive.length - 1]?.price,
   });
 
-  // Fetch user positions to show on chart
-  const { data: allPositions } = useUserPositions();
-
-  // Build position ranges from user's positions + liquidity range being configured
-  const positionRanges = isDLMM
+  // Build position ranges - ONLY show the liquidity range being configured (not existing positions)
+  const positionRanges = isDLMM && liquidityRange
     ? [
-        // Add liquidity range being configured (BLUE for tight, RED if too wide)
-        ...(liquidityRange ? [{
+        {
           minPrice: liquidityRange.minPrice,
           maxPrice: liquidityRange.maxPrice,
           // BLUE for normal range, RED if too wide (>50% from current price)
@@ -67,17 +60,7 @@ export function ChartDetailsPanel({ pool, liquidityRange }: ChartDetailsPanelPro
             return rangeWidth > 0.5 ? '#ef4444' : '#3b82f6'; // Red if >50% wide, blue otherwise
           })(),
           label: 'Configuring',
-        }] : []),
-        // Add existing user positions (Purple - existing positions)
-        ...(publicKey && allPositions
-          ? allPositions
-              .filter(p => p.poolAddress === pool.id)
-              .map(p => ({
-                minPrice: p.lowerBinId,
-                maxPrice: p.upperBinId,
-                color: '#8b5cf6', // Purple for existing positions
-              }))
-          : []),
+        },
       ]
     : [];
 
