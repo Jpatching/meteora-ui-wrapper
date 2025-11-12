@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect } from 'react';
 import Slider from 'rc-slider';
 import 'rc-slider/assets/index.css';
 import { motion } from 'framer-motion';
+import { StrategyType } from './StrategySelector';
 
 interface BinData {
   binId: number;
@@ -25,6 +26,7 @@ interface InteractiveRangeSliderProps {
   tokenYSymbol: string;
   disabled?: boolean;
   depositAmount?: number; // For showing liquidity distribution preview
+  strategy?: StrategyType; // Strategy affects bin shape visualization
 }
 
 export function InteractiveRangeSlider({
@@ -39,6 +41,7 @@ export function InteractiveRangeSlider({
   tokenYSymbol,
   disabled = false,
   depositAmount = 0,
+  strategy = 'spot',
 }: InteractiveRangeSliderProps) {
   const [minPriceInput, setMinPriceInput] = useState(minPrice.toFixed(6));
   const [maxPriceInput, setMaxPriceInput] = useState(maxPrice.toFixed(6));
@@ -64,34 +67,58 @@ export function InteractiveRangeSlider({
   const minPricePercent = ((minPrice - displayRange.min) / displayRange.range) * 100;
   const maxPricePercent = ((maxPrice - displayRange.min) / displayRange.range) * 100;
 
-  // Normalize bin data with reactive selection highlighting
+  // Normalize bin data with reactive selection highlighting AND strategy-based shapes
   const normalizedBins = useMemo(() => {
-    console.log('🔄 Recalculating bins with range:', { minPrice, maxPrice, currentPrice });
+    console.log('🔄 Recalculating bins with range:', { minPrice, maxPrice, currentPrice, strategy });
 
     const binsInRange = binData.filter(
       b => b.price >= displayRange.min && b.price <= displayRange.max
     );
     const maxLiquidity = Math.max(...binsInRange.map(b => b.liquidity), 1);
 
-    return binsInRange.map(bin => {
+    return binsInRange.map((bin, index) => {
       const isInRange = bin.price >= minPrice && bin.price <= maxPrice;
       const distanceFromCurrent = Math.abs(bin.price - currentPrice);
       const rangeSize = maxPrice - minPrice;
 
-      // Calculate intensity based on distance from current price (bell curve effect)
+      // Calculate position from center for strategy-based shaping
+      const centerIndex = binsInRange.length / 2;
+      const centerDistance = Math.abs(index - centerIndex) / centerIndex;
+
+      // Apply strategy-based height transformation
+      let baseHeightPercent = (bin.liquidity / maxLiquidity) * 100;
+      let heightPercent: number;
+
+      if (strategy === 'spot') {
+        // Spot: Uniform height (flatten the distribution)
+        heightPercent = 70; // All bins same height
+      } else if (strategy === 'curve') {
+        // Curve: Bell curve (enhance center, reduce edges)
+        const curveMultiplier = 0.4 + (1 - centerDistance) * 0.6; // 0.4 to 1.0
+        heightPercent = baseHeightPercent * curveMultiplier;
+      } else if (strategy === 'bidAsk') {
+        // Bid-Ask: V-shape (enhance edges, reduce center)
+        const vShapeMultiplier = 0.4 + centerDistance * 0.6; // 0.4 to 1.0
+        heightPercent = baseHeightPercent * vShapeMultiplier;
+      } else {
+        // Default to original
+        heightPercent = baseHeightPercent;
+      }
+
+      // Calculate intensity based on distance from current price
       const normalizedDistance = distanceFromCurrent / (rangeSize / 2);
       const intensity = isInRange ? Math.max(0.4, 1 - Math.pow(normalizedDistance, 1.2)) : 0.25;
 
       return {
         ...bin,
-        heightPercent: (bin.liquidity / maxLiquidity) * 100,
+        heightPercent: Math.max(heightPercent, 40), // Minimum 40% for visibility
         positionPercent: ((bin.price - displayRange.min) / displayRange.range) * 100,
         isInRange,
         isActive: distanceFromCurrent < currentPrice * 0.02,
         intensity, // For gradient brightness
       };
     });
-  }, [binData, displayRange, minPrice, maxPrice, currentPrice]);
+  }, [binData, displayRange, minPrice, maxPrice, currentPrice, strategy]);
 
   // Calculate number of bins in selected range
   const numBins = useMemo(() => {
@@ -203,12 +230,26 @@ export function InteractiveRangeSlider({
               </div>
             ))
           ) : (
-            // Placeholder - Show visual bins when no data
+            // Placeholder - Show visual bins when no data (strategy-based shapes)
             Array.from({ length: 80 }).map((_, i) => {
-              // Create a visual distribution (more bins in middle, fewer on edges)
               const centerDistance = Math.abs(i - 40) / 40;
-              const height = 40 + (1 - centerDistance) * 50; // 40-90% height
               const isInRange = i >= 25 && i <= 55; // Simulate middle range selected
+
+              // Calculate height based on strategy
+              let height: number;
+              if (strategy === 'spot') {
+                // Spot: All bars same height (uniform)
+                height = 70;
+              } else if (strategy === 'curve') {
+                // Curve: Bell curve shape (highest in middle)
+                height = 40 + (1 - centerDistance) * 50; // 40-90% height
+              } else if (strategy === 'bidAsk') {
+                // Bid-Ask: V-shape (smallest in middle, tallest on edges)
+                height = 40 + centerDistance * 50; // 40-90% height (inverted from curve)
+              } else {
+                // Default to curve
+                height = 40 + (1 - centerDistance) * 50;
+              }
 
               return (
                 <div

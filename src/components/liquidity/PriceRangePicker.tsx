@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { useBinLiquidity } from '@/lib/hooks/useBinLiquidity';
 import { InteractiveRangeSlider } from './InteractiveRangeSlider';
+import { StrategyType } from './StrategySelector';
 
 interface PriceRangePickerProps {
   currentPrice: number;
@@ -16,6 +17,7 @@ interface PriceRangePickerProps {
   disabled?: boolean;
   poolAddress?: string;
   binStep?: number;
+  strategy?: StrategyType;
 }
 
 export function PriceRangePicker({
@@ -30,6 +32,7 @@ export function PriceRangePicker({
   disabled,
   poolAddress,
   binStep = 20,
+  strategy = 'spot',
 }: PriceRangePickerProps) {
   // Fetch real bin liquidity data if pool address provided
   const { data: fetchedBins = [] } = useBinLiquidity(poolAddress || null);
@@ -85,6 +88,7 @@ export function PriceRangePicker({
         tokenXSymbol={tokenXSymbol}
         tokenYSymbol={tokenYSymbol}
         disabled={disabled}
+        strategy={strategy}
       />
     </div>
   );

@@ -386,6 +386,7 @@ export function AddLiquidityPanel({
           disabled={loading}
           poolAddress={poolAddress}
           binStep={binStep}
+          strategy={strategy}
         />
       </div>
 
