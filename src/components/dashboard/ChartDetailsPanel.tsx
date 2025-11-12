@@ -52,12 +52,18 @@ export function ChartDetailsPanel({ pool, liquidityRange }: ChartDetailsPanelPro
         {
           minPrice: liquidityRange.minPrice,
           maxPrice: liquidityRange.maxPrice,
-          // BLUE for normal range, RED if too wide (>50% from current price)
+          // BLUE for normal range, RED if too wide (either side >100% from current)
           color: (() => {
             const currentPrice = pool.baseAsset.usdPrice || 0;
             if (!currentPrice) return '#3b82f6'; // Default blue
-            const rangeWidth = (liquidityRange.maxPrice - liquidityRange.minPrice) / currentPrice;
-            return rangeWidth > 0.5 ? '#ef4444' : '#3b82f6'; // Red if >50% wide, blue otherwise
+
+            // Calculate deviation from current price on both sides
+            const upperDeviation = Math.abs(liquidityRange.maxPrice - currentPrice) / currentPrice;
+            const lowerDeviation = Math.abs(currentPrice - liquidityRange.minPrice) / currentPrice;
+            const maxDeviation = Math.max(upperDeviation, lowerDeviation);
+
+            // Red if either side is more than 100% away from current price
+            return maxDeviation > 1.0 ? '#ef4444' : '#3b82f6';
           })(),
           label: 'Configuring',
         },
