@@ -55,11 +55,17 @@ export function ChartDetailsPanel({ pool, liquidityRange }: ChartDetailsPanelPro
   // Build position ranges from user's positions + liquidity range being configured
   const positionRanges = isDLMM
     ? [
-        // Add liquidity range being configured (RED - most important, shown on top)
+        // Add liquidity range being configured (BLUE for tight, RED if too wide)
         ...(liquidityRange ? [{
           minPrice: liquidityRange.minPrice,
           maxPrice: liquidityRange.maxPrice,
-          color: '#ef4444', // Red color for active configuration
+          // BLUE for normal range, RED if too wide (>50% from current price)
+          color: (() => {
+            const currentPrice = pool.baseAsset.usdPrice || 0;
+            if (!currentPrice) return '#3b82f6'; // Default blue
+            const rangeWidth = (liquidityRange.maxPrice - liquidityRange.minPrice) / currentPrice;
+            return rangeWidth > 0.5 ? '#ef4444' : '#3b82f6'; // Red if >50% wide, blue otherwise
+          })(),
           label: 'Configuring',
         }] : []),
         // Add existing user positions (Purple - existing positions)
