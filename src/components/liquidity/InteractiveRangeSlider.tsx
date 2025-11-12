@@ -172,49 +172,57 @@ export function InteractiveRangeSlider({
         Current Price: ${currentPrice.toFixed(6)}
       </div>
 
-      {/* Liquidity Distribution Chart - Compact, charting.ag style */}
+      {/* Liquidity Distribution Chart - charting.ag style (BLUE in range, GRAY outside) */}
       <div className="relative h-24 bg-background-secondary/30 rounded overflow-hidden">
         {/* Bins Container */}
-        <div className="absolute inset-0 flex items-end justify-center gap-[1px] px-1">
+        <div className="absolute inset-0 flex items-end justify-start gap-[1px] px-2 pb-1">
           {normalizedBins.length > 0 ? (
             normalizedBins.map((bin, i) => (
               <div
                 key={`bin-${bin.binId || i}`}
                 className={`relative group ${disabled ? '' : 'cursor-pointer'}`}
-                style={{ flex: '1 1 0', maxWidth: '8px', minWidth: '2px', height: '100%' }}
+                style={{ flex: '1 1 0', maxWidth: '4px', minWidth: '1px', height: '100%' }}
                 onClick={() => !disabled && handleBinClick(bin.price)}
                 onMouseEnter={() => setHoveredBinPrice(bin.price)}
                 onMouseLeave={() => setHoveredBinPrice(null)}
               >
+                {/* Individual bin - BLUE if in range, GRAY if outside */}
                 <div
-                  className="absolute bottom-0 w-full rounded-sm transition-all duration-200"
+                  className="absolute bottom-0 w-full transition-all duration-150"
                   style={{
-                    height: `${bin.heightPercent}%`,
-                    backgroundColor: bin.isInRange
-                      ? bin.isActive ? '#10b981' : '#8b5cf6'
-                      : '#4b5563',
-                    opacity: bin.isInRange ? 0.9 : 0.3,
+                    height: `${Math.max(bin.heightPercent, 40)}%`, // Minimum 40% height for visibility
+                    backgroundColor: bin.isInRange ? '#3b82f6' : '#6b7280', // Blue in range, gray outside
+                    opacity: bin.isInRange ? 1 : 0.4, // Full opacity in range, faded outside
                   }}
                 />
-                {/* Tooltip */}
+                {/* Tooltip on hover */}
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-900 rounded text-[10px] text-white opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-30 shadow-lg">
                   <div className="font-mono">${bin.price.toFixed(6)}</div>
+                  <div className="text-[9px] text-gray-400">{bin.isInRange ? 'In Range' : 'Out of Range'}</div>
                 </div>
               </div>
             ))
           ) : (
-            // Placeholder
-            Array.from({ length: 50 }).map((_, i) => {
-              const height = Math.random() * 60 + 20;
+            // Placeholder - Show visual bins when no data
+            Array.from({ length: 80 }).map((_, i) => {
+              // Create a visual distribution (more bins in middle, fewer on edges)
+              const centerDistance = Math.abs(i - 40) / 40;
+              const height = 40 + (1 - centerDistance) * 50; // 40-90% height
+              const isInRange = i >= 25 && i <= 55; // Simulate middle range selected
+
               return (
                 <div
                   key={i}
                   className="relative"
-                  style={{ flex: '1 1 0', maxWidth: '8px', minWidth: '2px', height: '100%' }}
+                  style={{ flex: '1 1 0', maxWidth: '4px', minWidth: '1px', height: '100%' }}
                 >
                   <div
-                    className="absolute bottom-0 w-full rounded-sm bg-gray-600 opacity-20"
-                    style={{ height: `${height}%` }}
+                    className="absolute bottom-0 w-full transition-all duration-150"
+                    style={{
+                      height: `${height}%`,
+                      backgroundColor: isInRange ? '#3b82f6' : '#6b7280',
+                      opacity: isInRange ? 1 : 0.4,
+                    }}
                   />
                 </div>
               );
