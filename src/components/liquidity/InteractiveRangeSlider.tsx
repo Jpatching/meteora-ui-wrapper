@@ -153,19 +153,29 @@ export function InteractiveRangeSlider({
     onMaxPriceChange(defaultMax);
   };
 
-  return (
-    <div className="space-y-4">
-      {/* Liquidity Distribution Chart - Meteora Style */}
-      <div className="relative h-64 bg-background-secondary/50 rounded-lg border border-border overflow-hidden">
-        {/* Status indicator - top right corner */}
-        {normalizedBins.length > 0 && (
-          <div className="absolute top-2 right-2 text-[10px] text-gray-400">
-            {normalizedBins.length} bins
-          </div>
-        )}
+  // Calculate percentage change from current price
+  const minPriceChange = ((minPrice - currentPrice) / currentPrice) * 100;
+  const maxPriceChange = ((maxPrice - currentPrice) / currentPrice) * 100;
 
+  // Generate 5 evenly spaced price labels across display range
+  const priceLabels = useMemo(() => {
+    return Array.from({ length: 5 }, (_, i) => {
+      const price = displayRange.min + (displayRange.range * i) / 4;
+      return price;
+    });
+  }, [displayRange]);
+
+  return (
+    <div className="space-y-2">
+      {/* Current Price Label - charting.ag style */}
+      <div className="text-xs text-gray-400">
+        Current Price: ${currentPrice.toFixed(6)}
+      </div>
+
+      {/* Liquidity Distribution Chart - Compact, charting.ag style */}
+      <div className="relative h-24 bg-background-secondary/30 rounded overflow-hidden">
         {/* Bins Container */}
-        <div className="absolute inset-0 flex items-end justify-center gap-[2px] px-4 pb-4">
+        <div className="absolute inset-0 flex items-end justify-center gap-[1px] px-1">
           {normalizedBins.length > 0 ? (
             normalizedBins.map((bin, i) => (
               <div
@@ -212,19 +222,10 @@ export function InteractiveRangeSlider({
           )}
         </div>
 
-        {/* Current Price Line */}
-        <div
-          className="absolute top-0 bottom-0 w-[2px] bg-cyan-400 z-10"
-          style={{ left: `${currentPricePercent}%` }}
-        >
-          <div className="absolute top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-cyan-500 rounded text-[10px] font-mono text-white whitespace-nowrap shadow-sm">
-            ${currentPrice.toFixed(4)}
-          </div>
-        </div>
       </div>
 
-      {/* Slider - Meteora style (between chart and inputs) */}
-      <div className="px-1">
+      {/* Draggable Range Slider - charting.ag style */}
+      <div className="relative px-1">
         <Slider
           range
           min={sliderMin}
@@ -238,17 +239,17 @@ export function InteractiveRangeSlider({
               height: 4,
             },
             tracks: {
-              backgroundColor: '#8b5cf6',
+              backgroundColor: '#3b82f6',
               height: 4,
             },
             handle: {
-              width: 14,
-              height: 14,
+              width: 12,
+              height: 12,
               backgroundColor: 'white',
-              border: '2px solid #8b5cf6',
+              border: '2px solid #3b82f6',
               opacity: 1,
               boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)',
-              marginTop: -5,
+              marginTop: -4,
             },
             rail: {
               backgroundColor: 'rgba(75, 85, 99, 0.3)',
@@ -258,49 +259,87 @@ export function InteractiveRangeSlider({
         />
       </div>
 
-      {/* Min and Max Price Inputs - Below slider */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* Price Labels - 5 points across the chart (charting.ag style) */}
+      <div className="flex justify-between text-[10px] text-gray-500 font-mono px-1">
+        {priceLabels.map((price, i) => (
+          <span key={i}>${price.toFixed(4)}</span>
+        ))}
+      </div>
+
+      {/* Min Price / numBins / Max Price - charting.ag style */}
+      <div className="grid grid-cols-3 gap-2 text-xs">
+        {/* Min Price with percentage */}
         <div>
-          <label className="block text-xs text-gray-400 mb-1.5">Min Price</label>
-          <input
-            type="number"
-            step="any"
-            value={minPriceInput}
-            onChange={(e) => {
-              setMinPriceInput(e.target.value);
-              const parsed = parseFloat(e.target.value);
-              if (!isNaN(parsed) && parsed > 0) {
-                onMinPriceChange(parsed);
-              }
-            }}
-            disabled={disabled}
-            className="w-full px-3 py-2 rounded-lg bg-background-secondary border border-border text-white text-sm font-mono focus:border-primary focus:outline-none disabled:opacity-50"
-            placeholder="0.000000"
-          />
+          <div className="text-gray-400 mb-1">Min Price</div>
+          <div className="font-mono text-white">${minPrice.toFixed(4)}</div>
+          <div className={`text-[10px] ${minPriceChange < 0 ? 'text-red-400' : 'text-green-400'}`}>
+            ({minPriceChange >= 0 ? '+' : ''}{minPriceChange.toFixed(1)}%)
+          </div>
         </div>
-        <div>
-          <label className="block text-xs text-gray-400 mb-1.5">Max Price</label>
-          <input
-            type="number"
-            step="any"
-            value={maxPriceInput}
-            onChange={(e) => {
-              setMaxPriceInput(e.target.value);
-              const parsed = parseFloat(e.target.value);
-              if (!isNaN(parsed) && parsed > 0) {
-                onMaxPriceChange(parsed);
-              }
-            }}
-            disabled={disabled}
-            className="w-full px-3 py-2 rounded-lg bg-background-secondary border border-border text-white text-sm font-mono focus:border-primary focus:outline-none disabled:opacity-50"
-            placeholder="0.000000"
-          />
+
+        {/* numBins in center */}
+        <div className="text-center">
+          <div className="text-gray-400 mb-1">numBins</div>
+          <div className="font-mono text-white text-base">{numBins}</div>
+        </div>
+
+        {/* Max Price with percentage */}
+        <div className="text-right">
+          <div className="text-gray-400 mb-1">Max Price</div>
+          <div className="font-mono text-white">${maxPrice.toFixed(4)}</div>
+          <div className={`text-[10px] ${maxPriceChange < 0 ? 'text-red-400' : 'text-green-400'}`}>
+            ({maxPriceChange >= 0 ? '+' : ''}{maxPriceChange.toFixed(1)}%)
+          </div>
         </div>
       </div>
 
-      {/* Info */}
-      <div className="flex items-center justify-between text-xs text-gray-400">
-        <span>{numBins} bins</span>
+      {/* Min and Max Price Inputs - Below (hidden for charting.ag style, can show on click) */}
+      <details className="group">
+        <summary className="cursor-pointer text-xs text-gray-400 hover:text-white transition-colors">
+          Advanced Price Controls
+        </summary>
+        <div className="grid grid-cols-2 gap-3 mt-2">
+          <div>
+            <label className="block text-xs text-gray-400 mb-1.5">Min Price</label>
+            <input
+              type="number"
+              step="any"
+              value={minPriceInput}
+              onChange={(e) => {
+                setMinPriceInput(e.target.value);
+                const parsed = parseFloat(e.target.value);
+                if (!isNaN(parsed) && parsed > 0) {
+                  onMinPriceChange(parsed);
+                }
+              }}
+              disabled={disabled}
+              className="w-full px-3 py-2 rounded-lg bg-background-secondary border border-border text-white text-sm font-mono focus:border-primary focus:outline-none disabled:opacity-50"
+              placeholder="0.000000"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1.5">Max Price</label>
+            <input
+              type="number"
+              step="any"
+              value={maxPriceInput}
+              onChange={(e) => {
+                setMaxPriceInput(e.target.value);
+                const parsed = parseFloat(e.target.value);
+                if (!isNaN(parsed) && parsed > 0) {
+                  onMaxPriceChange(parsed);
+                }
+              }}
+              disabled={disabled}
+              className="w-full px-3 py-2 rounded-lg bg-background-secondary border border-border text-white text-sm font-mono focus:border-primary focus:outline-none disabled:opacity-50"
+              placeholder="0.000000"
+            />
+          </div>
+        </div>
+      </details>
+
+      {/* Reset button */}
+      <div className="flex items-center justify-end">
         <button
           onClick={handleResetPrice}
           disabled={disabled}
