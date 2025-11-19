@@ -24,6 +24,9 @@ export const metadata: Metadata = {
   description: "Your comprehensive toolkit for Meteora protocols - create and manage DLMM, DAMM, DBC, and Alpha Vault pools",
 };
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default function RootLayout({
   children,
 }: Readonly<{

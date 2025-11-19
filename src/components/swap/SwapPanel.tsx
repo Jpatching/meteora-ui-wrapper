@@ -11,6 +11,7 @@ import { Button } from '@/components/ui';
 import { useTokenBalance, useSOLBalance } from '@/lib/hooks/useTokenBalance';
 import { useNetwork } from '@/contexts/NetworkContext';
 import toast from 'react-hot-toast';
+import BN from 'bn.js';
 
 interface SwapPanelProps {
   poolAddress: string;
@@ -36,6 +37,11 @@ export function SwapPanel({
   const [inputAmount, setInputAmount] = useState('');
   const [outputAmount, setOutputAmount] = useState('');
   const [slippage, setSlippage] = useState(1.0);
+  const [quoteData, setQuoteData] = useState<{
+    fee: string;
+    priceImpact: string;
+    minReceived: number;
+  } | null>(null);
 
   // Get token balances
   const { data: tokenXBalance } = useTokenBalance(tokenXMint);
@@ -136,16 +142,87 @@ export function SwapPanel({
     }
   };
 
-  // Simulate quote calculation (will be replaced with actual SDK call)
-  const handleCalculateQuote = () => {
+  // Calculate quote using DLMM SDK
+  const handleCalculateQuote = async () => {
     if (!inputAmount || parseFloat(inputAmount) <= 0) {
       setOutputAmount('');
       return;
     }
 
-    // Placeholder calculation - will be replaced with actual pool quote
-    const estimatedOutput = (parseFloat(inputAmount) * 0.997).toFixed(6); // Mock 0.3% fee
-    setOutputAmount(estimatedOutput);
+    if (poolType !== 'dlmm') {
+      // Fallback for non-DLMM pools
+      const estimatedOutput = (parseFloat(inputAmount) * 0.997).toFixed(6);
+      setOutputAmount(estimatedOutput);
+      return;
+    }
+
+    try {
+      // Import DLMM SDK dynamically
+      const { default: DLMM } = await import('@meteora-ag/dlmm');
+      const { Connection, PublicKey } = await import('@solana/web3.js');
+
+      const connection = new Connection(
+        network === 'mainnet-beta'
+          ? 'https://api.mainnet-beta.solana.com'
+          : 'https://api.devnet.solana.com'
+      );
+
+      // Create DLMM pool instance
+      const dlmmPool = await DLMM.create(connection, new PublicKey(poolAddress), {
+        cluster: network as 'mainnet-beta' | 'devnet' | 'localhost',
+      });
+
+      // Get swap quote
+      const inAmount = Math.floor(parseFloat(inputAmount) * 1e9); // Convert to lamports (assuming 9 decimals)
+      const swapYtoX = swapDirection === 'YtoX';
+
+      // Fetch bin arrays required for swap quote
+      const binArrays = await dlmmPool.getBinArrays();
+
+      const swapQuote = dlmmPool.swapQuote(
+        new BN(inAmount),
+        swapYtoX,
+        new BN(slippage * 100), // Convert percentage to basis points
+        binArrays
+      );
+
+      // Convert output amount back to UI amount
+      const outAmount = Number(swapQuote.outAmount) / 1e9;
+      setOutputAmount(outAmount.toFixed(6));
+
+      // Store quote data for display
+      const feeAmount = Number(swapQuote.fee || 0) / 1e9;
+      const feePercent = parseFloat(inputAmount) > 0
+        ? ((feeAmount / parseFloat(inputAmount)) * 100).toFixed(4)
+        : '0';
+
+      const priceImpact = swapQuote.priceImpact
+        ? (Number(swapQuote.priceImpact) / 100).toFixed(4) // Convert bps to percent
+        : '0';
+
+      const minReceived = outAmount * (1 - slippage / 100);
+
+      setQuoteData({
+        fee: `${feePercent}%`,
+        priceImpact: `${priceImpact}%`,
+        minReceived,
+      });
+
+      console.log('[SwapPanel] Quote calculated:', {
+        inAmount: parseFloat(inputAmount),
+        outAmount,
+        feeAmount,
+        feePercent: `${feePercent}%`,
+        priceImpact: `${priceImpact}%`,
+        minReceived,
+      });
+
+    } catch (error: any) {
+      console.error('[SwapPanel] Quote calculation failed:', error);
+      // Fallback to mock calculation
+      const estimatedOutput = (parseFloat(inputAmount) * 0.997).toFixed(6);
+      setOutputAmount(estimatedOutput);
+    }
   };
 
   return (
@@ -265,8 +342,8 @@ export function SwapPanel({
         </div>
       </div>
 
-      {/* Swap Details */}
-      {outputAmount && (
+      {/* Swap Details - DLMM Real-time Quote */}
+      {outputAmount && quoteData && (
         <div className="p-4 rounded-lg bg-gray-800/50 border border-gray-700 space-y-2">
           <div className="flex items-center justify-between text-sm">
             <span className="text-gray-400">Rate</span>
@@ -276,18 +353,46 @@ export function SwapPanel({
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="text-gray-400">Price Impact</span>
-            <span className="font-semibold text-success">{'<0.01%'}</span>
+            <span className={`font-semibold ${
+              parseFloat(quoteData.priceImpact) < 0.1 ? 'text-success' :
+              parseFloat(quoteData.priceImpact) < 1 ? 'text-warning' :
+              'text-error'
+            }`}>
+              {quoteData.priceImpact}
+            </span>
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="text-gray-400">Minimum Received</span>
             <span className="font-semibold text-white">
-              {outputAmount ? (parseFloat(outputAmount) * (1 - slippage / 100)).toFixed(6) : '0'} {outputToken}
+              {quoteData.minReceived.toFixed(6)} {outputToken}
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-1">
+              <span className="text-gray-400">Dynamic Fee</span>
+              <span className="text-[10px] text-gray-500" title="Base fee + volatility-adjusted fee">ⓘ</span>
+            </div>
+            <span className="font-semibold text-warning">{quoteData.fee}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Fallback for non-DLMM or loading */}
+      {outputAmount && !quoteData && (
+        <div className="p-4 rounded-lg bg-gray-800/50 border border-gray-700 space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-400">Rate</span>
+            <span className="font-semibold text-white">
+              1 {inputToken} ≈ {outputAmount && inputAmount ? (parseFloat(outputAmount) / parseFloat(inputAmount)).toFixed(6) : '0'} {outputToken}
             </span>
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="text-gray-400">Fee</span>
             <span className="font-semibold text-warning">~0.3%</span>
           </div>
+          <p className="text-xs text-gray-500 text-center mt-2">
+            {poolType === 'dlmm' ? 'Calculating quote...' : 'Exact quote coming soon for this pool type'}
+          </p>
         </div>
       )}
 

@@ -26,8 +26,8 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
         return saved;
       }
     }
-    console.log('[Network] No saved network, defaulting to mainnet-beta');
-    return 'mainnet-beta'; // Default to mainnet, not devnet
+    console.log('[Network] No saved network, defaulting to devnet');
+    return 'devnet'; // Default to devnet for testing
   });
   const [currentRpcUrl, setCurrentRpcUrl] = useState<string>('');
 
@@ -115,7 +115,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
     if (await testRpcHealth(primaryUrl)) {
       console.log(`[RPC] Using primary RPC: ${primaryUrl}`);
       setCurrentRpcUrl(primaryUrl);
-      return new Connection(primaryUrl, 'confirmed');
+      return new Connection(primaryUrl, 'finalized');
     }
 
     // Try fallback RPCs
@@ -126,14 +126,14 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
       if (await testRpcHealth(fallbackUrl)) {
         console.log(`[RPC] Using fallback RPC: ${fallbackUrl}`);
         setCurrentRpcUrl(fallbackUrl);
-        return new Connection(fallbackUrl, 'confirmed');
+        return new Connection(fallbackUrl, 'finalized');
       }
     }
 
     // If all fail, return primary anyway and let it fail with proper error
     console.error(`[RPC] All RPCs failed, using primary anyway`);
     setCurrentRpcUrl(primaryUrl);
-    return new Connection(primaryUrl, 'confirmed');
+    return new Connection(primaryUrl, 'finalized');
   }, [network, getRpcUrl, testRpcHealth, getFallbackUrls]);
 
   const setNetwork = useCallback((newNetwork: NetworkType) => {

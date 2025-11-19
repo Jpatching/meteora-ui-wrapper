@@ -148,7 +148,7 @@ export function AddLiquidityDialog({ pool, isOpen, onClose }: AddLiquidityDialog
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-text-secondary">Current Price:</span>
-                  <span className="text-white">${pool.baseAsset.usdPrice?.toFixed(6) || 'N/A'}</span>
+                  <span className="text-white">${pool.baseAsset.usdPrice ? Number(pool.baseAsset.usdPrice).toFixed(6) : 'N/A'}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-text-secondary">TVL:</span>

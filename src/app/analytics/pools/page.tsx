@@ -6,6 +6,8 @@ import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui';
 import { PoolExplorer } from '@/components/pools/PoolExplorer';
 import { toast } from 'react-hot-toast';
 
+export const dynamic = 'force-dynamic';
+
 export default function PublicPoolsPage() {
   const router = useRouter();
 

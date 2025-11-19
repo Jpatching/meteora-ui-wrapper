@@ -25,6 +25,7 @@ interface InteractiveRangeSliderProps {
   tokenYSymbol: string;
   disabled?: boolean;
   depositAmount?: number; // For showing liquidity distribution preview
+  depositType?: 'token-x' | 'token-y' | 'dual' | 'none'; // Track which token(s) being deposited
 }
 
 export function InteractiveRangeSlider({
@@ -39,6 +40,7 @@ export function InteractiveRangeSlider({
   tokenYSymbol,
   disabled = false,
   depositAmount = 0,
+  depositType = 'none',
 }: InteractiveRangeSliderProps) {
   const [minPriceInput, setMinPriceInput] = useState(minPrice.toFixed(6));
   const [maxPriceInput, setMaxPriceInput] = useState(maxPrice.toFixed(6));
@@ -66,7 +68,14 @@ export function InteractiveRangeSlider({
 
   // Normalize bin data with reactive selection highlighting
   const normalizedBins = useMemo(() => {
-    console.log('🔄 Recalculating bins with range:', { minPrice, maxPrice, currentPrice });
+    if (binData.length === 0) {
+      return [];
+    }
+
+    // Only log occasionally to reduce console spam
+    if (Math.random() < 0.1) {
+      console.log('🔄 [InteractiveRangeSlider] Bins recalculated:', { minPrice, maxPrice, totalBins: binData.length });
+    }
 
     const binsInRange = binData.filter(
       b => b.price >= displayRange.min && b.price <= displayRange.max
@@ -101,6 +110,23 @@ export function InteractiveRangeSlider({
     return isFinite(calculated) && !isNaN(calculated) ? calculated : 0;
   }, [minPrice, maxPrice, binStep]);
 
+  // Bin snapping utilities - convert price to nearest valid bin
+  const priceToBinId = (price: number) => {
+    if (currentPrice <= 0 || price <= 0) return 0;
+    const binStepDecimal = binStep / 10000;
+    return Math.round(Math.log(price / currentPrice) / Math.log(1 + binStepDecimal));
+  };
+
+  const binIdToPrice = (binId: number) => {
+    const binStepDecimal = binStep / 10000;
+    return currentPrice * Math.pow(1 + binStepDecimal, binId);
+  };
+
+  const snapPriceToNearestBin = (price: number) => {
+    const binId = priceToBinId(price);
+    return binIdToPrice(binId);
+  };
+
   // Convert price range to slider value range (0-1000 for precision)
   const sliderMin = 0;
   const sliderMax = 1000;
@@ -117,11 +143,69 @@ export function InteractiveRangeSlider({
   const handleSliderChange = (value: number | number[]) => {
     if (Array.isArray(value)) {
       const [newMinSlider, newMaxSlider] = value;
-      const newMin = sliderToPrice(newMinSlider);
-      const newMax = sliderToPrice(newMaxSlider);
+      let newMin = sliderToPrice(newMinSlider);
+      let newMax = sliderToPrice(newMaxSlider);
+
+      // Enforce single-sided deposit constraints
+      if (depositType === 'token-x') {
+        // Token X: minPrice must be <= currentPrice (active bin must be included or to the left)
+        // Allow a small tolerance for rounding
+        const maxAllowedMin = currentPrice * 1.001;
+        if (newMin > maxAllowedMin) {
+          console.warn(`[RangeSlider] Token X deposit: constraining minPrice from ${newMin.toFixed(6)} to ${currentPrice.toFixed(6)}`);
+          newMin = currentPrice;
+        }
+      } else if (depositType === 'token-y') {
+        // Token Y: maxPrice must be >= currentPrice (active bin must be included or to the right)
+        const minAllowedMax = currentPrice * 0.999;
+        if (newMax < minAllowedMax) {
+          console.warn(`[RangeSlider] Token Y deposit: constraining maxPrice from ${newMax.toFixed(6)} to ${currentPrice.toFixed(6)}`);
+          newMax = currentPrice;
+        }
+      }
 
       onMinPriceChange(Math.max(0, newMin));
       onMaxPriceChange(Math.max(newMin * 1.001, newMax)); // Ensure max > min
+    }
+  };
+
+  // Handle slider release - snap to nearest bins
+  const handleSliderAfterChange = (value: number | number[]) => {
+    if (Array.isArray(value)) {
+      const [newMinSlider, newMaxSlider] = value;
+      let newMin = sliderToPrice(newMinSlider);
+      let newMax = sliderToPrice(newMaxSlider);
+
+      // Snap to nearest bins
+      const snappedMin = snapPriceToNearestBin(newMin);
+      const snappedMax = snapPriceToNearestBin(newMax);
+
+      // Enforce single-sided deposit constraints on snapped values
+      let finalMin = snappedMin;
+      let finalMax = snappedMax;
+
+      if (depositType === 'token-x') {
+        const maxAllowedMin = currentPrice * 1.001;
+        if (finalMin > maxAllowedMin) {
+          finalMin = snapPriceToNearestBin(currentPrice);
+        }
+      } else if (depositType === 'token-y') {
+        const minAllowedMax = currentPrice * 0.999;
+        if (finalMax < minAllowedMax) {
+          finalMax = snapPriceToNearestBin(currentPrice);
+        }
+      }
+
+      // Ensure max > min after snapping
+      if (finalMax <= finalMin) {
+        const binStepDecimal = binStep / 10000;
+        finalMax = finalMin * (1 + binStepDecimal);
+      }
+
+      console.log(`[RangeSlider] Snapped prices: ${newMin.toFixed(6)} → ${finalMin.toFixed(6)}, ${newMax.toFixed(6)} → ${finalMax.toFixed(6)}`);
+
+      onMinPriceChange(Math.max(0, finalMin));
+      onMaxPriceChange(finalMax);
     }
   };
 
@@ -129,17 +213,20 @@ export function InteractiveRangeSlider({
   const handleBinClick = (binPrice: number) => {
     if (disabled) return;
 
+    // Snap the clicked price to nearest bin first
+    const snappedPrice = snapPriceToNearestBin(binPrice);
+
     // Smart detection: adjust the boundary closer to clicked bin
-    const distToMin = Math.abs(binPrice - minPrice);
-    const distToMax = Math.abs(binPrice - maxPrice);
+    const distToMin = Math.abs(snappedPrice - minPrice);
+    const distToMax = Math.abs(snappedPrice - maxPrice);
 
     if (distToMin < distToMax) {
       // Closer to min boundary, adjust min
-      const newMin = Math.min(binPrice, maxPrice * 0.99); // Ensure min < max
+      const newMin = Math.min(snappedPrice, maxPrice * 0.99); // Ensure min < max
       onMinPriceChange(newMin);
     } else {
       // Closer to max boundary, adjust max
-      const newMax = Math.max(binPrice, minPrice * 1.01); // Ensure max > min
+      const newMax = Math.max(snappedPrice, minPrice * 1.01); // Ensure max > min
       onMaxPriceChange(newMax);
     }
   };
@@ -193,19 +280,35 @@ export function InteractiveRangeSlider({
               </div>
             ))
           ) : (
-            // Placeholder
+            // Placeholder bins that respond to price range selection
             Array.from({ length: 50 }).map((_, i) => {
               const height = Math.random() * 60 + 20;
+              // Calculate this bin's price position across the display range
+              const binPosition = (i / 50) * 100; // 0-100%
+              const binPrice = displayRange.min + (binPosition / 100) * displayRange.range;
+
+              // Check if this placeholder bin is in the user's selected range
+              const isInSelectedRange = binPrice >= minPrice && binPrice <= maxPrice;
+
               return (
                 <div
                   key={i}
-                  className="relative"
+                  className="relative group"
                   style={{ flex: '1 1 0', maxWidth: '8px', minWidth: '2px', height: '100%' }}
                 >
                   <div
-                    className="absolute bottom-0 w-full rounded-sm bg-gray-600 opacity-20"
-                    style={{ height: `${height}%` }}
+                    className="absolute bottom-0 w-full rounded-sm transition-all duration-200"
+                    style={{
+                      height: `${height}%`,
+                      backgroundColor: isInSelectedRange ? '#8b5cf6' : '#4b5563',
+                      opacity: isInSelectedRange ? 0.5 : 0.2
+                    }}
                   />
+                  {/* Tooltip for placeholder bins */}
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-900 rounded text-[10px] text-white opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-30 shadow-lg">
+                    <div className="font-mono">${binPrice.toFixed(6)}</div>
+                    <div className="text-[9px] text-gray-400">Preview</div>
+                  </div>
                 </div>
               );
             })
@@ -231,6 +334,7 @@ export function InteractiveRangeSlider({
           max={sliderMax}
           value={sliderValue}
           onChange={handleSliderChange}
+          onAfterChange={handleSliderAfterChange}
           disabled={disabled}
           styles={{
             track: {
@@ -273,6 +377,15 @@ export function InteractiveRangeSlider({
                 onMinPriceChange(parsed);
               }
             }}
+            onBlur={(e) => {
+              // Snap to nearest bin when user finishes editing
+              const parsed = parseFloat(e.target.value);
+              if (!isNaN(parsed) && parsed > 0) {
+                const snapped = snapPriceToNearestBin(parsed);
+                onMinPriceChange(snapped);
+                setMinPriceInput(snapped.toFixed(6));
+              }
+            }}
             disabled={disabled}
             className="w-full px-3 py-2 rounded-lg bg-background-secondary border border-border text-white text-sm font-mono focus:border-primary focus:outline-none disabled:opacity-50"
             placeholder="0.000000"
@@ -289,6 +402,15 @@ export function InteractiveRangeSlider({
               const parsed = parseFloat(e.target.value);
               if (!isNaN(parsed) && parsed > 0) {
                 onMaxPriceChange(parsed);
+              }
+            }}
+            onBlur={(e) => {
+              // Snap to nearest bin when user finishes editing
+              const parsed = parseFloat(e.target.value);
+              if (!isNaN(parsed) && parsed > 0) {
+                const snapped = snapPriceToNearestBin(parsed);
+                onMaxPriceChange(snapped);
+                setMaxPriceInput(snapped.toFixed(6));
               }
             }}
             disabled={disabled}

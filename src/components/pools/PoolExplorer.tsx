@@ -55,7 +55,7 @@ function PoolCard({ pool, onClick }: PoolCardProps) {
           <div>
             <div className="text-xs text-foreground-muted">Price</div>
             <div className="font-semibold">
-              ${baseAsset.usdPrice ? baseAsset.usdPrice.toFixed(6) : '0.00'}
+              ${baseAsset.usdPrice ? Number(baseAsset.usdPrice).toFixed(6) : '0.00'}
             </div>
           </div>
           <div>

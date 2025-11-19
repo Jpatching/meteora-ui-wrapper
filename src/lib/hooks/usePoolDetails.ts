@@ -7,7 +7,11 @@
 import { useState, useEffect } from 'react';
 import { fetchPoolDetails, formatPoolDetails, type PoolDetails } from '@/lib/meteora/poolDetails';
 
-export function usePoolDetails(poolAddress: string, poolType: string) {
+export function usePoolDetails(
+  poolAddress: string,
+  poolType: string,
+  network: 'mainnet-beta' | 'devnet' | 'localnet' = 'mainnet-beta'
+) {
   const [details, setDetails] = useState<PoolDetails>({});
   const [isLoading, setIsLoading] = useState(true);
 
@@ -16,7 +20,7 @@ export function usePoolDetails(poolAddress: string, poolType: string) {
 
     async function loadDetails() {
       try {
-        const poolDetails = await fetchPoolDetails(poolAddress, poolType);
+        const poolDetails = await fetchPoolDetails(poolAddress, poolType, network);
         if (mounted) {
           setDetails(poolDetails);
           setIsLoading(false);
@@ -34,7 +38,7 @@ export function usePoolDetails(poolAddress: string, poolType: string) {
     return () => {
       mounted = false;
     };
-  }, [poolAddress, poolType]);
+  }, [poolAddress, poolType, network]);
 
   const formattedDetails = formatPoolDetails(details, poolType);
 

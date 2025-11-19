@@ -23,7 +23,7 @@
 
 import { Connection, Keypair, PublicKey, Transaction, sendAndConfirmTransaction, SystemProgram } from '@solana/web3.js';
 import { getOrCreateAssociatedTokenAccount, createSyncNativeInstruction, NATIVE_MINT, TOKEN_PROGRAM_ID } from '@solana/spl-token';
-import DLMM, { StrategyType } from '@meteora-ag/dlmm';
+import DLMM, { StrategyType, getPriceOfBinByBinId } from '@meteora-ag/dlmm';
 import BN from 'bn.js';
 import fs from 'fs';
 import path from 'path';
@@ -43,7 +43,7 @@ const SEED_CONFIG = {
     enabled: true,
     solAmount: 2.0, // 2 SOL
     usdcAmount: 360, // 360 USDC (assumes ~180 USDC/SOL)
-    strategy: StrategyType.SpotBalanced,
+    strategy: StrategyType.Spot,
     binRange: 20, // ±20 bins from active bin
   },
 };
@@ -169,10 +169,15 @@ async function seedSingleBin(
       cluster: 'devnet',
     });
 
-    const poolState = await dlmmPool.getPoolState();
+    // Refresh pool state
+    await dlmmPool.refetchStates();
+    const poolState = dlmmPool.lbPair;
     console.log(`📊 Pool State:`);
     console.log(`   Active Bin: ${poolState.activeId}`);
-    console.log(`   Current Price: ${poolState.price}`);
+
+    // Calculate current price from active bin
+    const currentPrice = getPriceOfBinByBinId(poolState.activeId, poolState.binStep);
+    console.log(`   Current Price: ${currentPrice.toString()}`);
 
     // Check if pool already has liquidity
     const binArrays = await dlmmPool.getBinArrays();
@@ -189,7 +194,7 @@ async function seedSingleBin(
 
     // Seed parameters
     const seedAmountLamports = new BN(Math.floor(solAmount * 1e9));
-    const price = poolState.price; // Use current pool price
+    const price = currentPrice.toNumber(); // Use current pool price (convert Decimal to number)
     const roundingUp = true;
 
     // Create seed transaction
@@ -272,7 +277,9 @@ async function seedDualSided(
       cluster: 'devnet',
     });
 
-    const poolState = await dlmmPool.getPoolState();
+    // Refresh pool state
+    await dlmmPool.refetchStates();
+    const poolState = dlmmPool.lbPair;
     const activeBin = await dlmmPool.getActiveBin();
 
     console.log(`📊 Pool State:`);
@@ -385,7 +392,10 @@ async function main() {
   const dlmmPool = await DLMM.create(connection, new PublicKey(poolAddress), {
     cluster: 'devnet',
   });
-  const lbPair = await dlmmPool.getPoolState();
+
+  // Refresh pool state
+  await dlmmPool.refetchStates();
+  const lbPair = dlmmPool.lbPair;
 
   console.log(`\n📋 Pool Info:`);
   console.log(`   Token X: ${lbPair.tokenXMint.toBase58()}`);

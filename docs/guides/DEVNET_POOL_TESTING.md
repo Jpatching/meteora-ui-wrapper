@@ -68,7 +68,7 @@ cd backend
 This script will:
 1. ✅ Create SOL-USDC DLMM pool
 2. ✅ Seed initial liquidity (single-sided)
-3. ✅ Seed liquidity distribution (dual-sided with SpotBalanced strategy)
+3. ✅ Seed liquidity distribution (dual-sided with Spot strategy)
 4. ✅ Add pool to PostgreSQL database
 5. ✅ Print pool address and next steps
 
@@ -303,7 +303,7 @@ const SEED_CONFIG = {
     enabled: true,
     solAmount: 2.0,      // Adjust SOL amount
     usdcAmount: 360,     // Adjust USDC amount
-    strategy: StrategyType.SpotBalanced,
+    strategy: StrategyType.Spot,
     binRange: 20,        // Change bin distribution width
   },
 };

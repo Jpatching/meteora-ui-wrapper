@@ -24,12 +24,22 @@ export function LiquidityDistributionPanel({ pool }: LiquidityDistributionPanelP
   // Only show for DLMM pools
   const isDLMM = pool.type === 'dlmm';
 
-  // Fetch bin data
-  const { activeBin, binsAroundActive } = useBinData({
+  // Fetch bin data - use conservative refresh to avoid RPC rate limits
+  const { activeBin, binsAroundActive, isLoading, error } = useBinData({
     poolAddress: pool.id,
     enabled: isDLMM,
-    refreshInterval: 5000, // Refresh every 5 seconds
-    binRange: 100, // Show 100 bins around active
+    refreshInterval: 60000, // Refresh every 60 seconds (reduced from 5s to avoid rate limits)
+    binRange: 50, // Show 50 bins around active (reduced from 100 for efficiency)
+  });
+
+  // Debug: Log the state received from useBinData
+  console.log('[LiquidityDistributionPanel] Current state:', {
+    isDLMM,
+    poolAddress: pool.id,
+    activeBin: activeBin?.binId,
+    binsCount: binsAroundActive.length,
+    isLoading,
+    hasError: !!error,
   });
 
   // Fetch user positions
@@ -38,36 +48,88 @@ export function LiquidityDistributionPanel({ pool }: LiquidityDistributionPanelP
 
   // INTELLIGENT BIN SAMPLING: Reduce bins to ~60-80 for clean visualization
   const sampledBins = useMemo(() => {
-    if (binsAroundActive.length === 0) return [];
+    console.log(`[LiquidityChart] Processing bins:`, {
+      totalBins: binsAroundActive.length,
+      activeBinId: activeBin?.binId,
+    });
+
+    if (binsAroundActive.length === 0) {
+      console.log(`[LiquidityChart] ⚠️  No bins received from useBinData`);
+      return [];
+    }
+
+    // Log bins with liquidity for debugging
+    const binsWithLiquidity = binsAroundActive.filter(b => b.totalLiquidity > 0);
+    console.log(`[LiquidityChart] 💧 Bins with liquidity: ${binsWithLiquidity.length}/${binsAroundActive.length}`);
+
+    if (binsWithLiquidity.length > 0) {
+      console.log(`[LiquidityChart] First 5 bins with liquidity:`,
+        binsWithLiquidity.slice(0, 5).map(b => ({
+          binId: b.binId,
+          liquidityX: b.liquidityX.toFixed(6),
+          liquidityY: b.liquidityY.toFixed(6),
+          total: b.totalLiquidity.toFixed(6),
+        }))
+      );
+    }
 
     const TARGET_BINS = 70; // Sweet spot for Meteora-like visualization
 
     if (binsAroundActive.length <= TARGET_BINS) {
+      console.log(`[LiquidityChart] Using all ${binsAroundActive.length} bins (under target)`);
       // If we have fewer bins than target, use all
       return binsAroundActive;
     }
 
-    // Sample bins intelligently - keep active bin and distribute evenly
+    // IMPROVED SAMPLING: Prioritize bins with liquidity
     const activeBinIndex = binsAroundActive.findIndex(b => b.isActive);
     const step = Math.floor(binsAroundActive.length / TARGET_BINS);
     const sampled = [];
 
-    for (let i = 0; i < binsAroundActive.length; i += step) {
-      sampled.push(binsAroundActive[i]);
+    // First, include all bins with significant liquidity
+    const significantBins = binsAroundActive.filter(b => b.totalLiquidity > 0);
+
+    if (significantBins.length <= TARGET_BINS) {
+      // If bins with liquidity fit in target, use them all plus fill with empty bins
+      console.log(`[LiquidityChart] Using ${significantBins.length} bins with liquidity + sampling empty bins`);
+      sampled.push(...significantBins);
+
+      // Fill remaining slots with evenly distributed empty bins for context
+      const emptyBins = binsAroundActive.filter(b => b.totalLiquidity === 0);
+      const fillCount = Math.min(TARGET_BINS - significantBins.length, emptyBins.length);
+      const fillStep = Math.floor(emptyBins.length / fillCount) || 1;
+
+      for (let i = 0; i < emptyBins.length && sampled.length < TARGET_BINS; i += fillStep) {
+        sampled.push(emptyBins[i]);
+      }
+    } else {
+      // Too many bins with liquidity - sample them
+      console.log(`[LiquidityChart] Too many bins with liquidity (${significantBins.length}), sampling...`);
+      const liquidityStep = Math.floor(significantBins.length / TARGET_BINS) || 1;
+      for (let i = 0; i < significantBins.length; i += liquidityStep) {
+        sampled.push(significantBins[i]);
+      }
     }
 
     // Ensure active bin is included
     if (activeBinIndex >= 0 && !sampled.some(b => b.isActive)) {
+      console.log(`[LiquidityChart] Adding active bin ${binsAroundActive[activeBinIndex].binId}`);
       sampled.push(binsAroundActive[activeBinIndex]);
-      sampled.sort((a, b) => a.binId - b.binId);
     }
 
+    // Sort by bin ID
+    sampled.sort((a, b) => a.binId - b.binId);
+
+    console.log(`[LiquidityChart] ✅ Sampled ${sampled.length} bins (${sampled.filter(b => b.totalLiquidity > 0).length} with liquidity)`);
+
     return sampled;
-  }, [binsAroundActive]);
+  }, [binsAroundActive, activeBin]);
 
   // Calculate max liquidity for scaling histogram
   const maxLiquidity = useMemo(() => {
-    return Math.max(...sampledBins.map(bin => bin.totalLiquidity || 0), 1);
+    const max = Math.max(...sampledBins.map(bin => bin.totalLiquidity || 0), 1);
+    console.log(`[LiquidityChart] Max liquidity for scaling: ${max.toFixed(6)}`);
+    return max;
   }, [sampledBins]);
 
   // Get pool metadata
@@ -197,11 +259,52 @@ export function LiquidityDistributionPanel({ pool }: LiquidityDistributionPanelP
           {/* Smooth gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/5 to-transparent pointer-events-none"></div>
 
-          {sampledBins.length === 0 ? (
+          {(() => {
+            console.log('[LiquidityChart] Render decision:', {
+              sampledBinsLength: sampledBins.length,
+              hasActiveBin: !!activeBin,
+              binsAroundActiveLength: binsAroundActive.length,
+              isLoading,
+              hasError: !!error,
+            });
+            return sampledBins.length === 0;
+          })() ? (
             <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-                <p className="text-sm text-foreground-muted">Loading liquidity data...</p>
+              <div className="text-center px-4">
+                {!activeBin ? (
+                  <>
+                    <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                    <p className="text-sm text-foreground-muted">Loading liquidity data...</p>
+                    <p className="text-xs text-gray-500 mt-1">Fetching bins from RPC...</p>
+                  </>
+                ) : binsAroundActive.length === 0 ? (
+                  <>
+                    <div className="text-4xl mb-3">📊</div>
+                    <p className="text-sm font-semibold text-white mb-1">No Liquidity Data</p>
+                    <p className="text-xs text-gray-400 mb-3">This pool has no liquidity in any bins yet.</p>
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="px-3 py-1.5 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 rounded transition-colors"
+                    >
+                      Refresh Data
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-4xl mb-3">⚠️</div>
+                    <p className="text-sm font-semibold text-white mb-1">Chart Rendering Issue</p>
+                    <p className="text-xs text-gray-400 mb-2">Bins were fetched but couldn't be displayed.</p>
+                    <p className="text-xs text-gray-500 font-mono mb-3">
+                      Check browser console (F12) for details
+                    </p>
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="px-3 py-1.5 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 rounded transition-colors"
+                    >
+                      Refresh Page
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           ) : (
@@ -212,6 +315,12 @@ export function LiquidityDistributionPanel({ pool }: LiquidityDistributionPanelP
                   const liquidityPct = (bin.totalLiquidity / maxLiquidity) * 100;
                   const liquidityXPct = bin.liquidityX > 0 ? (bin.liquidityX / bin.totalLiquidity) * 100 : 0;
                   const liquidityYPct = bin.liquidityY > 0 ? (bin.liquidityY / bin.totalLiquidity) * 100 : 0;
+
+                  // Add minimum bar height for visibility (2% of container)
+                  const MIN_BAR_HEIGHT = 2;
+                  const displayLiquidityPct = bin.totalLiquidity > 0
+                    ? Math.max(liquidityPct, MIN_BAR_HEIGHT)
+                    : 0;
 
                   const isActive = bin.isActive;
                   const isHovered = hoveredBin === bin.binId;
@@ -243,7 +352,7 @@ export function LiquidityDistributionPanel({ pool }: LiquidityDistributionPanelP
                         <div
                           className="w-full transition-all duration-300 ease-out group-hover:brightness-110"
                           style={{
-                            height: `${(liquidityPct * liquidityYPct) / 100}%`,
+                            height: `${(displayLiquidityPct * liquidityYPct) / 100}%`,
                             background: isActive
                               ? 'linear-gradient(to top, #059669, #10b981)'
                               : isHovered
@@ -261,7 +370,7 @@ export function LiquidityDistributionPanel({ pool }: LiquidityDistributionPanelP
                         <div
                           className="w-full transition-all duration-300 ease-out group-hover:brightness-110"
                           style={{
-                            height: `${(liquidityPct * liquidityXPct) / 100}%`,
+                            height: `${(displayLiquidityPct * liquidityXPct) / 100}%`,
                             background: isActive
                               ? 'linear-gradient(to top, #9333ea, #a855f7)'
                               : isHovered

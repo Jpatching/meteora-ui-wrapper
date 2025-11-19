@@ -218,22 +218,53 @@ export function TradingChart({
         if (chartType === 'candlestick') {
           const candleData = data.map(d => ({
             time: d.time,
-            open: d.open,
-            high: d.high,
-            low: d.low,
-            close: d.close,
+            open: Number(d.open),
+            high: Number(d.high),
+            low: Number(d.low),
+            close: Number(d.close),
           }));
+
+          // Detailed logging for debugging
+          const prices = candleData.map(c => [c.open, c.high, c.low, c.close]).flat();
+          console.log(`[TradingChart] Setting ${candleData.length} candlesticks`, {
+            count: candleData.length,
+            first: {
+              time: candleData[0].time,
+              open: candleData[0].open,
+              high: candleData[0].high,
+              low: candleData[0].low,
+              close: candleData[0].close,
+            },
+            last: {
+              time: candleData[candleData.length - 1].time,
+              open: candleData[candleData.length - 1].open,
+              high: candleData[candleData.length - 1].high,
+              low: candleData[candleData.length - 1].low,
+              close: candleData[candleData.length - 1].close,
+            },
+            priceRange: {
+              min: Math.min(...prices),
+              max: Math.max(...prices),
+            }
+          });
+
           priceSeriesRef.current.setData(candleData);
         } else {
           const lineData = data.map(d => ({
             time: d.time,
-            value: d.close,
+            value: Number(d.close),
           }));
           priceSeriesRef.current.setData(lineData);
         }
       } catch (error) {
         console.error('[TradingChart] Error setting price data:', error);
       }
+    } else {
+      console.log('[TradingChart] No data to display', {
+        hasSeries: !!priceSeriesRef.current,
+        hasData: !!data,
+        dataLength: data?.length || 0
+      });
     }
 
     // Update volume data
@@ -241,8 +272,8 @@ export function TradingChart({
       try {
         const volumeData = data.map(d => ({
           time: d.time,
-          value: d.volume,
-          color: d.close >= d.open ? CHART_COLORS.up : CHART_COLORS.down,
+          value: Number(d.volume),
+          color: Number(d.close) >= Number(d.open) ? CHART_COLORS.up : CHART_COLORS.down,
         }));
         volumeSeriesRef.current.setData(volumeData);
       } catch (error) {

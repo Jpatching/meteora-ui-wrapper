@@ -7,6 +7,7 @@
 import { Router, Request, Response } from 'express';
 import { redis, getCached, setCached, CACHE_TTL, cacheKeys } from '../config/redis';
 import { syncAllPools, getPoolsByToken, getTopPools } from '../services/poolSyncService';
+import { autoIndexPool } from '../services/devnetPoolSyncService';
 
 const router = Router();
 
@@ -293,16 +294,30 @@ router.get('/validate/:address', async (req: Request, res: Response) => {
 
 /**
  * POST /api/pools/devnet/add
- * Add a devnet pool to track (fetch from on-chain and store in database)
- * Body: { address: string, protocol: 'dlmm' | 'damm-v2', name?: string }
+ * Add a devnet pool directly to database (no SDK fetching)
+ * Body: {
+ *   address: string,
+ *   protocol: 'dlmm' | 'damm-v2',
+ *   token_a_mint: string,
+ *   token_b_mint: string,
+ *   name?: string,
+ *   token_a_symbol?: string,
+ *   token_b_symbol?: string,
+ *   bin_step?: number,
+ *   active_bin?: number,
+ *   reserve_x?: number,
+ *   reserve_y?: number,
+ *   pool_type?: number,
+ *   tvl?: number
+ * }
  */
 router.post('/devnet/add', async (req: Request, res: Response) => {
-  const { address, protocol, name } = req.body;
+  const { address, protocol, token_a_mint, token_b_mint } = req.body;
 
-  if (!address || !protocol) {
+  if (!address || !protocol || !token_a_mint || !token_b_mint) {
     return res.status(400).json({
       success: false,
-      error: 'Missing required fields: address, protocol',
+      error: 'Missing required fields: address, protocol, token_a_mint, token_b_mint',
     });
   }
 
@@ -315,7 +330,7 @@ router.post('/devnet/add', async (req: Request, res: Response) => {
 
   try {
     const { addDevnetPool } = await import('../services/devnetPoolService');
-    const success = await addDevnetPool(address, protocol, name);
+    const success = await addDevnetPool(req.body);
 
     if (success) {
       res.json({
@@ -327,7 +342,7 @@ router.post('/devnet/add', async (req: Request, res: Response) => {
     } else {
       res.status(500).json({
         success: false,
-        error: 'Failed to fetch or store devnet pool',
+        error: 'Failed to store devnet pool',
       });
     }
   } catch (error: any) {
@@ -337,58 +352,140 @@ router.post('/devnet/add', async (req: Request, res: Response) => {
 });
 
 /**
- * POST /api/pools/devnet/sync
- * Sync all known devnet pools
+ * GET /api/pools/devnet
+ * Get all devnet pools from database
+ * Query params: ?protocol=dlmm
  */
-router.post('/devnet/sync', async (req: Request, res: Response) => {
+router.get('/devnet', async (req: Request, res: Response) => {
+  const protocol = req.query.protocol as 'dlmm' | 'damm-v2' | undefined;
+
   try {
-    const { syncDevnetPools } = await import('../services/devnetPoolService');
-    const result = await syncDevnetPools();
+    const { getDevnetPools } = await import('../services/devnetPoolService');
+    const pools = await getDevnetPools(protocol);
 
     res.json({
       success: true,
-      message: 'Devnet pool sync complete',
-      synced: result.synced,
-      failed: result.failed,
+      data: pools,
+      count: pools.length,
+      network: 'devnet',
     });
   } catch (error: any) {
-    console.error('❌ Error syncing devnet pools:', error);
+    console.error('❌ Error fetching devnet pools:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 /**
  * GET /api/pools/devnet/:address
- * Fetch a devnet pool directly from on-chain (no caching)
- * Query params: ?protocol=dlmm
+ * Get a devnet pool from database
  */
 router.get('/devnet/:address', async (req: Request, res: Response) => {
   const { address } = req.params;
-  const protocol = req.query.protocol as 'dlmm' | 'damm-v2';
-
-  if (!protocol) {
-    return res.status(400).json({
-      success: false,
-      error: 'Missing protocol query parameter (?protocol=dlmm or ?protocol=damm-v2)',
-    });
-  }
 
   try {
     const { getDevnetPool } = await import('../services/devnetPoolService');
-    const pool = await getDevnetPool(address, protocol);
+    const pool = await getDevnetPool(address);
 
     if (pool) {
       res.json({ success: true, data: pool, network: 'devnet' });
     } else {
       res.status(404).json({
         success: false,
-        error: 'Pool not found on devnet or failed to fetch',
+        error: 'Pool not found in database',
         address,
-        protocol,
+        network: 'devnet',
       });
     }
   } catch (error: any) {
     console.error(`❌ Error fetching devnet pool ${address}:`, error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/pools/devnet/:address
+ * Delete a devnet pool from database
+ */
+router.delete('/devnet/:address', async (req: Request, res: Response) => {
+  const { address } = req.params;
+
+  try {
+    const { deleteDevnetPool } = await import('../services/devnetPoolService');
+    const success = await deleteDevnetPool(address);
+
+    if (success) {
+      res.json({
+        success: true,
+        message: `Devnet pool ${address} deleted successfully`,
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        error: 'Pool not found',
+      });
+    }
+  } catch (error: any) {
+    console.error(`❌ Error deleting devnet pool ${address}:`, error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/pools/auto-index
+ * Auto-index a devnet pool by fetching from chain
+ * Body: { address: string, poolType?: 'dlmm' | 'damm-v2' }
+ *
+ * This endpoint automatically:
+ * 1. Fetches pool data from devnet RPC
+ * 2. Extracts token info, reserves, and metadata
+ * 3. Stores in database for future queries
+ * 4. Returns the indexed pool data
+ */
+router.post('/auto-index', async (req: Request, res: Response) => {
+  const { address, poolType } = req.body;
+
+  if (!address) {
+    return res.status(400).json({
+      success: false,
+      error: 'Missing required field: address',
+    });
+  }
+
+  try {
+    console.log(`[API] Auto-indexing devnet pool: ${address} (type: ${poolType || 'auto-detect'})`);
+
+    const result = await autoIndexPool(address, poolType);
+
+    if (result.success) {
+      // Clear cache for this pool
+      const cacheKey = `pool:${address}:devnet`;
+      await redis.del(cacheKey);
+
+      // Clear devnet pool list cache
+      await redis.del(
+        cacheKeys.poolList('dlmm', 'devnet'),
+        cacheKeys.poolList('damm-v2', 'devnet')
+      );
+
+      res.json({
+        success: true,
+        message: result.alreadyExists
+          ? `Pool ${address} was already indexed`
+          : `Pool ${address} successfully indexed from chain`,
+        poolAddress: result.poolAddress,
+        poolType: result.poolType,
+        alreadyExists: result.alreadyExists || false,
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: result.error || 'Failed to index pool',
+        poolAddress: result.poolAddress,
+        poolType: result.poolType,
+      });
+    }
+  } catch (error: any) {
+    console.error(`❌ Error auto-indexing pool ${address}:`, error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

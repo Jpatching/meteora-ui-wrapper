@@ -24,6 +24,7 @@ export interface UseGeckoTerminalChartDataOptions {
   pool: Pool | null;
   interval?: TimeInterval;
   limit?: number; // Override default limit
+  enabled?: boolean; // Allow disabling the query
 }
 
 export interface UseGeckoTerminalChartDataReturn {
@@ -50,6 +51,7 @@ export function useGeckoTerminalChartData({
   pool,
   interval = '15m',
   limit,
+  enabled = true,
 }: UseGeckoTerminalChartDataOptions): UseGeckoTerminalChartDataReturn {
   const timeframe = INTERVAL_TO_TIMEFRAME[interval] as GeckoTerminalTimeframe;
   const aggregate = getAggregateForInterval(interval);
@@ -57,6 +59,7 @@ export function useGeckoTerminalChartData({
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['geckoterminal-chart', pool?.baseAsset?.id, interval, candleLimit],
+    enabled: enabled && !!pool?.baseAsset?.id,
     queryFn: async (): Promise<{
       candles: OHLCVDataPoint[];
       currentPrice: number;
@@ -129,7 +132,6 @@ export function useGeckoTerminalChartData({
         priceChange24h,
       };
     },
-    enabled: !!pool?.baseAsset?.id && !!timeframe,
     staleTime: 60000, // 1 minute
     refetchInterval: 90000, // 90 seconds (conservative to respect rate limits)
     retry: 2,

@@ -8,6 +8,8 @@ import { ReferralDisplay } from '@/components/ui/ReferralDisplay';
 import { referralAPI, userAPI, UserStats } from '@/lib/api/backend';
 import toast from 'react-hot-toast';
 
+export const dynamic = 'force-dynamic';
+
 export default function ReferralDashboardPage() {
   const { publicKey } = useWallet();
   const [stats, setStats] = useState<UserStats | null>(null);

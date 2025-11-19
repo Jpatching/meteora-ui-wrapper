@@ -1,155 +1,64 @@
 /**
  * Devnet Pool Service
- * Fetches pool data from devnet using Meteora SDKs (on-chain)
- * APIs only serve mainnet, so we need to fetch devnet pools directly from on-chain
+ * Simplified: Add devnet pools directly to database without SDK fetching
+ *
+ * WHY: Devnet RPC/SDK calls are slow and unreliable. It's easier to manually
+ * add pool data when creating them than to fetch from on-chain.
+ *
+ * Usage:
+ *   - Use scripts/add-devnet-pool.ts to add pools via CLI
+ *   - Use POST /api/pools/devnet/add to add pools via API
  */
 
-import { Connection, PublicKey } from '@solana/web3.js';
-import DLMM from '@meteora-ag/dlmm';
-import AmmImpl from '@meteora-ag/dynamic-amm-sdk';
 import { db } from '../config/database';
-import { getTokenMetadata } from './tokenMetadataService';
 
-const DEVNET_RPC = process.env.DEVNET_RPC || 'https://api.devnet.solana.com';
-const devnetConnection = new Connection(DEVNET_RPC, 'confirmed');
-
-interface DevnetPoolConfig {
+interface DevnetPoolData {
   address: string;
   protocol: 'dlmm' | 'damm-v2';
   name?: string;
+  token_a_mint: string;
+  token_b_mint: string;
+  token_a_symbol?: string;
+  token_b_symbol?: string;
+  bin_step?: number;
+  active_bin?: number;
+  reserve_x?: number;
+  reserve_y?: number;
+  pool_type?: number;
+  tvl?: number;
 }
 
 /**
- * Known devnet pools for testing
- * Users can add their own pools here or we can store them in database
+ * Add a devnet pool directly to the database
+ * No SDK fetching - just insert the data you provide
  */
-const KNOWN_DEVNET_POOLS: DevnetPoolConfig[] = [
-  // SOL-USDC DLMM pool created for testing
-  // This will be populated after running create-sol-usdc-devnet-pool.ts
-  // Uncomment and add the pool address once created:
-  // { address: 'YOUR_POOL_ADDRESS_HERE', protocol: 'dlmm', name: 'SOL-USDC' },
-];
-
-/**
- * Fetch DLMM pool data from devnet using SDK
- */
-async function fetchDLMMPoolFromDevnet(poolAddress: string): Promise<any> {
+export async function addDevnetPool(poolData: DevnetPoolData): Promise<boolean> {
   try {
-    console.log(`🔍 Fetching DLMM pool ${poolAddress} from devnet...`);
+    console.log(`➕ Adding devnet pool: ${poolData.address} (${poolData.protocol})`);
 
-    const dlmmPool = await DLMM.create(
-      devnetConnection,
-      new PublicKey(poolAddress),
-      { cluster: 'devnet' }
-    );
+    const name = poolData.name || `${poolData.token_a_symbol || 'TOKEN-A'}-${poolData.token_b_symbol || 'TOKEN-B'}`;
+    const token_a_symbol = poolData.token_a_symbol || 'TOKEN-A';
+    const token_b_symbol = poolData.token_b_symbol || 'TOKEN-B';
 
-    const poolState = dlmmPool.lbPair;
-    const activeBin = dlmmPool.lbPair.activeId;
-
-    // Fetch token metadata
-    const [tokenAMetadata, tokenBMetadata] = await Promise.all([
-      getTokenMetadata(poolState.tokenXMint.toBase58()),
-      getTokenMetadata(poolState.tokenYMint.toBase58()),
-    ]);
-
-    // Calculate TVL from reserves (approximate)
-    const reserveX = Number(dlmmPool.lbPair.reserveX) / 1e9; // Adjust decimals
-    const reserveY = Number(dlmmPool.lbPair.reserveY) / 1e9; // Adjust decimals
-
-    return {
-      address: poolAddress,
-      name: `${tokenAMetadata?.symbol || 'UNKNOWN'}-${tokenBMetadata?.symbol || 'UNKNOWN'}`,
-      protocol: 'dlmm',
-      token_a_mint: poolState.tokenXMint.toBase58(),
-      token_b_mint: poolState.tokenYMint.toBase58(),
-      token_a_symbol: tokenAMetadata?.symbol || 'UNKNOWN',
-      token_b_symbol: tokenBMetadata?.symbol || 'UNKNOWN',
-      tvl: 0, // Would need price data to calculate
-      volume_24h: 0, // Not available on-chain
-      fees_24h: 0, // Not available on-chain
-      apr: 0, // Not available on-chain
-      metadata: {
-        bin_step: poolState.binStep,
-        active_bin: activeBin,
-        reserve_x: reserveX,
-        reserve_y: reserveY,
-        network: 'devnet',
-      },
+    // Build metadata based on protocol
+    const metadata: any = {
       network: 'devnet',
     };
-  } catch (error: any) {
-    console.error(`❌ Error fetching DLMM pool ${poolAddress} from devnet:`, error.message);
-    return null;
-  }
-}
 
-/**
- * Fetch DAMM v2 pool data from devnet using SDK
- */
-async function fetchDAMMv2PoolFromDevnet(poolAddress: string): Promise<any> {
-  try {
-    console.log(`🔍 Fetching DAMM v2 pool ${poolAddress} from devnet...`);
-
-    // Use AmmImpl.create() static factory method
-    const amm = await AmmImpl.create(devnetConnection, new PublicKey(poolAddress));
-
-    if (!amm) {
-      console.error(`❌ Pool ${poolAddress} not found on devnet`);
-      return null;
+    if (poolData.protocol === 'dlmm') {
+      metadata.bin_step = poolData.bin_step || 100;
+      metadata.active_bin = poolData.active_bin;
+      metadata.reserve_x = poolData.reserve_x || 0;
+      metadata.reserve_y = poolData.reserve_y || 0;
+    } else if (poolData.protocol === 'damm-v2') {
+      metadata.pool_type = poolData.pool_type || 0;
     }
 
-    const poolState = amm.poolState;
-
-    // Fetch token metadata
-    const [tokenAMetadata, tokenBMetadata] = await Promise.all([
-      getTokenMetadata(poolState.tokenAMint.toBase58()),
-      getTokenMetadata(poolState.tokenBMint.toBase58()),
-    ]);
-
-    return {
-      address: poolAddress,
-      name: `${tokenAMetadata?.symbol || 'UNKNOWN'}-${tokenBMetadata?.symbol || 'UNKNOWN'}`,
-      protocol: 'damm-v2',
-      token_a_mint: poolState.tokenAMint.toBase58(),
-      token_b_mint: poolState.tokenBMint.toBase58(),
-      token_a_symbol: tokenAMetadata?.symbol || 'UNKNOWN',
-      token_b_symbol: tokenBMetadata?.symbol || 'UNKNOWN',
-      tvl: 0, // Would need price data to calculate
-      volume_24h: 0, // Not available on-chain
-      fees_24h: 0, // Not available on-chain
-      apr: 0, // Not available on-chain
-      metadata: {
-        pool_type: poolState.poolType,
-        network: 'devnet',
-      },
-      network: 'devnet',
-    };
-  } catch (error: any) {
-    console.error(`❌ Error fetching DAMM v2 pool ${poolAddress} from devnet:`, error.message);
-    return null;
-  }
-}
-
-/**
- * Sync a single devnet pool to database
- */
-async function syncDevnetPool(config: DevnetPoolConfig): Promise<boolean> {
-  try {
-    let poolData;
-
-    if (config.protocol === 'dlmm') {
-      poolData = await fetchDLMMPoolFromDevnet(config.address);
-    } else if (config.protocol === 'damm-v2') {
-      poolData = await fetchDAMMv2PoolFromDevnet(config.address);
-    }
-
-    if (!poolData) {
-      return false;
-    }
-
-    // Override name if provided in config
-    if (config.name) {
-      poolData.name = config.name;
+    // Ensure network column exists
+    try {
+      await db.query(`ALTER TABLE pools ADD COLUMN IF NOT EXISTS network VARCHAR(20) DEFAULT 'mainnet-beta'`);
+    } catch (e) {
+      // Column already exists
     }
 
     // Upsert to database
@@ -171,77 +80,132 @@ async function syncDevnetPool(config: DevnetPoolConfig): Promise<boolean> {
         last_synced_at = NOW()`,
       [
         poolData.address,
-        poolData.name,
+        name,
         poolData.protocol,
         poolData.token_a_mint,
         poolData.token_b_mint,
-        poolData.token_a_symbol,
-        poolData.token_b_symbol,
-        poolData.tvl,
-        poolData.volume_24h,
-        poolData.fees_24h,
-        poolData.apr,
-        JSON.stringify(poolData.metadata),
+        token_a_symbol,
+        token_b_symbol,
+        poolData.tvl || 0,
+        0, // volume_24h
+        0, // fees_24h
+        0, // apr
+        JSON.stringify(metadata),
         'devnet',
       ]
     );
 
-    console.log(`✅ Synced devnet pool: ${poolData.name} (${config.protocol})`);
+    console.log(`✅ Added devnet pool: ${name} (${poolData.protocol})`);
     return true;
   } catch (error: any) {
-    console.error(`❌ Error syncing devnet pool ${config.address}:`, error.message);
+    console.error(`❌ Error adding devnet pool ${poolData.address}:`, error.message);
     return false;
   }
 }
 
 /**
- * Sync all known devnet pools
+ * Get all devnet pools from database
  */
-export async function syncDevnetPools(): Promise<{ synced: number; failed: number }> {
-  console.log(`🔄 Syncing ${KNOWN_DEVNET_POOLS.length} known devnet pools...`);
+export async function getDevnetPools(protocol?: 'dlmm' | 'damm-v2'): Promise<any[]> {
+  try {
+    let query = `SELECT * FROM pools WHERE network = 'devnet'`;
+    const params: any[] = [];
 
-  let synced = 0;
-  let failed = 0;
-
-  for (const pool of KNOWN_DEVNET_POOLS) {
-    const success = await syncDevnetPool(pool);
-    if (success) {
-      synced++;
-    } else {
-      failed++;
+    if (protocol) {
+      query += ` AND protocol = $1`;
+      params.push(protocol);
     }
-  }
 
-  console.log(`✅ Devnet pool sync complete: ${synced} synced, ${failed} failed`);
-  return { synced, failed };
+    query += ` ORDER BY last_synced_at DESC`;
+
+    const result = await db.query(query, params);
+    console.log(`📊 Found ${result.rows.length} devnet pools`);
+    return result.rows;
+  } catch (error: any) {
+    console.error('❌ Error fetching devnet pools:', error.message);
+    return [];
+  }
 }
 
 /**
- * Add a new devnet pool to track
+ * Get a specific devnet pool from database
  */
-export async function addDevnetPool(address: string, protocol: 'dlmm' | 'damm-v2', name?: string): Promise<boolean> {
-  console.log(`➕ Adding devnet pool: ${address} (${protocol})`);
+export async function getDevnetPool(address: string): Promise<any | null> {
+  try {
+    const result = await db.query(
+      `SELECT * FROM pools WHERE pool_address = $1 AND network = 'devnet'`,
+      [address]
+    );
 
-  const config: DevnetPoolConfig = { address, protocol, name };
-  const success = await syncDevnetPool(config);
+    if (result.rows.length === 0) {
+      return null;
+    }
 
-  if (success) {
-    // Store in database so we can track it
-    // Could add a separate table for tracked devnet pools
-    KNOWN_DEVNET_POOLS.push(config);
+    return result.rows[0];
+  } catch (error: any) {
+    console.error(`❌ Error fetching devnet pool ${address}:`, error.message);
+    return null;
   }
-
-  return success;
 }
 
 /**
- * Fetch a specific devnet pool by address
+ * Update devnet pool metadata (e.g., after adding liquidity)
  */
-export async function getDevnetPool(address: string, protocol: 'dlmm' | 'damm-v2'): Promise<any> {
-  if (protocol === 'dlmm') {
-    return await fetchDLMMPoolFromDevnet(address);
-  } else if (protocol === 'damm-v2') {
-    return await fetchDAMMv2PoolFromDevnet(address);
+export async function updateDevnetPoolMetadata(
+  address: string,
+  metadata: Partial<DevnetPoolData>
+): Promise<boolean> {
+  try {
+    console.log(`🔄 Updating devnet pool: ${address}`);
+
+    // Get existing pool data
+    const pool = await getDevnetPool(address);
+    if (!pool) {
+      console.error(`❌ Pool ${address} not found`);
+      return false;
+    }
+
+    // Merge existing metadata with new metadata
+    const existingMetadata = typeof pool.metadata === 'string'
+      ? JSON.parse(pool.metadata)
+      : pool.metadata;
+    const updatedMetadata = { ...existingMetadata, ...metadata };
+
+    // Update database
+    await db.query(
+      `UPDATE pools SET metadata = $1, last_synced_at = NOW() WHERE pool_address = $2 AND network = 'devnet'`,
+      [JSON.stringify(updatedMetadata), address]
+    );
+
+    console.log(`✅ Updated devnet pool metadata`);
+    return true;
+  } catch (error: any) {
+    console.error(`❌ Error updating devnet pool ${address}:`, error.message);
+    return false;
   }
-  return null;
+}
+
+/**
+ * Delete a devnet pool from database
+ */
+export async function deleteDevnetPool(address: string): Promise<boolean> {
+  try {
+    console.log(`🗑️  Deleting devnet pool: ${address}`);
+
+    const result = await db.query(
+      `DELETE FROM pools WHERE pool_address = $1 AND network = 'devnet'`,
+      [address]
+    );
+
+    if (result.rowCount === 0) {
+      console.error(`❌ Pool ${address} not found`);
+      return false;
+    }
+
+    console.log(`✅ Deleted devnet pool`);
+    return true;
+  } catch (error: any) {
+    console.error(`❌ Error deleting devnet pool ${address}:`, error.message);
+    return false;
+  }
 }

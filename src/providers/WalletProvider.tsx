@@ -11,7 +11,6 @@ import {
   PhantomWalletAdapter,
   SolflareWalletAdapter,
   TorusWalletAdapter,
-  LedgerWalletAdapter,
 } from '@solana/wallet-adapter-wallets';
 import { useNetwork } from '@/contexts/NetworkContext';
 
@@ -26,7 +25,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       new PhantomWalletAdapter(),
       new SolflareWalletAdapter(),
       new TorusWalletAdapter(),
-      new LedgerWalletAdapter(),
+      // Note: Ledger wallet removed to avoid build issues
+      // Users can still connect via Phantom or Solflare which support Ledger
     ],
     []
   );

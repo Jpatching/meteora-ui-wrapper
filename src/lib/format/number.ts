@@ -18,7 +18,25 @@ export function formatReadableNumber(
 ): string {
   const { decimals = 2, compact = true, prefix = '', suffix = '' } = options || {};
 
-  const value = new Decimal(num);
+  // Handle NaN, undefined, null, and invalid values
+  if (num === null || num === undefined || num === '' ||
+      (typeof num === 'number' && (isNaN(num) || !isFinite(num)))) {
+    return '0';
+  }
+
+  // Handle string "NaN" or "Infinity"
+  if (typeof num === 'string' && (num === 'NaN' || num === 'Infinity' || num === '-Infinity')) {
+    return '0';
+  }
+
+  let value: Decimal;
+  try {
+    value = new Decimal(num);
+  } catch (error) {
+    // If Decimal conversion fails, return 0
+    console.warn('[formatReadableNumber] Failed to convert to Decimal:', num, error);
+    return '0';
+  }
   const absValue = value.abs();
 
   if (!compact) {

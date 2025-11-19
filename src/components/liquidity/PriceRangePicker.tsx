@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useBinLiquidity } from '@/lib/hooks/useBinLiquidity';
+import { useBinData } from '@/lib/hooks/useBinData';
 import { InteractiveRangeSlider } from './InteractiveRangeSlider';
 
 interface PriceRangePickerProps {
@@ -16,6 +16,7 @@ interface PriceRangePickerProps {
   disabled?: boolean;
   poolAddress?: string;
   binStep?: number;
+  depositType?: 'token-x' | 'token-y' | 'dual' | 'none';
 }
 
 export function PriceRangePicker({
@@ -30,21 +31,27 @@ export function PriceRangePicker({
   disabled,
   poolAddress,
   binStep = 20,
+  depositType = 'none',
 }: PriceRangePickerProps) {
-  // Fetch real bin liquidity data if pool address provided
-  const { data: fetchedBins = [] } = useBinLiquidity(poolAddress || null);
+  // Fetch real bin liquidity data if pool address provided using the unified hook
+  const { binsAroundActive, isLoading } = useBinData({
+    poolAddress: poolAddress || '',
+    enabled: !!poolAddress,
+    refreshInterval: 5000,
+    binRange: 50,
+  });
 
   // Use fetched bins if available, otherwise use prop or empty array
-  const activeBins = fetchedBins.length > 0 ? fetchedBins : binLiquidity;
+  const activeBins = binsAroundActive.length > 0 ? binsAroundActive : binLiquidity;
 
   // Transform bin data to match InteractiveRangeSlider interface
   const binData = useMemo(() => {
-    return activeBins.map(bin => ({
+    return activeBins.map((bin: any) => ({
       binId: bin.binId || 0,
       price: bin.price,
-      liquidity: bin.liquidity,
-      xAmount: (bin as any).xAmount || 0,
-      yAmount: (bin as any).yAmount || 0,
+      liquidity: bin.totalLiquidity || bin.liquidity || 0,
+      xAmount: bin.liquidityX || bin.xAmount || 0,
+      yAmount: bin.liquidityY || bin.yAmount || 0,
     }));
   }, [activeBins]);
 
@@ -85,6 +92,7 @@ export function PriceRangePicker({
         tokenXSymbol={tokenXSymbol}
         tokenYSymbol={tokenYSymbol}
         disabled={disabled}
+        depositType={depositType}
       />
     </div>
   );

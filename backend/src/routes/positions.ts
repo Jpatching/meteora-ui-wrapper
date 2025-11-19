@@ -69,7 +69,7 @@ router.post('/create', async (req: Request, res: Response) => {
       // Determine strategy type
       let strategyType: number;
       if (strategy === 'spot') {
-        strategyType = 0; // SpotBalanced
+        strategyType = 0; // Spot
       } else if (strategy === 'curve') {
         strategyType = 1; // Curve
       } else {

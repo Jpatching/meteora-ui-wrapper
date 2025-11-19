@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey } from '@solana/web3.js';
 import { Button } from '@/components/ui';
@@ -54,10 +54,23 @@ export function AddLiquidityPanel({
   // Price range state - handle case where currentPrice is 0 or NaN (no liquidity pool)
   const safeCurrentPrice = Number(currentPrice) > 0 ? Number(currentPrice) : 1; // Default to 1:1 if no price
 
+  console.log('[AddLiquidityPanel] Received currentPrice:', {
+    raw: currentPrice,
+    safe: safeCurrentPrice,
+    poolAddress: poolAddress.slice(0, 8),
+  });
+
+  // Pool-specific position width limit
+  // Note: Each pool may have different restrictions on position width
+  // The protocol limit is 1400 bins, but individual pools may have stricter limits
+  const MAX_PROTOCOL_BINS = 1400; // Protocol hard limit
+  const RECOMMENDED_MAX_BINS = 50; // Recommended safe range for most pools
+  const WARNING_THRESHOLD_BINS = 30; // Show warning above this
+
   // For empty pools, minPrice MUST be >= pool's initial price
   // Set default range starting at current price (not below it)
   const [minPrice, setMinPrice] = useState(safeCurrentPrice); // Start at current price
-  const [maxPrice, setMaxPrice] = useState(safeCurrentPrice * 2); // 100% above current
+  const [maxPrice, setMaxPrice] = useState(safeCurrentPrice * 1.05); // Conservative 5% range
 
   // Amount state
   const [tokenXAmount, setTokenXAmount] = useState('');
@@ -66,9 +79,68 @@ export function AddLiquidityPanel({
   // Loading state
   const [loading, setLoading] = useState(false);
 
+  // Track last price update to avoid infinite loops
+  const lastPriceUpdateRef = useRef(safeCurrentPrice);
+
+  // Update price range when currentPrice changes (e.g., when activeBin loads)
+  useEffect(() => {
+    const newSafePrice = Number(currentPrice) > 0 ? Number(currentPrice) : 1;
+
+    // Only update if price changed significantly from last update
+    const hasSignificantChange = Math.abs(newSafePrice - lastPriceUpdateRef.current) / lastPriceUpdateRef.current > 0.01;
+    const isPriceLoaded = newSafePrice > 0 && newSafePrice !== 1;
+
+    if (hasSignificantChange && isPriceLoaded) {
+      console.log(`[AddLiquidity] Current price updated: ${lastPriceUpdateRef.current.toFixed(6)} → ${newSafePrice.toFixed(6)}`);
+
+      // Recalculate range based on current strategy
+      const binStepDecimal = binStep / 10000;
+      let binsAbove = 10; // Default
+
+      if (strategy === 'spot') {
+        binsAbove = 10;
+      } else if (strategy === 'curve') {
+        binsAbove = WARNING_THRESHOLD_BINS;
+      } else if (strategy === 'bidAsk') {
+        binsAbove = 20;
+      }
+
+      const newMinPrice = newSafePrice;
+      const newMaxPrice = newSafePrice * Math.pow(1 + binStepDecimal, binsAbove);
+
+      setMinPrice(newMinPrice);
+      setMaxPrice(newMaxPrice);
+      lastPriceUpdateRef.current = newSafePrice; // Update ref to prevent re-runs
+
+      console.log(`[AddLiquidity] Range updated: ${newMinPrice.toFixed(6)} - ${newMaxPrice.toFixed(6)} (${binsAbove} bins)`);
+    }
+  }, [currentPrice, strategy, binStep]); // Re-run when currentPrice, strategy, or binStep changes
+
   // Calculate ratio percentages based on strategy
   const tokenXPercentage = ratio === 'one-side' ? 100 : 50;
   const tokenYPercentage = ratio === 'one-side' ? 0 : 50;
+
+  // Calculate number of bins in selected range
+  // This matches the SDK's bin calculation logic
+  const calculateNumBins = () => {
+    if (minPrice <= 0 || maxPrice <= 0 || maxPrice <= minPrice) return 0;
+    const binStepDecimal = binStep / 10000;
+
+    // Calculate bin IDs from prices (matching SDK logic)
+    const minBinId = Math.floor(Math.log(minPrice) / Math.log(1 + binStepDecimal));
+    const maxBinId = Math.ceil(Math.log(maxPrice) / Math.log(1 + binStepDecimal));
+
+    // Bin range size is the difference + 1
+    const calculatedBins = maxBinId - minBinId + 1;
+    return isFinite(calculatedBins) && !isNaN(calculatedBins) && calculatedBins >= 0 ? calculatedBins : 0;
+  };
+
+  const numBins = calculateNumBins();
+  const isSafeRange = numBins <= MAX_PROTOCOL_BINS;
+  const rangeWarningLevel =
+    numBins > RECOMMENDED_MAX_BINS ? 'error' :
+    numBins > WARNING_THRESHOLD_BINS ? 'warning' :
+    'safe';
 
   // Check if price range includes current price (important for empty pools)
   const priceRangeIncludesActive = minPrice <= safeCurrentPrice && maxPrice >= safeCurrentPrice;
@@ -81,27 +153,50 @@ export function AddLiquidityPanel({
     // Calculate bin-aligned prices for better liquidity distribution
     const binStepDecimal = binStep / 10000; // Convert basis points to decimal
 
+    // IMPORTANT: For dual-sided deposits (50-50), range MUST include active bin
+    // For single-sided deposits, range should be on one side of active bin
+    const isDualSided = ratio === '50-50';
+
     if (newStrategy === 'spot') {
-      // Narrow range for spot: Current price to +20 bins above
-      // (Never go below current price for empty pools)
-      const minPriceCalc = safeCurrentPrice;
-      const maxPriceCalc = safeCurrentPrice * Math.pow(1 + binStepDecimal, 20);
-      setMinPrice(minPriceCalc);
-      setMaxPrice(maxPriceCalc);
+      // Narrow range: ±5 bins for dual-sided, or +10 bins for single-sided
+      if (isDualSided) {
+        const minPriceCalc = safeCurrentPrice * Math.pow(1 + binStepDecimal, -5);
+        const maxPriceCalc = safeCurrentPrice * Math.pow(1 + binStepDecimal, 5);
+        setMinPrice(minPriceCalc);
+        setMaxPrice(maxPriceCalc);
+      } else {
+        // Single-sided: start at active price, go up (Token X only)
+        const minPriceCalc = safeCurrentPrice;
+        const maxPriceCalc = safeCurrentPrice * Math.pow(1 + binStepDecimal, 10);
+        setMinPrice(minPriceCalc);
+        setMaxPrice(maxPriceCalc);
+      }
     } else if (newStrategy === 'curve') {
-      // Wide range for curve: Current price to +100 bins above
-      // (Never go below current price for empty pools)
-      const minPriceCalc = safeCurrentPrice;
-      const maxPriceCalc = safeCurrentPrice * Math.pow(1 + binStepDecimal, 100);
-      setMinPrice(minPriceCalc);
-      setMaxPrice(maxPriceCalc);
+      // Moderate range: ±15 bins for dual-sided, or +30 bins for single-sided
+      if (isDualSided) {
+        const minPriceCalc = safeCurrentPrice * Math.pow(1 + binStepDecimal, -15);
+        const maxPriceCalc = safeCurrentPrice * Math.pow(1 + binStepDecimal, 15);
+        setMinPrice(minPriceCalc);
+        setMaxPrice(maxPriceCalc);
+      } else {
+        const minPriceCalc = safeCurrentPrice;
+        const maxPriceCalc = safeCurrentPrice * Math.pow(1 + binStepDecimal, WARNING_THRESHOLD_BINS);
+        setMinPrice(minPriceCalc);
+        setMaxPrice(maxPriceCalc);
+      }
     } else if (newStrategy === 'bidAsk') {
-      // Balanced range for bid-ask: Current price to +50 bins
-      // (Never go below current price for empty pools)
-      const minPriceCalc = safeCurrentPrice;
-      const maxPriceCalc = safeCurrentPrice * Math.pow(1 + binStepDecimal, 50);
-      setMinPrice(minPriceCalc);
-      setMaxPrice(maxPriceCalc);
+      // Wider range: ±10 bins for dual-sided, or +20 bins for single-sided
+      if (isDualSided) {
+        const minPriceCalc = safeCurrentPrice * Math.pow(1 + binStepDecimal, -10);
+        const maxPriceCalc = safeCurrentPrice * Math.pow(1 + binStepDecimal, 10);
+        setMinPrice(minPriceCalc);
+        setMaxPrice(maxPriceCalc);
+      } else {
+        const minPriceCalc = safeCurrentPrice;
+        const maxPriceCalc = safeCurrentPrice * Math.pow(1 + binStepDecimal, 20);
+        setMinPrice(minPriceCalc);
+        setMaxPrice(maxPriceCalc);
+      }
     }
   };
 
@@ -116,46 +211,196 @@ export function AddLiquidityPanel({
       // If switching to one-side, clear Y amount
       setTokenYAmount('0');
     }
+
+    // Auto-adjust price range based on ratio change
+    // Dual-sided needs range that includes active bin
+    // Single-sided needs range on one side of active bin
+    const binStepDecimal = binStep / 10000;
+    const isDualSided = newRatio === '50-50';
+
+    if (strategy === 'spot') {
+      if (isDualSided) {
+        const minPriceCalc = safeCurrentPrice * Math.pow(1 + binStepDecimal, -5);
+        const maxPriceCalc = safeCurrentPrice * Math.pow(1 + binStepDecimal, 5);
+        setMinPrice(minPriceCalc);
+        setMaxPrice(maxPriceCalc);
+      } else {
+        const minPriceCalc = safeCurrentPrice;
+        const maxPriceCalc = safeCurrentPrice * Math.pow(1 + binStepDecimal, 10);
+        setMinPrice(minPriceCalc);
+        setMaxPrice(maxPriceCalc);
+      }
+    } else if (strategy === 'curve') {
+      if (isDualSided) {
+        const minPriceCalc = safeCurrentPrice * Math.pow(1 + binStepDecimal, -15);
+        const maxPriceCalc = safeCurrentPrice * Math.pow(1 + binStepDecimal, 15);
+        setMinPrice(minPriceCalc);
+        setMaxPrice(maxPriceCalc);
+      } else {
+        const minPriceCalc = safeCurrentPrice;
+        const maxPriceCalc = safeCurrentPrice * Math.pow(1 + binStepDecimal, WARNING_THRESHOLD_BINS);
+        setMinPrice(minPriceCalc);
+        setMaxPrice(maxPriceCalc);
+      }
+    } else if (strategy === 'bidAsk') {
+      if (isDualSided) {
+        const minPriceCalc = safeCurrentPrice * Math.pow(1 + binStepDecimal, -10);
+        const maxPriceCalc = safeCurrentPrice * Math.pow(1 + binStepDecimal, 10);
+        setMinPrice(minPriceCalc);
+        setMaxPrice(maxPriceCalc);
+      } else {
+        const minPriceCalc = safeCurrentPrice;
+        const maxPriceCalc = safeCurrentPrice * Math.pow(1 + binStepDecimal, 20);
+        setMinPrice(minPriceCalc);
+        setMaxPrice(maxPriceCalc);
+      }
+    }
   };
 
   const handleAddLiquidity = async () => {
+    console.log('🚀 [AddLiquidity] Starting add liquidity process...');
+    console.log('📊 [AddLiquidity] Wallet Info:', {
+      connected,
+      publicKey: publicKey?.toBase58(),
+      network,
+      solBalance,
+      tokenXBalance: tokenXBalance?.uiAmount,
+      tokenYBalance: tokenYBalance?.uiAmount,
+    });
+
     if (!connected || !publicKey) {
       toast.error('Please connect your wallet first');
+      console.error('❌ [AddLiquidity] Wallet not connected');
       return;
     }
 
     if (!tokenXAmount || parseFloat(tokenXAmount) <= 0) {
       toast.error('Please enter a valid amount');
+      console.error('❌ [AddLiquidity] Invalid amount:', tokenXAmount);
       return;
     }
 
     if (ratio === '50-50' && (!tokenYAmount || parseFloat(tokenYAmount) <= 0)) {
       toast.error('Please enter a valid amount for both tokens');
+      console.error('❌ [AddLiquidity] Invalid dual-sided amounts');
       return;
     }
 
     if (minPrice >= maxPrice) {
       toast.error('Min price must be less than max price');
+      console.error('❌ [AddLiquidity] Invalid price range:', { minPrice, maxPrice });
+      return;
+    }
+
+    // CRITICAL: Validate bin range to prevent protocol errors
+    if (!isSafeRange) {
+      toast.error(
+        <div className="max-w-sm">
+          <p className="font-semibold mb-1">⚠️ Price range exceeds protocol limit</p>
+          <p className="text-xs opacity-90">
+            Your range has {numBins} bins (protocol max: {MAX_PROTOCOL_BINS}). This will cause a transaction failure.
+          </p>
+          <p className="text-xs opacity-75 mt-1">
+            Please narrow your price range significantly or use a strategy preset.
+          </p>
+        </div>,
+        { duration: 8000 }
+      );
+      console.error('❌ [AddLiquidity] Range too wide:', { numBins, maxProtocol: MAX_PROTOCOL_BINS });
+      return;
+    }
+
+    // RECOMMENDED: Warn about wide ranges
+    if (numBins > RECOMMENDED_MAX_BINS) {
+      toast.error(
+        <div className="max-w-sm">
+          <p className="font-semibold mb-1">⚠️ Price range may be too wide</p>
+          <p className="text-xs opacity-90">
+            Your range has {numBins} bins (recommended max: {RECOMMENDED_MAX_BINS}). Some pools may reject this.
+          </p>
+          <p className="text-xs opacity-75 mt-1">
+            Consider using a narrower range for better transaction success rate.
+          </p>
+        </div>,
+        { duration: 6000 }
+      );
+      console.warn('⚠️ [AddLiquidity] Range wider than recommended:', { numBins, recommended: RECOMMENDED_MAX_BINS });
+    }
+
+    // CRITICAL: For dual-sided deposits, validate that range INCLUDES active bin
+    if (ratio === '50-50' && !priceRangeIncludesActive) {
+      toast.error(
+        <div className="max-w-sm">
+          <p className="font-semibold mb-1">⚠️ Invalid range for dual-sided deposit</p>
+          <p className="text-xs opacity-90">
+            Your price range (${minPrice.toFixed(6)} - ${maxPrice.toFixed(6)}) does NOT include the active price (${safeCurrentPrice.toFixed(6)}).
+          </p>
+          <p className="text-xs opacity-75 mt-1">
+            For dual-sided deposits (50-50), your range <strong>must include</strong> the active price.
+            Otherwise, only one token will be deposited.
+          </p>
+          <p className="text-xs font-semibold mt-2">
+            💡 Tip: Switch to "One Side" ratio if you want to deposit only {tokenXSymbol}.
+          </p>
+        </div>,
+        { duration: 10000 }
+      );
+      console.error('❌ [AddLiquidity] Dual-sided deposit range does not include active bin:', {
+        minPrice,
+        maxPrice,
+        activePrice: safeCurrentPrice,
+        includesActive: priceRangeIncludesActive,
+      });
+      return;
+    }
+
+    // CRITICAL: For single-sided deposits, validate that range includes or is adjacent to active bin
+    if (ratio === 'one-side' && showPriceWarning) {
+      toast.error(
+        <div className="max-w-sm">
+          <p className="font-semibold mb-1">⚠️ Invalid range for single-sided deposit</p>
+          <p className="text-xs opacity-90">
+            Your price range (${minPrice.toFixed(6)} - ${maxPrice.toFixed(6)}) does not include the active price (${safeCurrentPrice.toFixed(6)}).
+          </p>
+          <p className="text-xs opacity-75 mt-1">
+            For single-sided {tokenXSymbol} deposits, your <strong>minimum price must be at or below</strong> the active price.
+            Please adjust your range or use a strategy preset.
+          </p>
+        </div>,
+        { duration: 8000 }
+      );
+      console.error('❌ [AddLiquidity] Single-sided deposit range does not include active bin:', {
+        minPrice,
+        maxPrice,
+        activePrice: safeCurrentPrice,
+        includesActive: priceRangeIncludesActive,
+      });
       return;
     }
 
     // Validate SOL balance
     if (solBalance && solBalance < 0.5) {
-      toast.error(`Insufficient SOL balance. You need at least 0.5 SOL for transaction fees and rent.`);
+      const message = `Insufficient SOL balance. You need at least 0.5 SOL for transaction fees and rent. Current: ${solBalance.toFixed(4)} SOL`;
+      toast.error(message);
+      console.error('❌ [AddLiquidity]', message);
       return;
     }
 
     // Validate token balance
     const amountInLamports = parseFloat(tokenXAmount) * 1e9;
     if (tokenXBalance && amountInLamports > tokenXBalance.balance) {
-      toast.error(`Insufficient ${tokenXSymbol} balance. You have ${tokenXBalance.uiAmount.toFixed(4)} ${tokenXSymbol}`);
+      const message = `Insufficient ${tokenXSymbol} balance. You have ${tokenXBalance.uiAmount.toFixed(4)} ${tokenXSymbol}`;
+      toast.error(message);
+      console.error('❌ [AddLiquidity]', message);
       return;
     }
 
     if (ratio === '50-50' && tokenYAmount) {
       const quoteAmountInLamports = parseFloat(tokenYAmount) * 1e9;
       if (tokenYBalance && quoteAmountInLamports > tokenYBalance.balance) {
-        toast.error(`Insufficient ${tokenYSymbol} balance. You have ${tokenYBalance.uiAmount.toFixed(4)} ${tokenYSymbol}`);
+        const message = `Insufficient ${tokenYSymbol} balance. You have ${tokenYBalance.uiAmount.toFixed(4)} ${tokenYSymbol}`;
+        toast.error(message);
+        console.error('❌ [AddLiquidity]', message);
         return;
       }
     }
@@ -163,37 +408,54 @@ export function AddLiquidityPanel({
     setLoading(true);
     const loadingToast = toast.loading('Processing transaction...');
 
-    try {
-      // TODO: Vault integration temporarily disabled - add back after vault is initialized on devnet
-      // const tvlInLamports = BigInt(Math.floor(parseFloat(tokenXAmount) * 1e9));
-      // const vaultStrategy = strategy === 'spot' ? VaultStrategy.Spot :
-      //                      strategy === 'curve' ? VaultStrategy.Curve :
-      //                      VaultStrategy.BidAsk;
-      // const vaultResult = await openPosition({
-      //   pool: new PublicKey(poolAddress),
-      //   baseMint: new PublicKey(tokenXMint),
-      //   quoteMint: new PublicKey(tokenYMint),
-      //   initialTvl: tvlInLamports,
-      //   protocol: Protocol.DLMM,
-      //   strategy: vaultStrategy,
-      // });
+    console.log('✅ [AddLiquidity] All validations passed. Starting transaction...');
+    console.log('📋 [AddLiquidity] Transaction params:', {
+      poolAddress,
+      strategy,
+      minPrice,
+      maxPrice,
+      amount: parseFloat(tokenXAmount),
+      tokenMint: tokenXMint,
+      ratio,
+    });
 
-      // Add liquidity directly to Meteora pool (no vault fees for now)
+    try {
       toast.loading('Adding liquidity to pool...', { id: loadingToast });
 
-      const result = await initializePositionAndAddLiquidityByStrategy({
+      // Prepare liquidity parameters based on ratio selection
+      const liquidityParams: any = {
         poolAddress,
         strategy: strategy === 'spot' ? 'spot' : strategy === 'curve' ? 'curve' : 'bid-ask',
         minPrice,
         maxPrice,
-        amount: parseFloat(tokenXAmount),
-        tokenMint: tokenXMint,
-      });
+      };
+
+      if (ratio === '50-50') {
+        // Dual-sided deposit: pass both amounts
+        liquidityParams.baseAmount = parseFloat(tokenXAmount) || 0;
+        liquidityParams.quoteAmount = parseFloat(tokenYAmount) || 0;
+      } else {
+        // Single-sided deposit: use the old API for backward compatibility
+        liquidityParams.amount = parseFloat(tokenXAmount);
+        liquidityParams.tokenMint = tokenXMint;
+      }
+
+      const result = await initializePositionAndAddLiquidityByStrategy(liquidityParams);
+
+      console.log('✅ [AddLiquidity] Transaction successful:', result);
 
       if (result.success) {
+        // Display accurate message based on actual deposit type
+        const depositMessage = result.depositType === 'dual-sided'
+          ? `Added ${result.amounts.tokenX} ${tokenXSymbol} and ${result.amounts.tokenY} ${tokenYSymbol}`
+          : result.depositType === 'single-sided (Token X)'
+            ? `Added ${result.amounts.tokenX} ${tokenXSymbol} (single-sided)`
+            : `Added ${result.amounts.tokenY} ${tokenYSymbol} (single-sided)`;
+
         toast.success(
           <div>
-            <p className="font-semibold mb-1">Liquidity added successfully!</p>
+            <p className="font-semibold mb-1">✅ Liquidity added successfully!</p>
+            <p className="text-xs text-gray-300 mb-2">{depositMessage}</p>
             <a
               href={`https://solscan.io/tx/${result.signature}?cluster=${network}`}
               target="_blank"
@@ -203,7 +465,7 @@ export function AddLiquidityPanel({
               View transaction on Solscan →
             </a>
           </div>,
-          { id: loadingToast, duration: 8000 }
+          { id: loadingToast, duration: 10000 }
         );
 
         // Reset form
@@ -211,8 +473,40 @@ export function AddLiquidityPanel({
         setTokenYAmount('');
       }
     } catch (error: any) {
-      console.error('Error adding liquidity:', error);
-      toast.error(error.message || 'Failed to add liquidity', { id: loadingToast });
+      console.error('❌ [AddLiquidity] Transaction failed with error:', error);
+      console.error('❌ [AddLiquidity] Error details:', {
+        message: error.message,
+        code: error.code,
+        name: error.name,
+        stack: error.stack?.slice(0, 500),
+        logs: error.logs,
+      });
+
+      // Enhanced error messages with actionable advice
+      let userMessage = 'Failed to add liquidity';
+      if (error.message?.includes('User rejected') || error.message?.includes('rejected')) {
+        userMessage = '❌ Transaction rejected by wallet';
+        console.error('❌ [AddLiquidity] User rejected the transaction in wallet');
+      } else if (error.message?.includes('insufficient funds') || error.message?.includes('Insufficient SOL')) {
+        userMessage = `❌ Insufficient SOL for fees. Need ~0.05 SOL. Try: solana airdrop 1 ${publicKey.toBase58()} --url devnet`;
+        console.error('❌ [AddLiquidity] Insufficient SOL for transaction fees');
+      } else if (error.message?.includes('insufficient')) {
+        userMessage = '❌ Insufficient token balance';
+        console.error('❌ [AddLiquidity] Insufficient token balance');
+      } else if (error.message?.includes('blockhash') || error.message?.includes('expired')) {
+        userMessage = '❌ Transaction expired. Please try again';
+        console.error('❌ [AddLiquidity] Blockhash expired');
+      } else if (error.message) {
+        userMessage = `❌ ${error.message}`;
+      }
+
+      toast.error(
+        <div className="max-w-sm">
+          <p className="font-semibold mb-1">{userMessage}</p>
+          <p className="text-xs opacity-75">Check browser console (F12) for detailed logs</p>
+        </div>,
+        { id: loadingToast, duration: 8000 }
+      );
     } finally {
       setLoading(false);
     }
@@ -236,6 +530,49 @@ export function AddLiquidityPanel({
   };
 
   const activeBinId = calculateActiveBinId();
+
+  // Detect which token(s) user is depositing
+  const tokenXAmt = parseFloat(tokenXAmount) || 0;
+  const tokenYAmt = parseFloat(tokenYAmount) || 0;
+  const isDepositingOnlyTokenX = tokenXAmt > 0 && tokenYAmt === 0;
+  const isDepositingOnlyTokenY = tokenYAmt > 0 && tokenXAmt === 0;
+  const isDualSided = tokenXAmt > 0 && tokenYAmt > 0;
+
+  // Auto-adjust price range when ratio changes or strategy changes
+  // to ensure range is valid for the deposit type
+  useEffect(() => {
+    const binStepDecimal = binStep / 10000;
+
+    // Only auto-adjust when user changes ratio to one-side
+    if (ratio === 'one-side') {
+      // Default to Token X range (above active price)
+      // User can manually change to Token Y by entering Token Y amount instead
+      const minPriceCalc = safeCurrentPrice;
+      const maxPriceCalc = safeCurrentPrice * Math.pow(1 + binStepDecimal, WARNING_THRESHOLD_BINS);
+      setMinPrice(minPriceCalc);
+      setMaxPrice(maxPriceCalc);
+    }
+  }, [ratio]); // Only run when ratio changes
+
+  // Validate range based on deposit type
+  let rangeValidationMessage = '';
+  if (isDepositingOnlyTokenX) {
+    // Token X deposits: range must include or be adjacent to active bin
+    // User's min price should be at or below the active price
+    if (minPrice > safeCurrentPrice * 1.001) { // Allow tiny rounding errors
+      rangeValidationMessage = `⚠️ For Token X deposits, your minimum price (${minPrice.toFixed(6)}) must be at or below the active price (${safeCurrentPrice.toFixed(6)})`;
+    } else if (maxPrice < safeCurrentPrice) {
+      rangeValidationMessage = `⚠️ Token X deposits require range to be at or above active price (${safeCurrentPrice.toFixed(6)})`;
+    }
+  } else if (isDepositingOnlyTokenY) {
+    // Token Y deposits: range must include or be adjacent to active bin
+    // User's max price should be at or above the active price
+    if (maxPrice < safeCurrentPrice * 0.999) { // Allow tiny rounding errors
+      rangeValidationMessage = `⚠️ For Token Y deposits, your maximum price (${maxPrice.toFixed(6)}) must be at or above the active price (${safeCurrentPrice.toFixed(6)})`;
+    } else if (minPrice > safeCurrentPrice) {
+      rangeValidationMessage = `⚠️ Token Y deposits require range to be at or below active price (${safeCurrentPrice.toFixed(6)})`;
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -277,7 +614,67 @@ export function AddLiquidityPanel({
           disabled={loading}
           poolAddress={poolAddress}
           binStep={binStep}
+          depositType={
+            isDepositingOnlyTokenX ? 'token-x' :
+            isDepositingOnlyTokenY ? 'token-y' :
+            isDualSided ? 'dual' :
+            'none'
+          }
         />
+
+        {/* Range Safety Indicator */}
+        <div className="mt-3 pt-3 border-t border-border-light/50">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs text-gray-400">Range Size</span>
+            <span className={`text-xs font-mono font-semibold ${
+              rangeWarningLevel === 'error' ? 'text-error' :
+              rangeWarningLevel === 'warning' ? 'text-warning' :
+              'text-success'
+            }`}>
+              {numBins} bins {numBins > RECOMMENDED_MAX_BINS && `(⚠️ > ${RECOMMENDED_MAX_BINS})`}
+            </span>
+          </div>
+
+          {/* Progress bar */}
+          <div className="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
+            <div
+              className={`h-full transition-all duration-300 ${
+                rangeWarningLevel === 'error' ? 'bg-error' :
+                rangeWarningLevel === 'warning' ? 'bg-warning' :
+                'bg-success'
+              }`}
+              style={{ width: `${Math.min(100, (numBins / RECOMMENDED_MAX_BINS) * 100)}%` }}
+            />
+          </div>
+
+          {/* Range validation warning for single-sided deposits */}
+          {rangeValidationMessage && (
+            <div className="mt-2 p-2 bg-warning/10 border border-warning/30 rounded text-xs text-warning">
+              {rangeValidationMessage}
+              <div className="mt-1 text-[10px] opacity-80">
+                {isDepositingOnlyTokenX && 'Token X sits in bins to the right (above) the active price'}
+                {isDepositingOnlyTokenY && 'Token Y sits in bins to the left (below) the active price'}
+              </div>
+            </div>
+          )}
+
+          {/* Warning message */}
+          {rangeWarningLevel === 'error' && (
+            <div className="mt-2 p-2 bg-error/10 border border-error/30 rounded text-xs text-error">
+              ⚠️ Range too wide! Will cause transaction failure. Please narrow your range.
+            </div>
+          )}
+          {rangeWarningLevel === 'warning' && !rangeValidationMessage && (
+            <div className="mt-2 p-2 bg-warning/10 border border-warning/30 rounded text-xs text-warning">
+              ⚡ Approaching limit. Consider using a narrower range for safety.
+            </div>
+          )}
+          {rangeWarningLevel === 'safe' && numBins > 0 && !rangeValidationMessage && (
+            <div className="mt-2 text-xs text-success/80">
+              ✓ Safe range - transaction should succeed
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Deposit Amount - Tile */}

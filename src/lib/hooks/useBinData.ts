@@ -50,6 +50,7 @@ export function useBinData({
 
   const serviceRef = useRef<BinDataService | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const hasFetchedRef = useRef<boolean>(false); // Prevent double-fetch
 
   // Initialize service
   useEffect(() => {
@@ -63,6 +64,7 @@ export function useBinData({
         poolAddress,
         network as 'mainnet-beta' | 'devnet' | 'localhost'
       );
+      hasFetchedRef.current = false; // Reset fetch flag when service reinitializes
     } catch (err) {
       console.error('[useBinData] Failed to create service:', err);
       setError(err as Error);
@@ -77,32 +79,105 @@ export function useBinData({
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
+      hasFetchedRef.current = false;
     };
   }, [enabled, poolAddress, connection, network]);
 
-  // Fetch bin data
+  // Fetch bin data - memoized with stable reference
   const fetchBinData = useCallback(async () => {
-    if (!serviceRef.current || !enabled) return;
+    if (!serviceRef.current || !enabled) {
+      console.log('[useBinData] Skipping fetch: service or enabled check failed', {
+        hasService: !!serviceRef.current,
+        enabled
+      });
+      return;
+    }
 
     try {
+      console.log('[useBinData] Starting bin data fetch...', { network, poolAddress });
       setIsLoading(true);
       setError(null);
 
+      // OPTIMIZATION: For devnet pools, try to fetch bin data from backend first
+      // This avoids RPC rate limits and is much faster
+      if (network === 'devnet') {
+        try {
+          console.log('[useBinData] Attempting to fetch devnet bin data from backend...');
+          const response = await fetch(`/api/pools/${poolAddress}?network=devnet`);
+
+          if (response.ok) {
+            const poolData = await response.json();
+
+            // Check if backend has bin data stored
+            if (poolData.metadata?.bins && poolData.metadata.bins.length > 0) {
+              console.log('[useBinData] ✅ Using bin data from backend!', {
+                binsCount: poolData.metadata.bins.length,
+                activeBin: poolData.metadata.active_bin
+              });
+
+              // Set active bin info
+              const activeBinData = poolData.metadata.bins.find((b: any) => b.isActive);
+              if (activeBinData || poolData.metadata.active_bin) {
+                setActiveBin({
+                  binId: poolData.metadata.active_bin,
+                  price: parseFloat(poolData.metadata.current_price || '0'),
+                  pricePerToken: parseFloat(poolData.metadata.current_price || '0'),
+                  supply: 0,
+                  xAmount: parseFloat(poolData.metadata.reserve_x || '0'),
+                  yAmount: parseFloat(poolData.metadata.reserve_y || '0'),
+                });
+              }
+
+              // Set bins
+              setBinsAroundActive(poolData.metadata.bins.map((b: any) => ({
+                binId: b.binId,
+                price: b.price,
+                pricePerToken: b.price,
+                liquidityX: b.liquidityX,
+                liquidityY: b.liquidityY,
+                totalLiquidity: b.totalLiquidity,
+                isActive: b.isActive || b.binId === poolData.metadata.active_bin,
+              })));
+
+              setIsLoading(false);
+              hasFetchedRef.current = true;
+              console.log('[useBinData] ✅ Devnet bin data loaded from backend');
+              return; // Skip RPC fetch
+            }
+          }
+
+          console.log('[useBinData] Backend has no bin data, falling back to RPC...');
+        } catch (backendError) {
+          console.warn('[useBinData] Backend fetch failed, falling back to RPC:', backendError);
+        }
+      }
+
+      // Fallback: Fetch from RPC (mainnet or devnet without backend data)
+      console.log('[useBinData] Fetching from RPC...');
+
       // Fetch active bin
       const active = await serviceRef.current.getActiveBin();
+      console.log('[useBinData] Active bin fetched:', active);
       setActiveBin(active);
 
       // Fetch bins around active
       const bins = await serviceRef.current.getBinsAroundActiveBin(binRange);
+      console.log('[useBinData] Bins fetched:', {
+        count: bins.length,
+        withLiquidity: bins.filter(b => b.totalLiquidity > 0).length
+      });
       setBinsAroundActive(bins);
 
       setIsLoading(false);
+      hasFetchedRef.current = true;
+      console.log('[useBinData] ✅ Fetch complete');
     } catch (err: any) {
-      // Don't spam console with errors for invalid pools
-      const errorMessage = err?.message || 'Unknown error';
-      if (!errorMessage.includes('Invalid DLMM pool account')) {
-        console.error('[useBinData] Error fetching bin data:', err);
-      }
+      // Log ALL errors with full details for debugging
+      console.error('[useBinData] ❌ Error fetching bin data:', {
+        error: err,
+        message: err?.message,
+        stack: err?.stack?.split('\n').slice(0, 3),
+      });
       setError(err as Error);
       setIsLoading(false);
       // Clear interval on error to prevent spam
@@ -113,19 +188,26 @@ export function useBinData({
     }
   }, [enabled, binRange]);
 
-  // Initial fetch
+  // Initial fetch - run ONCE when service is ready
   useEffect(() => {
-    if (enabled && serviceRef.current) {
-      fetchBinData();
-    }
-  }, [enabled, fetchBinData]);
+    if (enabled && serviceRef.current && !hasFetchedRef.current) {
+      // Debounce to prevent React Strict Mode double-invoke
+      const timeoutId = setTimeout(() => {
+        fetchBinData();
+      }, 100);
 
-  // Set up auto-refresh
+      return () => clearTimeout(timeoutId);
+    }
+  }, [enabled, poolAddress, connection, network]); // Only depend on service initialization deps
+
+  // Set up auto-refresh - separate effect with stable dependencies
   useEffect(() => {
-    if (!enabled || refreshInterval <= 0) return;
+    if (!enabled || refreshInterval <= 0 || !serviceRef.current) return;
 
     intervalRef.current = setInterval(() => {
-      fetchBinData();
+      if (serviceRef.current) {
+        fetchBinData();
+      }
     }, refreshInterval);
 
     return () => {
@@ -134,7 +216,7 @@ export function useBinData({
         intervalRef.current = null;
       }
     };
-  }, [enabled, refreshInterval, fetchBinData]);
+  }, [enabled, refreshInterval, poolAddress, fetchBinData]); // Include poolAddress to reset on pool change
 
   // Helper function to get bins between prices
   const binsBetweenPrices = useCallback(

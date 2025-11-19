@@ -12,6 +12,8 @@ import { useNetwork } from '@/contexts/NetworkContext';
 // import { useAlphaVault } from '@/lib/meteora/useAlphaVault';  // TEMPORARILY DISABLED due to SDK dependency issue
 import toast from 'react-hot-toast';
 
+export const dynamic = 'force-dynamic';
+
 export default function AlphaVaultCreatePage() {
   const { publicKey } = useWallet();
   const { network } = useNetwork();

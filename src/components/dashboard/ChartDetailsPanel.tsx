@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Pool } from '@/lib/jupiter/types';
 import { TradingChart, ChartType, TimeInterval } from '@/components/charts/TradingChart';
 import { LiquidityChartOverlay } from '@/components/charts/LiquidityChartOverlay';
@@ -14,11 +14,13 @@ import { useBinData } from '@/lib/hooks/useBinData';
 import { useUserPositions } from '@/lib/hooks/useUserPositions';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useRouter } from 'next/navigation';
+import { useNetwork } from '@/contexts/NetworkContext';
 import { formatUSD, formatNumber } from '@/lib/format/number';
 import { formatTimeAgo } from '@/lib/format/date';
 import { Button } from '@/components/ui';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
+import { binsToHistoricalOHLC } from '@/lib/utils/binToOHLC';
 
 export interface ChartDetailsPanelProps {
   pool: Pool;
@@ -30,10 +32,13 @@ export function ChartDetailsPanel({ pool }: ChartDetailsPanelProps) {
   const [showLiquidityOverlay, setShowLiquidityOverlay] = useState(false);
   const { publicKey } = useWallet();
   const router = useRouter();
+  const { network } = useNetwork();
 
-  const { data: chartDataPoints, loading: isLoading } = useGeckoTerminalChartData({
+  // Only fetch from GeckoTerminal for mainnet pools
+  const { data: geckoChartData, loading: isLoadingGecko } = useGeckoTerminalChartData({
     pool,
     interval,
+    enabled: network === 'mainnet-beta', // Only fetch for mainnet
   });
 
   // Detect pool type
@@ -47,6 +52,24 @@ export function ChartDetailsPanel({ pool }: ChartDetailsPanelProps) {
     refreshInterval: 0, // No auto-refresh for chart
     binRange: 50,
   });
+
+  // For devnet: Convert bin data to OHLC candles as fallback
+  // Each bin becomes a candlestick showing its price range and liquidity
+  const binOHLCData = useMemo(() => {
+    if (network === 'devnet' && isDLMM && binsAroundActive.length > 0) {
+      console.log('[ChartDetailsPanel] Converting bin data to OHLC candles for devnet');
+      console.log(`[ChartDetailsPanel] Active bin ID: ${activeBin?.binId}, Total bins: ${binsAroundActive.length}`);
+      return binsToHistoricalOHLC(
+        binsAroundActive,
+        activeBin?.binId // Pass active bin ID to center the timeline
+      );
+    }
+    return null;
+  }, [network, isDLMM, binsAroundActive, activeBin]);
+
+  // Use GeckoTerminal data for mainnet, bin-based data for devnet
+  const chartDataPoints = network === 'mainnet-beta' ? geckoChartData : binOHLCData;
+  const isLoading = network === 'mainnet-beta' ? isLoadingGecko : binsAroundActive.length === 0;
 
   // Fetch user positions to show on chart
   const { data: allPositions } = useUserPositions();
@@ -185,7 +208,7 @@ export function ChartDetailsPanel({ pool }: ChartDetailsPanelProps) {
         {/* Chart fills available height */}
         <div className="h-full w-full">
           <TradingChart
-            data={chartDataPoints}
+            data={chartDataPoints || []}
             chartType={chartType}
             interval={interval}
             height={600}

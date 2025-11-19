@@ -1,13 +1,22 @@
 'use client';
 
+import { useState } from 'react';
 import { MainLayout } from '@/components/layout';
 import { Card, CardContent, Button } from '@/components/ui';
 import { usePositions } from '@/lib/hooks/usePositions';
 import { PortfolioSummary, PositionsList } from '@/components/positions';
 import { PositionHealthMonitor } from '@/components/positions/PositionHealthMonitor';
 import { toast } from 'react-hot-toast';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { useDLMM } from '@/lib/meteora/useDLMM';
+
+export const dynamic = 'force-dynamic';
 
 export default function PositionsPage() {
+  const { connected } = useWallet();
+  const { claimAllRewards, removeLiquidityFromPosition } = useDLMM();
+  const [processingPosition, setProcessingPosition] = useState<string | null>(null);
+
   const {
     positions,
     totalValue,
@@ -18,6 +27,86 @@ export default function PositionsPage() {
     error: positionsError,
     refreshPositions,
   } = usePositions();
+
+  // Handle claiming fees for a position
+  const handleClaimFees = async (position: typeof positions[0]) => {
+    if (!connected) {
+      toast.error('Please connect your wallet first');
+      return;
+    }
+
+    if (!position.positionAddress) {
+      toast.error('Position address not found');
+      return;
+    }
+
+    setProcessingPosition(position.id);
+    const loadingToast = toast.loading(`Claiming fees for ${position.baseSymbol}/${position.quoteSymbol}...`);
+
+    try {
+      const result = await claimAllRewards({
+        poolAddress: position.poolAddress,
+        positionAddress: position.positionAddress,
+      });
+
+      if (result.success) {
+        toast.success(`Successfully claimed fees! Transaction: ${result.signature.slice(0, 8)}...`, {
+          id: loadingToast,
+          duration: 5000,
+        });
+        // Refresh positions to show updated unclaimed fees
+        setTimeout(() => refreshPositions(), 2000);
+      } else {
+        toast.error('Failed to claim fees', { id: loadingToast });
+      }
+    } catch (error: any) {
+      console.error('Error claiming fees:', error);
+      toast.error(error.message || 'Failed to claim fees', { id: loadingToast });
+    } finally {
+      setProcessingPosition(null);
+    }
+  };
+
+  // Handle closing a position (remove 100% liquidity)
+  const handleClosePosition = async (position: typeof positions[0]) => {
+    if (!connected) {
+      toast.error('Please connect your wallet first');
+      return;
+    }
+
+    if (!position.positionAddress) {
+      toast.error('Position address not found');
+      return;
+    }
+
+    setProcessingPosition(position.id);
+    const loadingToast = toast.loading(`Closing position ${position.baseSymbol}/${position.quoteSymbol}...`);
+
+    try {
+      // Remove 100% of liquidity (10000 basis points = 100%)
+      const result = await removeLiquidityFromPosition({
+        poolAddress: position.poolAddress,
+        positionAddress: position.positionAddress,
+        bps: 10000, // 100%
+      });
+
+      if (result.success) {
+        toast.success(`Successfully closed position! Transaction: ${result.signature.slice(0, 8)}...`, {
+          id: loadingToast,
+          duration: 5000,
+        });
+        // Refresh positions to remove closed position from list
+        setTimeout(() => refreshPositions(), 2000);
+      } else {
+        toast.error('Failed to close position', { id: loadingToast });
+      }
+    } catch (error: any) {
+      console.error('Error closing position:', error);
+      toast.error(error.message || 'Failed to close position', { id: loadingToast });
+    } finally {
+      setProcessingPosition(null);
+    }
+  };
 
   return (
     <MainLayout>
@@ -73,15 +162,9 @@ export default function PositionsPage() {
           <h2 className="text-xl font-bold mb-4">Active Positions</h2>
           <PositionsList
             positions={positions}
-            loading={positionsLoading}
-            onClaim={(position) => {
-              toast.success(`Claiming fees for ${position.baseSymbol}/${position.quoteSymbol}...`);
-              // TODO: Implement claim logic
-            }}
-            onClose={(position) => {
-              toast.success(`Closing position ${position.baseSymbol}/${position.quoteSymbol}...`);
-              // TODO: Implement close logic
-            }}
+            loading={positionsLoading || processingPosition !== null}
+            onClaim={handleClaimFees}
+            onClose={handleClosePosition}
             onViewDetails={(position) => {
               // TODO: Navigate to position details page
               console.log('View details:', position);

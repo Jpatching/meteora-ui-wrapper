@@ -48,7 +48,7 @@ export function TokenInfoSidebar({ pool }: TokenInfoSidebarProps) {
         {/* Price Info */}
         <div className="mb-4">
           <div className="text-3xl font-bold text-white mb-1">
-            {token.usdPrice ? `$${token.usdPrice.toFixed(6)}` : '-'}
+            {token.usdPrice ? `$${Number(token.usdPrice).toFixed(6)}` : '-'}
           </div>
           {token.stats24h?.priceChange !== undefined && (
             <div className={`text-sm font-semibold ${

@@ -28,13 +28,15 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function DLMMCreatePoolPage() {
   const router = useRouter();
-  const { createPool: createDLMMPool } = useDLMM();
+  const { createPool: createDLMMPool, createPoolWithLiquidity } = useDLMM();
   const { publicKey } = useWallet();
   const { network } = useNetwork();
   const [loading, setLoading] = useState(false);
   const [createNewToken, setCreateNewToken] = useState(true);
   const [newlyCreatedToken, setNewlyCreatedToken] = useState<string | null>(null);
   const [showMetadataBuilder, setShowMetadataBuilder] = useState(false);
+  const [addInitialLiquidity, setAddInitialLiquidity] = useState(false);
+  const [liquidityStrategy, setLiquidityStrategy] = useState<'spot' | 'curve' | 'bid-ask'>('curve');
 
   const [formData, setFormData] = useState({
     // Token creation
@@ -93,23 +95,25 @@ export default function DLMMCreatePoolPage() {
 
     setLoading(true);
 
-    // Show appropriate loading message based on whether we're creating a token
-    const loadingMessage = createNewToken
-      ? 'Step 1/2: Creating token...'
-      : 'Creating DLMM pool...';
+    // Determine if we're adding liquidity
+    const hasLiquidityAmounts = formData.baseAmount || formData.quoteAmount;
+    const willAddLiquidity = addInitialLiquidity && hasLiquidityAmounts;
+
+    // Show appropriate loading message
+    let loadingMessage = 'Creating DLMM pool...';
+    if (createNewToken && willAddLiquidity) {
+      loadingMessage = 'Step 1/3: Creating token...';
+    } else if (createNewToken) {
+      loadingMessage = 'Step 1/2: Creating token...';
+    } else if (willAddLiquidity) {
+      loadingMessage = 'Step 1/2: Creating pool...';
+    }
+
     const loadingToast = toast.loading(loadingMessage);
 
     try {
-      // Update toast for step 2 if creating token
-      if (createNewToken) {
-        // Give user feedback that step 1 is in progress
-        setTimeout(() => {
-          toast.loading('Step 1/2: Creating token... (this may take a moment)', { id: loadingToast });
-        }, 1000);
-      }
-
-      // Call Meteora SDK via our hook
-      const result = await createDLMMPool({
+      // Prepare pool parameters
+      const poolParams = {
         quoteMint: formData.quoteMint,
         binStep: Number(formData.binStep),
         feeBps: Number(formData.feeBps),
@@ -126,9 +130,36 @@ export default function DLMMCreatePoolPage() {
           decimals: Number(formData.tokenDecimals),
           supply: formData.tokenSupply,
         } : undefined,
-      });
+        baseAmount: formData.baseAmount,
+        quoteAmount: formData.quoteAmount,
+      };
 
-      toast.success('Pool created successfully!', { id: loadingToast });
+      let result;
+
+      if (willAddLiquidity) {
+        // Create pool WITH initial liquidity
+        if (createNewToken) {
+          toast.loading('Step 2/3: Creating pool...', { id: loadingToast });
+        } else {
+          toast.loading('Step 2/2: Adding initial liquidity...', { id: loadingToast });
+        }
+
+        result = await createPoolWithLiquidity({
+          ...poolParams,
+          addLiquidity: true,
+          liquidityStrategy,
+        });
+
+        toast.success('Pool created with initial liquidity!', { id: loadingToast });
+      } else {
+        // Create pool without liquidity
+        if (createNewToken) {
+          toast.loading('Step 2/2: Creating pool...', { id: loadingToast });
+        }
+
+        result = await createDLMMPool(poolParams);
+        toast.success('Pool created successfully!', { id: loadingToast });
+      }
 
       // Show transaction link (pool creation transaction)
       if (result.signature) {
@@ -520,6 +551,58 @@ export default function DLMMCreatePoolPage() {
                 helperText="Price per base token in quote tokens (must be > 0)"
               />
 
+              {/* Add Initial Liquidity Toggle */}
+              <div className="col-span-2 p-4 rounded-lg bg-background-tertiary border border-border-light">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="addLiquidity"
+                      checked={addInitialLiquidity}
+                      onChange={(e) => setAddInitialLiquidity(e.target.checked)}
+                      className="w-5 h-5 text-primary rounded focus:ring-primary"
+                    />
+                    <label htmlFor="addLiquidity" className="text-sm font-semibold cursor-pointer">
+                      💧 Add Initial Liquidity (Test SDK)
+                    </label>
+                    <Tooltip content="Creates pool and immediately adds liquidity using the amounts above. Perfect for testing the Meteora SDK!">
+                      <span className="text-foreground-muted cursor-help">ℹ️</span>
+                    </Tooltip>
+                  </div>
+                </div>
+
+                {addInitialLiquidity && (
+                  <div className="mt-3 pt-3 border-t border-border-light">
+                    <label className="block text-xs font-medium text-foreground-secondary mb-2">
+                      Liquidity Strategy
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(['spot', 'curve', 'bid-ask'] as const).map((strategy) => (
+                        <button
+                          key={strategy}
+                          type="button"
+                          onClick={() => setLiquidityStrategy(strategy)}
+                          className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                            liquidityStrategy === strategy
+                              ? 'bg-primary text-white'
+                              : 'bg-background-secondary text-foreground-secondary hover:bg-background-secondary/80'
+                          }`}
+                        >
+                          {strategy === 'spot' && '🎯 Spot'}
+                          {strategy === 'curve' && '📊 Curve'}
+                          {strategy === 'bid-ask' && '⚖️ Bid-Ask'}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-xs text-foreground-muted">
+                      {liquidityStrategy === 'spot' && 'Concentrated around current price'}
+                      {liquidityStrategy === 'curve' && 'Balanced distribution (recommended)'}
+                      {liquidityStrategy === 'bid-ask' && 'Spread for market making'}
+                    </p>
+                  </div>
+                )}
+              </div>
+
               {/* Price Preview */}
               {formData.baseAmount && formData.quoteAmount && (
                 <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
@@ -599,7 +682,11 @@ export default function DLMMCreatePoolPage() {
               disabled={!publicKey || loading}
               className="flex-1"
             >
-              {loading ? 'Creating Pool...' : '🚀 Create DLMM Pool'}
+              {loading
+                ? 'Creating Pool...'
+                : addInitialLiquidity && (formData.baseAmount || formData.quoteAmount)
+                ? '🚀 Create Pool + Add Liquidity'
+                : '🚀 Create DLMM Pool'}
             </Button>
           </div>
         </form>

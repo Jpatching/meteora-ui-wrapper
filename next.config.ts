@@ -16,8 +16,27 @@ const nextConfig: NextConfig = {
 
   // Enable React Compiler for automatic memoization
   experimental: {
-    reactCompiler: true,
+    // Temporarily disable reactCompiler to fix webpack bundling issues
+    // reactCompiler: true,
+    // Speed up dev mode compilation
+    // turbo: {
+    //   resolveAlias: {
+    //     // Help turbopack resolve Solana packages faster
+    //   },
+    // },
   },
+
+  // Transpile Solana wallet adapter packages to fix vendor-chunks errors
+  transpilePackages: [
+    '@solana/wallet-adapter-base',
+    '@solana/wallet-adapter-react',
+    '@solana/wallet-adapter-react-ui',
+    '@solana/wallet-adapter-wallets',
+    '@solana/wallet-adapter-phantom',
+    '@solana/wallet-adapter-solflare',
+    '@solana/wallet-adapter-torus',
+    '@solana-mobile/wallet-adapter-mobile',
+  ],
 
   // Image optimization
   images: {
@@ -44,6 +63,28 @@ const nextConfig: NextConfig = {
       if (!dev) {
         config.optimization.usedExports = true;
       }
+
+      // Speed up dev mode by reducing work
+      if (dev) {
+        config.optimization = {
+          ...config.optimization,
+          // Disable some expensive optimizations in dev
+          removeAvailableModules: false,
+          removeEmptyChunks: false,
+          splitChunks: false,
+        };
+      }
+    }
+
+    // Handle @ledgerhq packages - ignore them on server-side
+    config.externals = config.externals || [];
+    if (isServer) {
+      config.externals.push({
+        '@ledgerhq/devices': '@ledgerhq/devices',
+        '@ledgerhq/hw-transport': '@ledgerhq/hw-transport',
+        '@ledgerhq/hw-transport-webhid': '@ledgerhq/hw-transport-webhid',
+        '@ledgerhq/hw-transport-webusb': '@ledgerhq/hw-transport-webusb',
+      });
     }
 
     return config;

@@ -38,7 +38,7 @@ export function TokenHeaderBar({ pool }: TokenHeaderBarProps) {
       {/* Price Info */}
       <div className="text-right">
         <div className="text-2xl font-bold text-foreground font-mono">
-          ${baseAsset.usdPrice ? baseAsset.usdPrice.toFixed(6) : '0.000000'}
+          ${baseAsset.usdPrice ? Number(baseAsset.usdPrice).toFixed(6) : '0.000000'}
         </div>
         <div className={`text-lg font-semibold ${isPositive ? 'text-success' : 'text-error'}`}>
           {isPositive ? '+' : ''}{priceChange.toFixed(2)}%

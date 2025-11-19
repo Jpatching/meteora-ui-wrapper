@@ -62,6 +62,24 @@ services:
     stdin_open: true
     tty: true
 
+  scripts:
+    image: node:20-alpine
+    container_name: meteora-scripts
+    working_dir: /app
+    environment:
+      NEXT_PUBLIC_DEVNET_RPC: ${NEXT_PUBLIC_DEVNET_RPC}
+      NEXT_PUBLIC_BACKEND_URL: http://backend:4000
+    volumes:
+      - ./:/app
+      - /app/node_modules
+      - ~/.config/solana:/root/.config/solana:ro
+    depends_on:
+      backend:
+        condition: service_started
+    command: sleep infinity
+    stdin_open: true
+    tty: true
+
 volumes:
   postgres-data:
   redis-data:

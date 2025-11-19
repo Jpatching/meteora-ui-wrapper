@@ -71,11 +71,11 @@ Would you like specific bin ranges for your entry?`,
 **Technical Indicators**:
 • 24h Change: ${pool.baseAsset.stats24h?.priceChange || 0 > 0 ? 'Bullish' : 'Bearish'} ${Math.abs(pool.baseAsset.stats24h?.priceChange || 0).toFixed(1)}%
 • Volume Trend: ${pool.volume24h && pool.volume24h > 10000 ? 'Strong' : 'Moderate'}
-• Support: $${pool.baseAsset.usdPrice ? (pool.baseAsset.usdPrice * 0.9).toFixed(6) : '?'}
-• Resistance: $${pool.baseAsset.usdPrice ? (pool.baseAsset.usdPrice * 1.1).toFixed(6) : '?'}
+• Support: $${pool.baseAsset.usdPrice ? (Number(pool.baseAsset.usdPrice) * 0.9).toFixed(6) : '?'}
+• Resistance: $${pool.baseAsset.usdPrice ? (Number(pool.baseAsset.usdPrice) * 1.1).toFixed(6) : '?'}
 
 **24h Forecast**:
-• Likely Range: $${pool.baseAsset.usdPrice ? (pool.baseAsset.usdPrice * 0.95).toFixed(6) : '?'} - $${pool.baseAsset.usdPrice ? (pool.baseAsset.usdPrice * 1.05).toFixed(6) : '?'}
+• Likely Range: $${pool.baseAsset.usdPrice ? (Number(pool.baseAsset.usdPrice) * 0.95).toFixed(6) : '?'} - $${pool.baseAsset.usdPrice ? (Number(pool.baseAsset.usdPrice) * 1.05).toFixed(6) : '?'}
 • Confidence: 70%
 
 *Note: This is AI-generated analysis, not financial advice.*`,

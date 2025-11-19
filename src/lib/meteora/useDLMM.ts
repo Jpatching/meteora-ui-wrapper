@@ -24,7 +24,7 @@ import {
   createCreateMetadataAccountV3Instruction,
   PROGRAM_ID as METADATA_PROGRAM_ID,
 } from '@metaplex-foundation/mpl-token-metadata';
-import DLMM, { deriveCustomizablePermissionlessLbPair } from '@meteora-ag/dlmm';
+import DLMM, { deriveCustomizablePermissionlessLbPair, StrategyType } from '@meteora-ag/dlmm';
 import BN from 'bn.js';
 import { DLMMCreatePoolParams, TokenCreateConfig } from '@/types/meteora';
 import { useNetwork } from '@/contexts/NetworkContext';
@@ -97,6 +97,111 @@ function validatePrice(value: string, fieldName: string): number {
     throw new Error(`${fieldName} must be a positive number`);
   }
   return price;
+}
+
+/**
+ * Simulate transaction before sending to catch errors early
+ * This helps identify issues before the wallet prompts the user
+ */
+async function simulateAndValidateTransaction(
+  connection: any,
+  transaction: Transaction,
+  publicKey: PublicKey,
+  signers: Keypair[] = []
+): Promise<{ success: boolean; error?: string; logs?: string[] }> {
+  try {
+    console.log('[TX-SIM] Starting transaction simulation...');
+
+    // Check SOL balance first
+    const balance = await connection.getBalance(publicKey);
+    const balanceSOL = balance / 1e9;
+    console.log('[TX-SIM] Wallet SOL balance:', balanceSOL.toFixed(4), 'SOL');
+
+    if (balanceSOL < 0.05) {
+      return {
+        success: false,
+        error: `Insufficient SOL balance: ${balanceSOL.toFixed(4)} SOL. Need at least 0.05 SOL for fees and rent.`,
+      };
+    }
+
+    // Create a copy of the transaction for simulation to avoid modifying the original
+    const simTx = new Transaction();
+    // Deep copy instructions to avoid shared references
+    simTx.instructions = [...transaction.instructions];
+
+    // Copy other properties if they exist
+    if (transaction.recentBlockhash) {
+      simTx.recentBlockhash = transaction.recentBlockhash;
+    }
+    if (transaction.feePayer) {
+      simTx.feePayer = transaction.feePayer;
+    }
+
+    // Set recent blockhash if not already set
+    if (!simTx.recentBlockhash) {
+      const { blockhash } = await connection.getLatestBlockhash('processed');
+      simTx.recentBlockhash = blockhash;
+    }
+
+    // Set fee payer if not already set
+    if (!simTx.feePayer) {
+      simTx.feePayer = publicKey;
+    }
+
+    // Partially sign with signers if provided (must happen before simulation)
+    if (signers.length > 0) {
+      simTx.partialSign(...signers);
+    }
+
+    console.log('[TX-SIM] Simulating transaction with', simTx.instructions.length, 'instructions');
+    // For Transaction type (not VersionedTransaction), simulateTransaction takes signers as second param
+    // We don't pass signers since the transaction is already partially signed
+    const simulation = await connection.simulateTransaction(simTx);
+
+    if (simulation.value.err) {
+      console.error('[TX-SIM] Simulation failed:', simulation.value.err);
+      console.error('[TX-SIM] Logs:', simulation.value.logs);
+
+      // Parse error message
+      let errorMsg = 'Transaction simulation failed';
+      if (simulation.value.logs) {
+        const logs = simulation.value.logs;
+        // Look for specific error patterns
+        for (const log of logs) {
+          if (log.includes('insufficient funds')) {
+            errorMsg = 'Insufficient SOL for transaction fees and rent';
+            break;
+          } else if (log.includes('insufficient')) {
+            errorMsg = 'Insufficient token balance';
+            break;
+          } else if (log.includes('InvalidRealloc')) {
+            errorMsg = 'Transaction too large - reduce price range (max 20 bins recommended)';
+            break;
+          } else if (log.includes('InvalidAccountData')) {
+            errorMsg = 'Invalid account data - check token accounts exist';
+            break;
+          }
+        }
+      }
+
+      return {
+        success: false,
+        error: errorMsg,
+        logs: simulation.value.logs || [],
+      };
+    }
+
+    console.log('[TX-SIM] Simulation successful!');
+    console.log('[TX-SIM] Compute units used:', simulation.value.unitsConsumed);
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('[TX-SIM] Simulation error:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to simulate transaction',
+    };
+  }
 }
 
 /**
@@ -277,7 +382,7 @@ export async function createTokenWithMetadata(
  */
 export function useDLMM() {
   const { connection } = useConnection();
-  const { publicKey, sendTransaction } = useWallet();
+  const { publicKey, sendTransaction, connected } = useWallet();
   const { network } = useNetwork();
   const { referrerWallet, recordEarning } = useReferral();
   const { addTransaction } = useTransactionHistory();
@@ -1554,14 +1659,19 @@ export function useDLMM() {
   /**
    * Initialize new position and add liquidity using strategy
    * For users adding liquidity to an existing DLMM pool
+   * Supports both single-sided and dual-sided deposits
    */
   const initializePositionAndAddLiquidityByStrategy = async (params: {
     poolAddress: string;
     strategy: 'spot' | 'curve' | 'bid-ask';
     minPrice: number;
     maxPrice: number;
-    amount: number; // Amount in UI units
-    tokenMint: string; // Which token to deposit
+    amount?: number; // Amount in UI units (for single-sided, DEPRECATED)
+    slippage?: number; // Slippage tolerance (0.01 = 1%, default 0.01)
+    tokenMint?: string; // Which token to deposit (for single-sided, DEPRECATED)
+    // NEW: Support for dual-sided deposits
+    baseAmount?: number; // Amount of base token (Token X) in UI units
+    quoteAmount?: number; // Amount of quote token (Token Y) in UI units
   }) => {
     if (!publicKey) {
       throw new Error('Wallet not connected');
@@ -1571,21 +1681,83 @@ export function useDLMM() {
 
     try {
       const poolPubkey = validatePublicKey(params.poolAddress, 'Pool address');
-      const tokenMintPubkey = validatePublicKey(params.tokenMint, 'Token mint');
 
       // Create DLMM pool instance
       const dlmmPool = await DLMM.create(connection, poolPubkey, {
         cluster: network as 'mainnet-beta' | 'devnet',
       });
 
-      // Convert amount to lamports (assume 9 decimals)
-      const amountBN = new BN(Math.floor(params.amount * 1e9));
+      // Refresh pool state to access lbPair properties
+      await dlmmPool.refetchStates();
+
+      // Get token decimals from the mint accounts
+      const tokenXMintInfo = await getMint(connection, dlmmPool.lbPair.tokenXMint);
+      const tokenYMintInfo = await getMint(connection, dlmmPool.lbPair.tokenYMint);
+      const tokenXDecimals = tokenXMintInfo.decimals;
+      const tokenYDecimals = tokenYMintInfo.decimals;
+
+      console.log('[DLMM] Token decimals:', {
+        tokenX: tokenXDecimals,
+        tokenY: tokenYDecimals,
+      });
+
+      // Determine if this is dual-sided or single-sided deposit
+      const isDualSided = !!(params.baseAmount && params.quoteAmount && params.baseAmount > 0 && params.quoteAmount > 0);
+      const isSingleSided = !isDualSided && ((params.amount && params.amount > 0) || (params.baseAmount && params.baseAmount > 0) || (params.quoteAmount && params.quoteAmount > 0));
+
+      console.log('[DLMM] Deposit type:', isDualSided ? 'DUAL-SIDED (both tokens)' : 'SINGLE-SIDED (one token)');
+
+      let baseAmountBN: BN;
+      let quoteAmountBN: BN;
+
+      if (isDualSided) {
+        // TWO-SIDED: Both base and quote amounts provided
+        // Use correct decimals for each token
+        baseAmountBN = new BN(Math.floor(params.baseAmount! * Math.pow(10, tokenXDecimals)));
+        quoteAmountBN = new BN(Math.floor(params.quoteAmount! * Math.pow(10, tokenYDecimals)));
+        console.log('[DLMM] Base Amount:', params.baseAmount, '→', baseAmountBN.toString(), 'lamports');
+        console.log('[DLMM] Quote Amount:', params.quoteAmount, '→', quoteAmountBN.toString(), 'lamports');
+      } else if (isSingleSided) {
+        // SINGLE-SIDED: Determine which token and amount
+        // Support both old API (amount + tokenMint) and new API (baseAmount OR quoteAmount)
+        const tokenMintPubkey = params.tokenMint ? validatePublicKey(params.tokenMint, 'Token mint') : null;
+        const amount = params.amount || params.baseAmount || params.quoteAmount || 0;
+
+        // Determine which token is being deposited
+        let isDepositingTokenX = false;
+        let isDepositingTokenY = false;
+
+        if (tokenMintPubkey) {
+          // Old API: tokenMint specified
+          isDepositingTokenX = tokenMintPubkey.equals(dlmmPool.lbPair.tokenXMint);
+          isDepositingTokenY = tokenMintPubkey.equals(dlmmPool.lbPair.tokenYMint);
+        } else if (params.baseAmount && params.baseAmount > 0) {
+          // New API: baseAmount specified
+          isDepositingTokenX = true;
+        } else if (params.quoteAmount && params.quoteAmount > 0) {
+          // New API: quoteAmount specified
+          isDepositingTokenY = true;
+        }
+
+        // Use correct decimals based on which token is being deposited
+        const decimals = isDepositingTokenX ? tokenXDecimals : tokenYDecimals;
+        const amountBN = new BN(Math.floor(amount * Math.pow(10, decimals)));
+
+        baseAmountBN = isDepositingTokenX ? amountBN : new BN(0);
+        quoteAmountBN = isDepositingTokenY ? amountBN : new BN(0);
+
+        console.log('[DLMM] Single-sided deposit:');
+        console.log('[DLMM]   Token X?', isDepositingTokenX, '→', baseAmountBN.toString(), 'lamports');
+        console.log('[DLMM]   Token Y?', isDepositingTokenY, '→', quoteAmountBN.toString(), 'lamports');
+      } else {
+        throw new Error('No liquidity amounts provided. Specify either baseAmount+quoteAmount (dual-sided) or amount+tokenMint (single-sided)');
+      }
 
       // Determine strategy type for SDK
-      // Strategy types: 0 = SpotBalanced, 1 = Curve, 2 = BidAsk
+      // Strategy types: 0 = Spot, 1 = Curve, 2 = BidAsk
       let strategyType: number;
       if (params.strategy === 'spot') {
-        strategyType = 0; // SpotBalanced
+        strategyType = 0; // Spot
       } else if (params.strategy === 'curve') {
         strategyType = 1; // Curve
       } else {
@@ -1598,53 +1770,26 @@ export function useDLMM() {
       const activePrice = Math.pow(1 + binStep / 10000, activeBinId);
 
       console.log('[DLMM] Pool metadata:');
-      console.log(`  - Token X: ${dlmmPool.tokenX.publicKey.toBase58()}`);
-      console.log(`  - Token Y: ${dlmmPool.tokenY.publicKey.toBase58()}`);
+      console.log(`  - Token X: ${dlmmPool.lbPair.tokenXMint.toBase58()}`);
+      console.log(`  - Token Y: ${dlmmPool.lbPair.tokenYMint.toBase58()}`);
       console.log(`  - Active Bin ID: ${activeBinId}`);
       console.log(`  - Bin Step: ${binStep}`);
       console.log(`  - Active Price: ${activePrice}`);
-      console.log(`  - Depositing Token: ${tokenMintPubkey.toBase58()}`);
 
       // Calculate bin IDs from price range
       const maxBinId = dlmmPool.getBinIdFromPrice(params.maxPrice, true);
       const minBinId = dlmmPool.getBinIdFromPrice(params.minPrice, false);
 
+      // Calculate bin range size
+      const binRangeSize = maxBinId - minBinId + 1;
+      const MAX_POSITION_BINS = 1400; // DLMM protocol limit
+
       console.log('[DLMM] Price range to bin IDs:');
       console.log(`  - Min Price: ${params.minPrice} -> Bin ID: ${minBinId}`);
       console.log(`  - Max Price: ${params.maxPrice} -> Bin ID: ${maxBinId}`);
       console.log(`  - Active Bin ID: ${activeBinId}`);
+      console.log(`  - Bin Range Size: ${binRangeSize} bins (max: ${MAX_POSITION_BINS})`);
       console.log(`  - Bin range includes active? ${minBinId <= activeBinId && activeBinId <= maxBinId}`);
-
-      // Determine which token is being deposited
-      const isDepositingTokenX = tokenMintPubkey.equals(dlmmPool.tokenX.publicKey);
-      const isDepositingTokenY = tokenMintPubkey.equals(dlmmPool.tokenY.publicKey);
-
-      console.log('[DLMM] Deposit token analysis:');
-      console.log(`  - Is Token X? ${isDepositingTokenX}`);
-      console.log(`  - Is Token Y? ${isDepositingTokenY}`);
-      console.log(`  - Amount: ${params.amount} (${amountBN.toString()} lamports)`);
-
-      // Generate position keypair (needed for signing)
-      const positionKeypair = Keypair.generate();
-
-      // Create liquidity parameters
-      const liquidityParams = {
-        positionPubKey: positionKeypair.publicKey,
-        user: publicKey,
-        totalXAmount: isDepositingTokenX ? amountBN : new BN(0),
-        totalYAmount: isDepositingTokenY ? amountBN : new BN(0),
-        strategy: {
-          maxBinId,
-          minBinId,
-          strategyType,
-        },
-      };
-
-      console.log('[DLMM] Liquidity params:', {
-        ...liquidityParams,
-        totalXAmount: liquidityParams.totalXAmount.toString(),
-        totalYAmount: liquidityParams.totalYAmount.toString(),
-      });
 
       // Validate bin range configuration
       if (minBinId > maxBinId) {
@@ -1654,13 +1799,84 @@ export function useDLMM() {
         );
       }
 
+      // Validate bin range size (DLMM protocol limit)
+      if (binRangeSize > MAX_POSITION_BINS) {
+        throw new Error(
+          `Bin range too large: ${binRangeSize} bins exceeds protocol limit of ${MAX_POSITION_BINS} bins. ` +
+          `Please narrow your price range.`
+        );
+      }
+
+      // Warn about wide ranges (recommended limit is 50 bins for most pools)
+      const RECOMMENDED_MAX_BINS = 50;
+      if (binRangeSize > RECOMMENDED_MAX_BINS) {
+        console.warn(
+          `[DLMM] ⚠️ Wide bin range detected: ${binRangeSize} bins (recommended: ${RECOMMENDED_MAX_BINS}). ` +
+          `Some pools may have stricter position width limits and may reject this transaction.`
+        );
+      }
+
+      // Validate that bin IDs are reasonable (within int32 range)
+      if (minBinId < -2147483648 || maxBinId > 2147483647) {
+        throw new Error(
+          `Bin IDs out of range: [${minBinId}, ${maxBinId}]. ` +
+          `Please check your price range values.`
+        );
+      }
+
+      // Generate position keypair (needed for signing)
+      const positionKeypair = Keypair.generate();
+
+      // Create liquidity parameters
+      const liquidityParams = {
+        positionPubKey: positionKeypair.publicKey,
+        user: publicKey,
+        totalXAmount: baseAmountBN,
+        totalYAmount: quoteAmountBN,
+        strategy: {
+          maxBinId,
+          minBinId,
+          strategyType,
+        },
+        slippage: params.slippage ?? 0.01, // Default 1% slippage protection
+      };
+
+      console.log('[DLMM] Liquidity params:', {
+        positionPubKey: liquidityParams.positionPubKey.toBase58(),
+        user: liquidityParams.user.toBase58(),
+        totalXAmount: liquidityParams.totalXAmount.toString(),
+        totalYAmount: liquidityParams.totalYAmount.toString(),
+        strategy: liquidityParams.strategy,
+      });
+
+      // Fetch bins around active bin for diagnostics (helps understand liquidity distribution)
+      try {
+        const binsAroundActive = await dlmmPool.getBinsAroundActiveBin(5, 5);
+        console.log('[DLMM] Bins around active bin:', {
+          activeBinId: binsAroundActive.activeBin, // activeBin is just the bin ID (number)
+          surroundingBins: binsAroundActive.bins.length,
+          firstBin: binsAroundActive.bins[0]?.binId || 'N/A',
+          lastBin: binsAroundActive.bins[binsAroundActive.bins.length - 1]?.binId || 'N/A',
+        });
+      } catch (error) {
+        console.warn('[DLMM] Could not fetch bins around active bin:', error);
+      }
+
       // Check if the bin range includes the active bin
       const includesActiveBin = minBinId <= activeBinId && activeBinId <= maxBinId;
 
       // Validate price range for single-sided deposits
       // NOTE: For empty pools using seedLiquidity, the range MUST include the active bin
-      if (isDepositingTokenX && !isDepositingTokenY) {
+      const isDepositingOnlyTokenX = baseAmountBN.gt(new BN(0)) && quoteAmountBN.eq(new BN(0));
+      const isDepositingOnlyTokenY = quoteAmountBN.gt(new BN(0)) && baseAmountBN.eq(new BN(0));
+
+      if (isDepositingOnlyTokenX) {
         console.log('[DLMM] Single-sided Token X deposit detected');
+
+        // Token X is placed in bins ABOVE the current price
+        // The position must start at or very near the active bin
+        const MAX_GAP_FROM_ACTIVE = 1; // Allow maximum 1 bin gap from active
+
         if (maxBinId < activeBinId) {
           throw new Error(
             `Invalid range for Token X deposit: Your price range (${params.minPrice}-${params.maxPrice}, bins ${minBinId}-${maxBinId}) ` +
@@ -1668,8 +1884,22 @@ export function useDLMM() {
             `Token X requires the range to include or exceed the active bin.`
           );
         }
-      } else if (isDepositingTokenY && !isDepositingTokenX) {
+
+        // CRITICAL: For single-sided Token X, position must start at or near active bin
+        if (minBinId > activeBinId + MAX_GAP_FROM_ACTIVE) {
+          throw new Error(
+            `Invalid range for single-sided Token X deposit: Your range starts at bin ${minBinId}, ` +
+            `but the active bin is ${activeBinId}. For single-sided deposits, your minimum price must ` +
+            `include or be very close to the active bin. Please adjust your Min Price to ${activePrice.toFixed(6)} or lower.`
+          );
+        }
+      } else if (isDepositingOnlyTokenY) {
         console.log('[DLMM] Single-sided Token Y deposit detected');
+
+        // Token Y is placed in bins BELOW the current price
+        // The position must end at or very near the active bin
+        const MAX_GAP_FROM_ACTIVE = 1; // Allow maximum 1 bin gap from active
+
         if (minBinId > activeBinId) {
           throw new Error(
             `Invalid range for Token Y deposit: Your price range (${params.minPrice}-${params.maxPrice}, bins ${minBinId}-${maxBinId}) ` +
@@ -1677,218 +1907,120 @@ export function useDLMM() {
             `Token Y requires the range to include or be below the active bin.`
           );
         }
+
+        // CRITICAL: For single-sided Token Y, position must end at or near active bin
+        if (maxBinId < activeBinId - MAX_GAP_FROM_ACTIVE) {
+          throw new Error(
+            `Invalid range for single-sided Token Y deposit: Your range ends at bin ${maxBinId}, ` +
+            `but the active bin is ${activeBinId}. For single-sided deposits, your maximum price must ` +
+            `include or be very close to the active bin. Please adjust your Max Price to ${activePrice.toFixed(6)} or higher.`
+          );
+        }
+      } else if (isDualSided) {
+        console.log('[DLMM] Dual-sided deposit detected - both Token X and Token Y');
+        // For dual-sided deposits, range should generally include active bin for best results
+        if (minBinId > activeBinId || maxBinId < activeBinId) {
+          console.warn('[DLMM] ⚠️  WARNING: Dual-sided deposit range does not include active bin.');
+          console.warn('[DLMM]    This may result in unbalanced deposits or errors.');
+        }
       }
 
       if (!includesActiveBin) {
         console.warn(
           `[DLMM] Warning: Price range [${params.minPrice}, ${params.maxPrice}] (bins ${minBinId}-${maxBinId}) ` +
-          `does not include active bin ${activeBinId}. For empty pools, seedLiquidity requires the active bin to be included.`
+          `does not include active bin ${activeBinId}. This may result in single-sided deposits.`
         );
       }
 
-      // Check if pool is empty (first LP)
-      const binArrays = await dlmmPool.getBinArrays();
-      const isEmptyPool = binArrays.length === 0;
-
-      if (isEmptyPool) {
-        // Get pool's initial/active price
-        const activeBinId = dlmmPool.lbPair.activeId;
-        const binStep = dlmmPool.lbPair.binStep;
-        const activePrice = Math.pow(1 + binStep / 10000, activeBinId);
-
-        console.log(`[DLMM] Pool is empty - active price: ${activePrice} (binId: ${activeBinId})`);
-
-        // Calculate total seed amount (must be BN in lamports)
-        const totalSeedAmount = liquidityParams.totalXAmount.gt(new BN(0))
-          ? liquidityParams.totalXAmount
-          : liquidityParams.totalYAmount;
-
-        // Check if this is a single-sided deposit
-        const isSingleSided =
-          (isDepositingTokenX && !isDepositingTokenY) ||
-          (isDepositingTokenY && !isDepositingTokenX);
-
-        if (isSingleSided) {
-          // For single-sided deposits on empty pools, use seedLiquiditySingleBin
-          console.log('[DLMM] Single-sided deposit on empty pool - using seedLiquiditySingleBin');
-
-          // IMPORTANT: For empty pools, MUST seed at the active price (active bin)
-          // You cannot seed outside the active bin on an empty pool
-          const seedPrice = activePrice;
-
-          console.log(`[DLMM] Empty pool seeding - MUST use active price: ${seedPrice}`);
-          console.log(`[DLMM] User requested range: [${params.minPrice}, ${params.maxPrice}]`);
-          console.log(`[DLMM] Active price: ${activePrice} (bin ${activeBinId})`);
-
-          if (params.minPrice > activePrice || params.maxPrice < activePrice) {
-            console.warn('[DLMM] WARNING: User price range does not include active price!');
-            console.warn('[DLMM] For empty pools, seeding at active price regardless of range.');
-          }
-
-          console.log(`[DLMM] Calling seedLiquiditySingleBin with:`);
-          console.log(`  - price: ${seedPrice}`);
-          console.log(`  - seedAmount: ${totalSeedAmount.toString()} lamports`);
-          console.log(`  - base: ${positionKeypair.publicKey.toString()}`);
-
-          // Call seedLiquiditySingleBin with correct parameter order
-          console.log('[DLMM] Calling seedLiquiditySingleBin SDK function...');
-
-          const seedResponse = await dlmmPool.seedLiquiditySingleBin(
-            publicKey,                      // payer
-            positionKeypair.publicKey,      // base (position derivation key)
-            totalSeedAmount,                // seedAmount (BN in lamports)
-            seedPrice,                      // price to seed at
-            false,                          // roundingUp
-            publicKey,                      // positionOwner
-            publicKey,                      // feeOwner
-            publicKey,                      // operator
-            new BN(0),                      // lockReleasePoint (0 = no lock)
-            false                           // shouldSeedPositionOwner
-          );
-
-          console.log('[DLMM] seedLiquiditySingleBin response:', seedResponse);
-
-          if (!seedResponse || !seedResponse.instructions || seedResponse.instructions.length === 0) {
-            throw new Error('seedLiquiditySingleBin returned no instructions');
-          }
-
-          console.log(`[DLMM] Created ${seedResponse.instructions.length} instructions`);
-
-          // Build transaction from instructions
-          const tx = new Transaction().add(...seedResponse.instructions);
-
-          // Get recent blockhash
-          const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
-          tx.recentBlockhash = blockhash;
-          tx.lastValidBlockHeight = lastValidBlockHeight;
-          tx.feePayer = publicKey;
-
-          console.log('[DLMM] Transaction built with blockhash:', blockhash);
-          console.log('[DLMM] Fee payer:', publicKey.toString());
-          console.log('[DLMM] Position signer:', positionKeypair.publicKey.toString());
-
-          // Sign with position keypair first
-          tx.partialSign(positionKeypair);
-
-          console.log('[DLMM] Position keypair signed, sending for wallet signature...');
-
-          // Wallet signs and sends (it will merge signatures)
-          // Don't serialize yet - let wallet adapter handle it
-          const signature = await sendTransaction(tx, connection);
-
-          console.log('[DLMM] Transaction sent, waiting for confirmation...');
-          await confirmTransactionWithRetry(connection, signature);
-
-          console.log('[DLMM] Seed single bin completed! Signature:', signature);
-
-          return {
-            success: true,
-            signature,
-            positionAddress: positionKeypair.publicKey.toString(),
-            totalTransactions: 1,
-          };
-
-        } else {
-          // For dual-sided deposits (both tokens) on empty pools, use seedLiquidity
-          console.log('[DLMM] Dual-sided deposit on empty pool - using seedLiquidity');
-
-          // Validate price range
-          if (params.minPrice >= params.maxPrice) {
-            throw new Error(
-              `Price range error: minPrice (${params.minPrice}) must be < maxPrice (${params.maxPrice})`
-            );
-          }
-
-          // For dual-sided deposits, the range should include the active price
-          if (params.maxPrice < activePrice || params.minPrice > activePrice) {
-            throw new Error(
-              `Price range error: Your range [${params.minPrice}, ${params.maxPrice}] does not include ` +
-              `the active price ${activePrice.toFixed(6)}. For dual-sided deposits, include the active price.`
-            );
-          }
-
-          console.log(`[DLMM] Calling seedLiquidity with range ${params.minPrice} - ${params.maxPrice}`);
-
-          const seedResponse = await dlmmPool.seedLiquidity(
-            publicKey,                     // owner
-            totalSeedAmount,               // seedAmount
-            0,                             // curvature (0 = most concentrated)
-            params.minPrice,               // minPrice
-            params.maxPrice,               // maxPrice
-            positionKeypair.publicKey,     // base
-            publicKey,                     // payer
-            publicKey,                     // feeOwner
-            publicKey,                     // operator
-            new BN(0)                      // lockReleasePoint
-          );
-
-          if (!seedResponse || !('groupedTransactions' in seedResponse)) {
-            throw new Error('seedLiquidity returned no transactions');
-          }
-
-          const transactions = (seedResponse as any).groupedTransactions;
-          console.log(`[DLMM] Created ${transactions.length} grouped transactions`);
-
-          // Execute all transactions sequentially
-          // Note: seedLiquidity returns grouped transactions that may need signing with position keypair
-          const signatures: string[] = [];
-          for (let i = 0; i < transactions.length; i++) {
-            const txGroup = transactions[i];
-            console.log(`[DLMM] Sending transaction group ${i + 1}/${transactions.length}...`);
-
-            // Get recent blockhash
-            const { blockhash } = await connection.getLatestBlockhash('confirmed');
-            txGroup.tx.recentBlockhash = blockhash;
-            txGroup.tx.feePayer = publicKey;
-
-            // Partially sign with position keypair
-            txGroup.tx.partialSign(positionKeypair);
-
-            // Send (wallet will add its signature)
-            const sig = await sendTransaction(txGroup.tx, connection);
-            signatures.push(sig);
-
-            await confirmTransactionWithRetry(connection, sig);
-            console.log(`[DLMM] Transaction ${i + 1} confirmed: ${sig}`);
-          }
-
-          return {
-            success: true,
-            signature: signatures[0],
-            positionAddress: positionKeypair.publicKey.toString(),
-            totalTransactions: signatures.length,
-          };
-        }
-      }
-
-      // Normal flow for pools with existing liquidity
-      console.log('[DLMM] Pool has liquidity - using standard add liquidity');
+      // Use initializePositionAndAddLiquidityByStrategy for ALL pools
+      // This SDK function handles:
+      // - Empty pools ✅
+      // - Pools with liquidity ✅
+      // - Bin array initialization ✅
+      // - Single-sided deposits ✅
+      // - Dual-sided deposits ✅
+      console.log('[DLMM] Using initializePositionAndAddLiquidityByStrategy');
       const addLiquidityTx = await dlmmPool.initializePositionAndAddLiquidityByStrategy(liquidityParams);
 
-      // Get recent blockhash
-      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+      // Check if SDK already added compute budget instructions
+      const hasComputeUnitPrice = addLiquidityTx.instructions.some(ix =>
+        ix.programId.equals(ComputeBudgetProgram.programId) &&
+        ix.data[0] === 3 // SetComputeUnitPrice discriminator
+      );
+      const hasComputeUnitLimit = addLiquidityTx.instructions.some(ix =>
+        ix.programId.equals(ComputeBudgetProgram.programId) &&
+        ix.data[0] === 2 // SetComputeUnitLimit discriminator
+      );
+
+      console.log('[DLMM] Transaction instructions before compute budget:', {
+        total: addLiquidityTx.instructions.length,
+        hasComputeUnitPrice,
+        hasComputeUnitLimit,
+      });
+
+      // Only add compute budget instructions if SDK didn't include them
+      if (!hasComputeUnitPrice) {
+        console.log('[DLMM] Adding SetComputeUnitPrice instruction');
+        addLiquidityTx.instructions.unshift(
+          ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 10_000 })
+        );
+      }
+      if (!hasComputeUnitLimit) {
+        console.log('[DLMM] Adding SetComputeUnitLimit instruction');
+        addLiquidityTx.instructions.unshift(
+          ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
+        );
+      }
+
+      // Get recent blockhash with finalized commitment for stability
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
       addLiquidityTx.recentBlockhash = blockhash;
       addLiquidityTx.lastValidBlockHeight = lastValidBlockHeight;
       addLiquidityTx.feePayer = publicKey;
 
       console.log('[DLMM] Transaction built with blockhash:', blockhash);
+      console.log('[DLMM] Transaction size:', addLiquidityTx.serialize({ requireAllSignatures: false }).length, 'bytes');
+      console.log('[DLMM] RPC endpoint:', connection.rpcEndpoint);
 
-      // Partially sign with position keypair
-      addLiquidityTx.partialSign(positionKeypair);
+      // **SIMULATE TRANSACTION FIRST** to catch errors before wallet prompt
+      const simResult = await simulateAndValidateTransaction(connection, addLiquidityTx, publicKey, [positionKeypair]);
+      if (!simResult.success) {
+        console.error('[DLMM] Add liquidity transaction simulation failed:', simResult.error);
+        console.error('[DLMM] Simulation logs:', simResult.logs);
+        throw new Error(simResult.error || 'Add liquidity transaction simulation failed');
+      }
 
-      // Send transaction with position keypair as signer
-      console.log('[DLMM] Sending add liquidity transaction...');
-      const signature = await sendTransaction(addLiquidityTx, connection);
+      console.log('[DLMM] Simulation passed! Sending add liquidity transaction...');
+
+      // Send transaction with position keypair as signer (wallet adapter handles partial signing)
+      // Now we can skip preflight since we simulated
+      const signature = await sendTransaction(addLiquidityTx, connection, {
+        signers: [positionKeypair],
+        skipPreflight: true, // Skip preflight since we simulated
+        maxRetries: 5,
+      });
 
       // Confirm transaction
       await confirmTransactionWithRetry(connection, signature);
 
-      console.log('[DLMM] Position created and liquidity added! Signature:', signature);
+      // Determine deposit type for accurate messaging
+      const depositType = isDualSided
+        ? 'dual-sided'
+        : isDepositingOnlyTokenX
+          ? 'single-sided (Token X)'
+          : 'single-sided (Token Y)';
+
+      console.log(`[DLMM] Position created and liquidity added! Type: ${depositType}, Signature: ${signature}`);
 
       return {
         success: true,
         signature,
         positionAddress: positionKeypair.publicKey.toString(),
+        depositType, // Return this so UI can show accurate message
+        amounts: {
+          tokenX: baseAmountBN.toNumber() / Math.pow(10, tokenXDecimals),
+          tokenY: quoteAmountBN.toNumber() / Math.pow(10, tokenYDecimals),
+        },
       };
     } catch (error: any) {
       console.error('[DLMM] Error adding liquidity:', error);
@@ -2201,13 +2333,425 @@ export function useDLMM() {
     }
   };
 
+  /**
+   * Create a DLMM pool and optionally add initial liquidity in one flow
+   * This combines createPool + initializePositionAndAddLiquidityByStrategy for easier testing
+   */
+  const createPoolWithLiquidity = async (params: DLMMCreatePoolParams & {
+    addLiquidity?: boolean;
+    liquidityStrategy?: 'spot' | 'curve' | 'bid-ask';
+    minPrice?: number;
+    maxPrice?: number;
+  }) => {
+    // Wallet validation
+    if (!publicKey || !connected) {
+      throw new Error('Wallet not connected. Please connect your wallet first.');
+    }
+
+    try {
+      console.log('═'.repeat(80));
+      console.log('[DLMM] 🚀 Starting createPoolWithLiquidity flow');
+      console.log('[DLMM] Wallet:', publicKey.toBase58());
+      console.log('[DLMM] Network:', network);
+      console.log('[DLMM] Params:', JSON.stringify(params, null, 2));
+      console.log('═'.repeat(80));
+
+      // ============= STEP 1: CREATE POOL =============
+      console.log('\n[DLMM] 📦 STEP 1: Creating pool...');
+      const poolResult = await createPool(params);
+
+      if (!poolResult.success || !poolResult.poolAddress) {
+        throw new Error('Pool creation failed - no pool address returned');
+      }
+
+      console.log('[DLMM] ✅ Pool created successfully!');
+      console.log('[DLMM]    Pool Address:', poolResult.poolAddress);
+      console.log('[DLMM]    Base Mint:', poolResult.baseMint);
+      console.log('[DLMM]    Signature:', poolResult.signature);
+
+      // Parse and validate liquidity amounts (handle string | undefined safely)
+      const baseAmountRaw = params.baseAmount;
+      const quoteAmountRaw = params.quoteAmount;
+
+      const baseAmountNum = baseAmountRaw ? parseFloat(baseAmountRaw) : 0;
+      const quoteAmountNum = quoteAmountRaw ? parseFloat(quoteAmountRaw) : 0;
+
+      const hasValidBaseAmount = !isNaN(baseAmountNum) && baseAmountNum > 0;
+      const hasValidQuoteAmount = !isNaN(quoteAmountNum) && quoteAmountNum > 0;
+
+      console.log('[DLMM] Liquidity check:');
+      console.log('[DLMM]    addLiquidity flag:', params.addLiquidity);
+      console.log('[DLMM]    baseAmount:', baseAmountRaw, '→', baseAmountNum, '(valid:', hasValidBaseAmount, ')');
+      console.log('[DLMM]    quoteAmount:', quoteAmountRaw, '→', quoteAmountNum, '(valid:', hasValidQuoteAmount, ')');
+
+      // If liquidity not requested or no valid amounts, return pool creation result
+      if (!params.addLiquidity || (!hasValidBaseAmount && !hasValidQuoteAmount)) {
+        console.log('[DLMM] ⏭️  Skipping liquidity addition');
+        console.log('[DLMM] Reason:', !params.addLiquidity ? 'Not requested by user' : 'No valid amounts provided');
+        return poolResult;
+      }
+
+      // ============= STEP 2: WAIT FOR POOL CONFIRMATION =============
+      console.log('\n[DLMM] ⏳ STEP 2: Waiting for pool confirmation (3 seconds)...');
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      // Verify pool exists on-chain before adding liquidity
+      console.log('[DLMM] 🔍 Verifying pool exists on-chain...');
+      let dlmmPool;
+      try {
+        const poolPubkey = new PublicKey(poolResult.poolAddress);
+        dlmmPool = await DLMM.create(connection, poolPubkey, {
+          cluster: network as 'mainnet-beta' | 'devnet',
+        });
+        console.log('[DLMM] ✅ Pool verified on-chain!');
+        console.log('[DLMM]    Active Bin ID:', dlmmPool.lbPair.activeId);
+        console.log('[DLMM]    Bin Step:', dlmmPool.lbPair.binStep);
+      } catch (verifyError: any) {
+        console.error('[DLMM] ❌ Failed to verify pool:', verifyError.message);
+        throw new Error(
+          'Pool was created but is not yet available on-chain. ' +
+          'This can happen during network congestion. ' +
+          'Please wait 30 seconds and manually add liquidity from the pool page.'
+        );
+      }
+
+      // ============= STEP 3: ADD INITIAL LIQUIDITY =============
+      console.log('\n[DLMM] 💧 STEP 3: Adding initial liquidity...');
+
+      // Determine deposit type: dual-sided or single-sided
+      const isDualSidedDeposit = hasValidBaseAmount && hasValidQuoteAmount;
+
+      if (isDualSidedDeposit) {
+        console.log('[DLMM] 📊 DUAL-SIDED deposit: Both BASE and QUOTE tokens');
+        console.log('[DLMM]    Base Amount:', baseAmountNum);
+        console.log('[DLMM]    Quote Amount:', quoteAmountNum);
+      } else if (hasValidBaseAmount) {
+        console.log('[DLMM] 📊 SINGLE-SIDED deposit: BASE token only');
+        console.log('[DLMM]    Amount:', baseAmountNum);
+      } else {
+        console.log('[DLMM] 📊 SINGLE-SIDED deposit: QUOTE token only');
+        console.log('[DLMM]    Amount:', quoteAmountNum);
+      }
+
+      // Parse and validate initial price (handle string | number | undefined)
+      const initialPriceRaw = params.initialPrice;
+      const initialPrice = initialPriceRaw ? parseFloat(initialPriceRaw.toString()) : 1;
+
+      if (isNaN(initialPrice) || initialPrice <= 0) {
+        throw new Error('Invalid initial price. Must be a positive number.');
+      }
+
+      console.log('[DLMM]    Initial Price:', initialPrice);
+
+      // Calculate SAFE price range that includes the active price
+      // CRITICAL: For empty pools with deposits:
+      //   - Dual-sided: range must INCLUDE active price
+      //   - Base token only (X): range must be AT or ABOVE active price
+      //   - Quote token only (Y): range must be AT or BELOW active price
+      let minPrice: number;
+      let maxPrice: number;
+
+      if (params.minPrice !== undefined && params.maxPrice !== undefined) {
+        // User provided explicit range
+        minPrice = params.minPrice;
+        maxPrice = params.maxPrice;
+        console.log('[DLMM]    Using user-provided range:', minPrice, '-', maxPrice);
+      } else {
+        // Auto-calculate safe range based on deposit type
+        if (isDualSidedDeposit) {
+          // Dual-sided: range centered around initial price
+          minPrice = initialPrice * 0.9; // 10% below
+          maxPrice = initialPrice * 1.1; // 10% above
+          console.log('[DLMM]    Auto range for DUAL-SIDED (centered):', minPrice, '-', maxPrice);
+        } else if (hasValidBaseAmount) {
+          // Base token: range at or above initial price
+          minPrice = initialPrice;
+          maxPrice = initialPrice * 1.2; // 20% above
+          console.log('[DLMM]    Auto range for BASE (at/above):', minPrice, '-', maxPrice);
+        } else {
+          // Quote token: range at or below initial price
+          minPrice = initialPrice * 0.8; // 20% below
+          maxPrice = initialPrice;
+          console.log('[DLMM]    Auto range for QUOTE (at/below):', minPrice, '-', maxPrice);
+        }
+      }
+
+      // Validate range
+      if (minPrice >= maxPrice) {
+        throw new Error(`Invalid price range: minPrice (${minPrice}) must be less than maxPrice (${maxPrice})`);
+      }
+
+      // Verify range includes active price (critical for empty pools)
+      if (minPrice > initialPrice || maxPrice < initialPrice) {
+        console.warn('[DLMM] ⚠️  WARNING: Price range does not include initial price!');
+        console.warn('[DLMM]    This will likely FAIL for empty pools.');
+        console.warn('[DLMM]    Adjusting range to include initial price...');
+        minPrice = Math.min(minPrice, initialPrice);
+        maxPrice = Math.max(maxPrice, initialPrice);
+        console.log('[DLMM]    Adjusted range:', minPrice, '-', maxPrice);
+      }
+
+      const strategy = params.liquidityStrategy || 'curve';
+      console.log('[DLMM]    Strategy:', strategy);
+
+      console.log('\n[DLMM] 🎯 Final liquidity parameters:');
+      console.log('[DLMM]    Pool:', poolResult.poolAddress);
+      console.log('[DLMM]    Strategy:', strategy);
+      console.log('[DLMM]    Price Range:', minPrice, '-', maxPrice);
+
+      if (isDualSidedDeposit) {
+        console.log('[DLMM]    Base Amount:', baseAmountNum);
+        console.log('[DLMM]    Quote Amount:', quoteAmountNum);
+      } else if (hasValidBaseAmount) {
+        console.log('[DLMM]    Base Amount:', baseAmountNum);
+      } else {
+        console.log('[DLMM]    Quote Amount:', quoteAmountNum);
+      }
+
+      // Call SDK to add liquidity with NEW dual-sided API
+      const liquidityResult = await initializePositionAndAddLiquidityByStrategy({
+        poolAddress: poolResult.poolAddress,
+        strategy,
+        minPrice,
+        maxPrice,
+        // NEW: Pass both amounts for dual-sided, or just one for single-sided
+        baseAmount: hasValidBaseAmount ? baseAmountNum : undefined,
+        quoteAmount: hasValidQuoteAmount ? quoteAmountNum : undefined,
+      });
+
+      console.log('\n[DLMM] ✅ LIQUIDITY ADDED SUCCESSFULLY!');
+      console.log('[DLMM]    Signature:', liquidityResult.signature);
+      console.log('═'.repeat(80));
+
+      return {
+        ...poolResult,
+        liquidityAdded: true,
+        liquiditySignature: liquidityResult.signature,
+      };
+    } catch (error: any) {
+      console.error('\n[DLMM] ❌ ERROR in createPoolWithLiquidity:');
+      console.error('[DLMM]    Message:', error.message);
+      console.error('[DLMM]    Name:', error.name);
+      if (error.stack) {
+        console.error('[DLMM]    Stack:', error.stack.slice(0, 500));
+      }
+      console.error('═'.repeat(80));
+
+      // Provide specific error messages
+      if (error.message?.includes('Wallet not connected')) {
+        throw error; // Re-throw as-is
+      }
+
+      if (error.message?.includes('Pool is empty') || error.message?.includes('active')) {
+        throw new Error(
+          'Pool created but liquidity failed. For empty pools, the price range must include the initial price. ' +
+          'You can manually add liquidity from the pool page.'
+        );
+      }
+
+      if (error.message?.includes('insufficient')) {
+        throw new Error('Insufficient balance. Check your token and SOL balances. You need ~0.5 SOL for fees.');
+      }
+
+      if (error.message?.includes('not yet available')) {
+        throw error; // Re-throw pool verification error as-is
+      }
+
+      throw new Error(error.message || 'Failed to create pool with liquidity. Check console for details.');
+    }
+  };
+
+  /**
+   * Add liquidity to an EXISTING position using strategy
+   * This method is separate from initializePositionAndAddLiquidityByStrategy
+   * Use this when you already have a position and want to add more liquidity
+   */
+  const addLiquidityByStrategy = async (params: {
+    poolAddress: string;
+    positionAddress: string;
+    strategy: 'spot' | 'curve' | 'bid-ask';
+    minPrice: number;
+    maxPrice: number;
+    baseAmount?: number; // Amount of base token (Token X) in UI units
+    quoteAmount?: number; // Amount of quote token (Token Y) in UI units
+    slippage?: number; // Slippage tolerance (0.01 = 1%, default 0.01)
+  }) => {
+    if (!publicKey) {
+      throw new Error('Wallet not connected');
+    }
+
+    console.log('[DLMM] Adding liquidity to existing position...', params);
+
+    try {
+      const poolPubkey = validatePublicKey(params.poolAddress, 'Pool address');
+      const positionPubkey = validatePublicKey(params.positionAddress, 'Position address');
+
+      // Create DLMM pool instance
+      const dlmmPool = await DLMM.create(connection, poolPubkey, {
+        cluster: network as 'mainnet-beta' | 'devnet',
+      });
+
+      // Refresh pool state
+      await dlmmPool.refetchStates();
+
+      // Get token decimals
+      const tokenXMintInfo = await getMint(connection, dlmmPool.lbPair.tokenXMint);
+      const tokenYMintInfo = await getMint(connection, dlmmPool.lbPair.tokenYMint);
+      const tokenXDecimals = tokenXMintInfo.decimals;
+      const tokenYDecimals = tokenYMintInfo.decimals;
+
+      // Determine if dual-sided or single-sided
+      const hasValidBaseAmount = params.baseAmount !== undefined && params.baseAmount > 0;
+      const hasValidQuoteAmount = params.quoteAmount !== undefined && params.quoteAmount > 0;
+      const isDualSided = hasValidBaseAmount && hasValidQuoteAmount;
+
+      // Convert amounts to lamports
+      const baseAmountBN = hasValidBaseAmount
+        ? new BN(params.baseAmount! * 10 ** tokenXDecimals)
+        : new BN(0);
+      const quoteAmountBN = hasValidQuoteAmount
+        ? new BN(params.quoteAmount! * 10 ** tokenYDecimals)
+        : new BN(0);
+
+      console.log('[DLMM] Deposit type:', {
+        isDualSided,
+        baseAmount: baseAmountBN.toString(),
+        quoteAmount: quoteAmountBN.toString(),
+      });
+
+      // Get active bin
+      const activeBin = await dlmmPool.getActiveBin();
+      const activeBinId = activeBin.binId;
+      const activePrice = dlmmPool.fromPricePerLamport(Number(activeBin.price));
+
+      // Calculate bin IDs from prices
+      const binStep = dlmmPool.lbPair.binStep;
+      const basisPointsDecimal = binStep / 10000;
+      const minBinId = Math.floor(Math.log(params.minPrice) / Math.log(1 + basisPointsDecimal));
+      const maxBinId = Math.ceil(Math.log(params.maxPrice) / Math.log(1 + basisPointsDecimal));
+
+      // Map strategy to SDK StrategyType
+      const strategyTypeMap = {
+        'spot': StrategyType.Spot,
+        'curve': StrategyType.Curve,
+        'bid-ask': StrategyType.BidAsk,
+      };
+      const strategyType = strategyTypeMap[params.strategy];
+
+      // Create add liquidity transaction
+      const addLiquidityTx = await dlmmPool.addLiquidityByStrategy({
+        positionPubKey: positionPubkey,
+        user: publicKey,
+        totalXAmount: baseAmountBN,
+        totalYAmount: quoteAmountBN,
+        strategy: {
+          maxBinId,
+          minBinId,
+          strategyType,
+        },
+        slippage: params.slippage ?? 0.01, // Default 1% slippage protection
+      });
+
+      // Get fee breakdown
+      const feeBreakdown = getFeeBreakdown(referrerWallet || undefined);
+      const feeInstructions = await getFeeDistributionInstructions(
+        publicKey,
+        referrerWallet || undefined
+      );
+
+      // Add fees atomically
+      if (feeInstructions.length > 0) {
+        feeInstructions.reverse().forEach((ix) => {
+          addLiquidityTx.instructions.unshift(ix);
+        });
+      }
+
+      // Add compute budget
+      const hasComputeUnitPrice = addLiquidityTx.instructions.some(
+        (ix) =>
+          ix.programId.equals(ComputeBudgetProgram.programId) &&
+          ix.data[0] === 3 // SetComputeUnitPrice discriminator
+      );
+      const hasComputeUnitLimit = addLiquidityTx.instructions.some(
+        (ix) =>
+          ix.programId.equals(ComputeBudgetProgram.programId) &&
+          ix.data[0] === 2 // SetComputeUnitLimit discriminator
+      );
+
+      if (!hasComputeUnitPrice) {
+        addLiquidityTx.instructions.unshift(
+          ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 10_000 })
+        );
+      }
+      if (!hasComputeUnitLimit) {
+        addLiquidityTx.instructions.unshift(
+          ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
+        );
+      }
+
+      // Send transaction
+      console.log('[DLMM] Sending add liquidity transaction...');
+      const signature = await sendTransaction(addLiquidityTx, connection);
+      await confirmTransactionWithRetry(connection, signature);
+
+      // Record referral earning
+      if (referrerWallet && feeBreakdown.referral.lamports > 0) {
+        recordEarning(
+          feeBreakdown.referral.lamports,
+          publicKey.toBase58(),
+          signature
+        );
+      }
+
+      // Track transaction with accurate deposit type
+      const depositType = isDualSided
+        ? 'dual-sided'
+        : hasValidBaseAmount
+          ? 'single-sided (Token X)'
+          : 'single-sided (Token Y)';
+
+      addTransaction({
+        signature,
+        walletAddress: publicKey.toBase58(),
+        network,
+        protocol: 'dlmm',
+        action: 'dlmm-add-liquidity',
+        status: 'success',
+        params: {
+          ...params,
+          depositType,
+        },
+        poolAddress: poolPubkey.toString(),
+        platformFee: feeBreakdown.total.lamports,
+      });
+
+      console.log(`[DLMM] Liquidity added successfully! Type: ${depositType}`);
+
+      return {
+        success: true,
+        signature,
+        positionAddress: positionPubkey.toString(),
+        depositType, // Return this so UI can show accurate message
+        amounts: {
+          tokenX: hasValidBaseAmount ? params.baseAmount : 0,
+          tokenY: hasValidQuoteAmount ? params.quoteAmount : 0,
+        },
+      };
+    } catch (error: any) {
+      console.error('[DLMM] Error adding liquidity:', error);
+      throw new Error(error.message || 'Failed to add liquidity to position');
+    }
+  };
+
   return {
     createPool,
+    createPoolWithLiquidity,
     seedLiquidityLFG,
     seedLiquiditySingleBin,
     setPoolStatus,
     fetchUserPositions,
     initializePositionAndAddLiquidityByStrategy,
+    addLiquidityByStrategy, // NEW: Separate method for adding to existing positions
     removeLiquidityFromPosition,
     claimAllRewards,
     swapTokens,

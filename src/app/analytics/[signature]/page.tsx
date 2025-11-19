@@ -10,6 +10,8 @@ import { format } from 'date-fns';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 import Link from 'next/link';
 
+export const dynamic = 'force-dynamic';
+
 export default function TransactionDetailsPage({
   params,
 }: {

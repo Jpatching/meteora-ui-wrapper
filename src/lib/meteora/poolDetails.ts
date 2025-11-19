@@ -13,15 +13,22 @@ export interface PoolDetails {
   baseFee?: number; // in basis points (100 = 1%)
 }
 
-// Use public RPC - can be slow but works
-const RPC_ENDPOINT = 'https://api.mainnet-beta.solana.com';
-let connection: Connection | null = null;
+// Network-specific RPC endpoints
+const RPC_ENDPOINTS = {
+  'mainnet-beta': process.env.NEXT_PUBLIC_MAINNET_RPC || 'https://api.mainnet-beta.solana.com',
+  'devnet': process.env.NEXT_PUBLIC_DEVNET_RPC || 'https://api.devnet.solana.com',
+  'localnet': 'http://localhost:8899',
+};
 
-function getConnection() {
-  if (!connection) {
-    connection = new Connection(RPC_ENDPOINT, 'confirmed');
+// Connection cache per network
+const connectionCache = new Map<string, Connection>();
+
+function getConnection(network: 'mainnet-beta' | 'devnet' | 'localnet' = 'mainnet-beta') {
+  if (!connectionCache.has(network)) {
+    const endpoint = RPC_ENDPOINTS[network];
+    connectionCache.set(network, new Connection(endpoint, 'confirmed'));
   }
-  return connection;
+  return connectionCache.get(network)!;
 }
 
 // Cache pool details to avoid repeated fetches
@@ -30,11 +37,16 @@ const poolDetailsCache = new Map<string, PoolDetails>();
 /**
  * Fetch DLMM pool details
  */
-async function fetchDLMMDetails(poolAddress: string): Promise<PoolDetails> {
+async function fetchDLMMDetails(
+  poolAddress: string,
+  network: 'mainnet-beta' | 'devnet' | 'localnet' = 'mainnet-beta'
+): Promise<PoolDetails> {
   try {
-    const conn = getConnection();
+    const conn = getConnection(network);
+    // Map 'localnet' to 'localhost' for DLMM SDK compatibility
+    const cluster = network === 'localnet' ? 'localhost' : network;
     const dlmmInstance = await DLMM.create(conn, new PublicKey(poolAddress), {
-      cluster: 'mainnet-beta',
+      cluster: cluster as 'mainnet-beta' | 'devnet' | 'localhost',
     });
 
     await dlmmInstance.refetchStates();
@@ -44,10 +56,10 @@ async function fetchDLMMDetails(poolAddress: string): Promise<PoolDetails> {
       baseFee: dlmmInstance.lbPair.parameters.baseFactor,
     };
 
-    console.log(`✅ Fetched DLMM details for ${poolAddress}:`, details);
+    console.log(`✅ Fetched DLMM details for ${poolAddress} on ${network}:`, details);
     return details;
   } catch (error) {
-    console.error(`❌ Failed to fetch DLMM details for ${poolAddress}:`, error);
+    console.error(`❌ Failed to fetch DLMM details for ${poolAddress} on ${network}:`, error);
     return {};
   }
 }
@@ -55,9 +67,12 @@ async function fetchDLMMDetails(poolAddress: string): Promise<PoolDetails> {
 /**
  * Fetch DAMM pool details
  */
-async function fetchDAMMDetails(poolAddress: string): Promise<PoolDetails> {
+async function fetchDAMMDetails(
+  poolAddress: string,
+  network: 'mainnet-beta' | 'devnet' | 'localnet' = 'mainnet-beta'
+): Promise<PoolDetails> {
   try {
-    const conn = getConnection();
+    const conn = getConnection(network);
     const dammPool = await DynamicAmm.create(conn, new PublicKey(poolAddress));
     await dammPool.updateState();
 
@@ -65,10 +80,10 @@ async function fetchDAMMDetails(poolAddress: string): Promise<PoolDetails> {
       baseFee: dammPool.poolState.fees.tradeFeeNumerator.toNumber() / 100, // Convert to bps
     };
 
-    console.log(`✅ Fetched DAMM details for ${poolAddress}:`, details);
+    console.log(`✅ Fetched DAMM details for ${poolAddress} on ${network}:`, details);
     return details;
   } catch (error) {
-    console.error(`❌ Failed to fetch DAMM details for ${poolAddress}:`, error);
+    console.error(`❌ Failed to fetch DAMM details for ${poolAddress} on ${network}:`, error);
     return {};
   }
 }
@@ -78,24 +93,28 @@ async function fetchDAMMDetails(poolAddress: string): Promise<PoolDetails> {
  */
 export async function fetchPoolDetails(
   poolAddress: string,
-  poolType: string
+  poolType: string,
+  network: 'mainnet-beta' | 'devnet' | 'localnet' = 'mainnet-beta'
 ): Promise<PoolDetails> {
+  // Create network-aware cache key
+  const cacheKey = `${poolAddress}:${network}`;
+
   // Check cache first
-  if (poolDetailsCache.has(poolAddress)) {
-    return poolDetailsCache.get(poolAddress)!;
+  if (poolDetailsCache.has(cacheKey)) {
+    return poolDetailsCache.get(cacheKey)!;
   }
 
   let details: PoolDetails = {};
 
   if (poolType === 'dlmm') {
-    details = await fetchDLMMDetails(poolAddress);
+    details = await fetchDLMMDetails(poolAddress, network);
   } else if (poolType === 'damm-v1' || poolType === 'damm-v2' || poolType === 'damm') {
-    details = await fetchDAMMDetails(poolAddress);
+    details = await fetchDAMMDetails(poolAddress, network);
   }
 
-  // Cache the result
+  // Cache the result with network-aware key
   if (Object.keys(details).length > 0) {
-    poolDetailsCache.set(poolAddress, details);
+    poolDetailsCache.set(cacheKey, details);
   }
 
   return details;

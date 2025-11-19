@@ -79,10 +79,18 @@ export function QuickLiquidityTester({
       });
 
       if (result.success) {
+        // Display accurate message based on actual deposit type
+        const depositMessage = result.depositType === 'dual-sided'
+          ? `Added ${result.amounts.tokenX} ${tokenXSymbol} and ${result.amounts.tokenY} ${tokenYSymbol}`
+          : result.depositType === 'single-sided (Token X)'
+            ? `Added ${result.amounts.tokenX} ${tokenXSymbol} (single-sided)`
+            : `Added ${result.amounts.tokenY} ${tokenYSymbol} (single-sided)`;
+
         toast.success(
           <div>
             <p className="font-semibold mb-1">✅ Test liquidity added!</p>
-            <p className="text-xs text-gray-300">Refresh the page to see updated bins</p>
+            <p className="text-xs text-gray-300 mb-1">{depositMessage}</p>
+            <p className="text-xs text-gray-400">Refresh the page to see updated bins</p>
             <a
               href={`https://solscan.io/tx/${result.signature}?cluster=${network}`}
               target="_blank"

@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test:add-liquidity": "tsx scripts/test-add-liquidity-e2e.ts",
+    "test:find-pools": "tsx scripts/find-devnet-dlmm-pool.ts"
   },
   "dependencies": {
     "@lighthouse-web3/sdk": "^0.4.3",

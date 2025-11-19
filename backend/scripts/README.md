@@ -57,7 +57,7 @@ tsx scripts/seed-devnet-pool.ts 8BPMTaKEXhZ5UKkhLqaUDRFZt5emm9kjiUhSqS7ME2w1
 
 **What it does:**
 1. **Phase 1** (Single-sided): Seeds 0.1 SOL into single bin to establish initial price
-2. **Phase 2** (Dual-sided): Seeds 2 SOL + 360 USDC distributed across ±20 bins using SpotBalanced strategy
+2. **Phase 2** (Dual-sided): Seeds 2 SOL + 360 USDC distributed across ±20 bins using Spot strategy
 
 **Why two phases?**
 - Empty DLMM pools require single-sided seeding first to set the initial price
@@ -142,7 +142,7 @@ const SEED_CONFIG = {
     enabled: true,
     solAmount: 2.0,      // SOL for distribution
     usdcAmount: 360,     // USDC for distribution
-    strategy: StrategyType.SpotBalanced,
+    strategy: StrategyType.Spot,
     binRange: 20,        // Number of bins above/below active
   },
 };

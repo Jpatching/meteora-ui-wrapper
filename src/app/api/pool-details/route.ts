@@ -9,7 +9,7 @@ import { fetchPoolDetails } from '@/lib/meteora/poolDetails';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { pools } = body; // Array of { poolAddress, poolType }
+    const { pools, network = 'mainnet-beta' } = body; // Array of { poolAddress, poolType } + network
 
     if (!pools || !Array.isArray(pools)) {
       return NextResponse.json(
@@ -18,16 +18,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`🚀 Bulk fetching details for ${pools.length} pools...`);
+    console.log(`🚀 Bulk fetching details for ${pools.length} pools on ${network}...`);
 
     // Fetch ALL pools in parallel (Solana RPC can handle this)
     const results = await Promise.all(
       pools.map(async ({ poolAddress, poolType }) => {
         try {
-          const details = await fetchPoolDetails(poolAddress, poolType);
+          const details = await fetchPoolDetails(poolAddress, poolType, network);
           return { poolAddress, details, success: true };
         } catch (error: any) {
-          console.error(`Failed to fetch ${poolAddress}:`, error.message);
+          console.error(`Failed to fetch ${poolAddress} on ${network}:`, error.message);
           return { poolAddress, details: {}, success: false };
         }
       })
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       detailsMap[poolAddress] = details;
     });
 
-    console.log(`✅ Fetched details for ${results.filter(r => r.success).length}/${pools.length} pools`);
+    console.log(`✅ Fetched details for ${results.filter(r => r.success).length}/${pools.length} pools on ${network}`);
 
     return NextResponse.json({ success: true, detailsMap });
   } catch (error: any) {

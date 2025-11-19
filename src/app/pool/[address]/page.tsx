@@ -16,6 +16,8 @@ import { PoolListSidebar } from '@/components/pool/PoolListSidebar';
 import { LiquidityDistributionPanel } from '@/components/pool/LiquidityDistributionPanel';
 import { useBackendPool } from '@/lib/hooks/useBackendPools';
 import { useNetwork } from '@/contexts/NetworkContext';
+import { useBinData } from '@/lib/hooks/useBinData';
+import { useAutoIndexPool } from '@/lib/hooks/useAutoIndexPool';
 import { Pool } from '@/lib/jupiter/types';
 import { enrichPoolWithMetadata } from '@/lib/services/tokenMetadata';
 import Link from 'next/link';
@@ -30,12 +32,35 @@ export default function PoolPage({ params }: PoolPageProps) {
   const router = useRouter();
   const { network } = useNetwork();
 
+  // Auto-index devnet pools if not in database
+  const { indexed, loading: autoIndexing, error: indexError } = useAutoIndexPool(address);
+
   // Fetch pool from unified backend endpoint with network filtering
   const { data: rawPool, isLoading, error } = useBackendPool(address, network);
 
   // State for enriched pool with token metadata
   const [pool, setPool] = useState<Pool | null>(null);
   const [enriching, setEnriching] = useState(false);
+
+  // Fetch real bin data for DLMM pools to get accurate current price
+  // Note: LiquidityDistributionPanel also uses useBinData, so they share queries
+  const { activeBin, isLoading: binDataLoading } = useBinData({
+    poolAddress: address,
+    enabled: pool?.type === 'dlmm',
+    refreshInterval: 0, // Disable auto-refresh here (LiquidityDistributionPanel handles it)
+  });
+
+  // Log current price to debug the issue
+  console.log('[PoolPage] Price data:', {
+    poolType: pool?.type,
+    activeBin: activeBin ? {
+      binId: activeBin.binId,
+      price: activeBin.price,
+      pricePerToken: activeBin.pricePerToken,
+    } : null,
+    binDataLoading,
+    fallbackPrice: pool?.baseAsset?.usdPrice,
+  });
 
   // Enrich pool with token metadata (logos, etc.)
   useEffect(() => {
@@ -54,16 +79,35 @@ export default function PoolPage({ params }: PoolPageProps) {
     }
   }, [rawPool]);
 
-  // Handle loading state
-  if (isLoading || (rawPool && !pool)) {
+  // Handle loading state - MUST wait for bin data if it's a DLMM pool
+  const isDLMMPool = pool?.type === 'dlmm';
+  const needsBinData = isDLMMPool && binDataLoading;
+
+  if (isLoading || autoIndexing || (rawPool && !pool) || needsBinData) {
     return (
       <MainLayout>
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
             <p className="text-text-secondary">
-              {isLoading ? 'Loading pool details...' : 'Loading token metadata...'}
+              {autoIndexing && network === 'devnet'
+                ? 'Auto-indexing devnet pool from chain...'
+                : needsBinData
+                ? 'Loading bin data from chain...'
+                : isLoading
+                ? 'Loading pool details...'
+                : 'Loading token metadata...'}
             </p>
+            {autoIndexing && network === 'devnet' && (
+              <p className="text-xs text-gray-500 mt-2">
+                First time accessing this pool - fetching data from Solana devnet
+              </p>
+            )}
+            {needsBinData && (
+              <p className="text-xs text-gray-500 mt-2">
+                Fetching DLMM bin distribution and current price
+              </p>
+            )}
           </div>
         </div>
       </MainLayout>
@@ -239,7 +283,12 @@ export default function PoolPage({ params }: PoolPageProps) {
             <div className="ml-auto flex items-center gap-6">
               <div className="text-center">
                 <div className="text-[10px] text-gray-400">Price</div>
-                <div className="text-sm font-bold text-white">${(pool.baseAsset.usdPrice || 0).toFixed(4)}</div>
+                <div className="text-sm font-bold text-white">
+                  {pool.type === 'dlmm' && activeBin
+                    ? `${activeBin.pricePerToken.toFixed(6)} ${pool.quoteAsset?.symbol || 'USDC'}`
+                    : `$${(Number(pool.baseAsset.usdPrice) || 0).toFixed(4)}`
+                  }
+                </div>
               </div>
               <div className="text-center">
                 <div className="text-[10px] text-gray-400">24h Vol</div>
@@ -292,7 +341,12 @@ export default function PoolPage({ params }: PoolPageProps) {
                 tokenYMint={pool.quoteAsset?.id || ''}
                 tokenXSymbol={pool.baseAsset.symbol}
                 tokenYSymbol={pool.quoteAsset?.symbol || 'USDC'}
-                currentPrice={pool.baseAsset.usdPrice || 0}
+                currentPrice={
+                  // For DLMM pools, use real bin price. Otherwise fallback to USD price
+                  pool.type === 'dlmm' && activeBin
+                    ? activeBin.pricePerToken
+                    : (Number(pool.baseAsset.usdPrice) || 0)
+                }
                 binStep={(pool as any).binStep || 20}
                 baseFee={(pool as any).baseFee || 0.2}
                 poolType={pool.type}
