@@ -58,6 +58,10 @@ export function AddLiquidityPanel({
   // Strategy state
   const [strategy, setStrategy] = useState<StrategyType>('curve');
   const [ratio, setRatio] = useState<RatioType>('one-side-x');
+  const [slippage, setSlippage] = useState<number>(1); // Default 1% slippage
+
+  // Format pool type for display
+  const poolTypeDisplay = poolType?.toUpperCase() || 'DLMM';
 
   // Price range state - handle case where currentPrice is 0 or NaN (no liquidity pool)
   const safeCurrentPrice = Number(currentPrice) > 0 ? Number(currentPrice) : 1; // Default to 1:1 if no price
@@ -125,8 +129,8 @@ export function AddLiquidityPanel({
   }, [currentPrice, strategy, binStep]); // Re-run when currentPrice, strategy, or binStep changes
 
   // Calculate ratio percentages based on strategy
-  const tokenXPercentage = ratio === 'one-side' ? 100 : 50;
-  const tokenYPercentage = ratio === 'one-side' ? 0 : 50;
+  const tokenXPercentage = ratio === 'one-side-x' ? 100 : ratio === 'one-side-y' ? 0 : 50;
+  const tokenYPercentage = ratio === 'one-side-y' ? 100 : ratio === 'one-side-x' ? 0 : 50;
 
   // Calculate number of bins in selected range
   // This matches the SDK's bin calculation logic
@@ -363,7 +367,7 @@ export function AddLiquidityPanel({
     }
 
     // CRITICAL: For single-sided deposits, validate that range includes or is adjacent to active bin
-    if (ratio === 'one-side' && showPriceWarning) {
+    if ((ratio === 'one-side-x' || ratio === 'one-side-y') && showPriceWarning) {
       toast.error(
         <div className="max-w-sm">
           <p className="font-semibold mb-1">⚠️ Invalid range for single-sided deposit</p>
@@ -552,11 +556,16 @@ export function AddLiquidityPanel({
     const binStepDecimal = binStep / 10000;
 
     // Only auto-adjust when user changes ratio to one-side
-    if (ratio === 'one-side') {
-      // Default to Token X range (above active price)
-      // User can manually change to Token Y by entering Token Y amount instead
+    if (ratio === 'one-side-x') {
+      // Token X range (above active price)
       const minPriceCalc = safeCurrentPrice;
       const maxPriceCalc = safeCurrentPrice * Math.pow(1 + binStepDecimal, WARNING_THRESHOLD_BINS);
+      setMinPrice(minPriceCalc);
+      setMaxPrice(maxPriceCalc);
+    } else if (ratio === 'one-side-y') {
+      // Token Y range (below active price)
+      const maxPriceCalc = safeCurrentPrice;
+      const minPriceCalc = safeCurrentPrice / Math.pow(1 + binStepDecimal, WARNING_THRESHOLD_BINS);
       setMinPrice(minPriceCalc);
       setMaxPrice(maxPriceCalc);
     }

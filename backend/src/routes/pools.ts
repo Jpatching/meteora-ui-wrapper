@@ -7,7 +7,29 @@
 import { Router, Request, Response } from 'express';
 import { redis, getCached, setCached, CACHE_TTL, cacheKeys } from '../config/redis';
 import { syncAllPools, getPoolsByToken, getTopPools } from '../services/poolSyncService';
-import { autoIndexPool } from '../services/devnetPoolSyncService';
+import { syncNewPools } from '../services/realtimePoolService';
+import { db } from '../config/database';
+
+// Stub for devnet pool auto-indexing (TODO: implement proper devnet support)
+interface AutoIndexResult {
+  success: boolean;
+  message?: string;
+  error?: string;
+  poolAddress?: string;
+  poolType?: string;
+  alreadyExists?: boolean;
+}
+
+async function autoIndexPool(poolAddress: string, poolType?: string): Promise<AutoIndexResult> {
+  console.log(`⚠️ Auto-indexing for devnet pool ${poolAddress} (type: ${poolType}) not yet implemented`);
+  return {
+    success: false,
+    error: 'Devnet auto-indexing not yet implemented',
+    poolAddress,
+    poolType,
+    alreadyExists: false,
+  };
+}
 
 const router = Router();
 

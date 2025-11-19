@@ -209,3 +209,14 @@ export async function deleteDevnetPool(address: string): Promise<boolean> {
     return false;
   }
 }
+
+
+/**
+ * Sync devnet pools (stub implementation)
+ * Devnet pools are added manually via addDevnetPool()
+ */
+export async function syncDevnetPools(): Promise<void> {
+  console.log("⚠️ syncDevnetPools: Devnet pools must be added manually");
+  console.log("💡 Use addDevnetPool() or POST /api/pools/devnet/add to add pools");
+}
+

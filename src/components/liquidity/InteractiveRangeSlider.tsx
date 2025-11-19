@@ -27,6 +27,7 @@ interface InteractiveRangeSliderProps {
   disabled?: boolean;
   depositAmount?: number; // For showing liquidity distribution preview
   depositType?: 'token-x' | 'token-y' | 'dual' | 'none'; // Track which token(s) being deposited
+  strategy?: StrategyType; // Strategy for shaping bin distribution
 }
 
 export function InteractiveRangeSlider({
@@ -42,6 +43,7 @@ export function InteractiveRangeSlider({
   disabled = false,
   depositAmount = 0,
   depositType = 'none',
+  strategy = 'curve',
 }: InteractiveRangeSliderProps) {
   const [minPriceInput, setMinPriceInput] = useState(minPrice.toFixed(6));
   const [maxPriceInput, setMaxPriceInput] = useState(maxPrice.toFixed(6));

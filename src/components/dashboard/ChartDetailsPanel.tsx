@@ -120,13 +120,9 @@ export function ChartDetailsPanel({ pool, liquidityRange }: ChartDetailsPanelPro
             height={600}
             loading={isLoading}
             onIntervalChange={setInterval}
-            tokenSymbol={pool.baseAsset.symbol}
-            tokenName={pool.baseAsset.name}
-            currentPrice={pool.baseAsset.usdPrice || 0}
-            marketCap={pool.baseAsset.mcap}
             // DLMM-specific overlays
             binData={isDLMM ? binsAroundActive : undefined}
-            showBinDistribution={isDLMM && binsAroundActive.length > 0}
+            showBinHistogram={isDLMM && binsAroundActive.length > 0}
             activeBinPrice={isDLMM && activeBin && typeof activeBin.price === 'number' ? activeBin.price : undefined}
             positionRanges={positionRanges.length > 0 ? positionRanges : undefined}
           />
