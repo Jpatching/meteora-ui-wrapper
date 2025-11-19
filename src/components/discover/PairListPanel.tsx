@@ -115,7 +115,8 @@ export function PairListPanel({ pools, isLoading }: PairListPanelProps) {
   };
 
   const handlePairClick = (pool: Pool) => {
-    router.push(`/pool/${pool.id}`);
+    // Navigate to token chart page using the new /solana/[mint] route
+    router.push(`/solana/${pool.baseAsset?.id || pool.id}`);
   };
 
   return (

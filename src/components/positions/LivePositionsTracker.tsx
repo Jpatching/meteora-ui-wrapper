@@ -97,7 +97,7 @@ export function LivePositionsTracker() {
               </p>
             </div>
             <a
-              href="/pool/8BPMTaKEXhZ5UKkhLqaUDRFZt5emm9kjiUhSqS7ME2w1"
+              href="/solana/8BPMTaKEXhZ5UKkhLqaUDRFZt5emm9kjiUhSqS7ME2w1"
               className="px-3 py-1.5 bg-warning text-white rounded text-sm hover:bg-warning/80 transition-colors"
             >
               View Pool →
@@ -253,8 +253,9 @@ export function LivePositionsTracker() {
         positions={positions}
         loading={loading}
         onViewDetails={(position) => {
-          // Navigate to pool detail page
-          window.location.href = `/pool/${position.poolAddress}`;
+          // Navigate to token chart page using the new /solana/[mint] route
+          // Using baseMint as the token mint for the route
+          window.location.href = `/solana/${position.baseMint}?pool=${position.poolAddress}`;
         }}
       />
 

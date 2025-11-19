@@ -153,11 +153,8 @@ export function TokenListPanel({ pools, isLoading }: TokenListPanelProps) {
   };
 
   const handleTokenClick = (token: TokenMetrics) => {
-    // Navigate to pool detail page for the first pool with this token
-    const pool = pools.find(p => p.baseAsset.id === token.address);
-    if (pool) {
-      router.push(`/pool/${pool.id}`);
-    }
+    // Navigate to token chart page using the new /solana/[mint] route
+    router.push(`/solana/${token.address}`);
   };
 
   return (
