@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { useBinData } from '@/lib/hooks/useBinData';
 import { InteractiveRangeSlider } from './InteractiveRangeSlider';
+import { StrategyType } from './StrategySelector';
 
 interface PriceRangePickerProps {
   currentPrice: number;

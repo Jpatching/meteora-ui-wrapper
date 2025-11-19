@@ -1,24 +1,46 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useNetwork, NetworkType } from '@/contexts/NetworkContext';
 import { Select, Logo } from '@/components/ui';
+import { SearchDropdown } from '@/components/dashboard/SearchDropdown';
 
 interface HeaderProps {
   searchTerm?: string;
   onSearchChange?: (value: string) => void;
+  searchResults?: {
+    tokens: any[];
+    pools: any[];
+  };
+  isSearching?: boolean;
+  onTokenClick?: (token: any) => void;
+  onPoolClick?: (pool: any) => void;
 }
 
-export function Header({ searchTerm = '', onSearchChange }: HeaderProps) {
+export function Header({
+  searchTerm = '',
+  onSearchChange,
+  searchResults = { tokens: [], pools: [] },
+  isSearching = false,
+  onTokenClick,
+  onPoolClick
+}: HeaderProps) {
   const { publicKey } = useWallet();
   const { network, setNetwork } = useNetwork();
   const [mounted, setMounted] = useState(false);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Show dropdown when search term exists and has results
+  useEffect(() => {
+    setShowSearchDropdown(searchTerm.length >= 2);
+  }, [searchTerm, searchResults]);
 
   return (
     <header className="h-16 border-b border-border bg-background-secondary/50 backdrop-blur-xl flex items-center justify-between px-6">
@@ -31,8 +53,8 @@ export function Header({ searchTerm = '', onSearchChange }: HeaderProps) {
 
       {/* Center - Search Bar */}
       {onSearchChange && (
-        <div className="flex-1 max-w-md mx-8">
-          <div className="relative">
+        <div className="flex-1 max-w-md mx-8 relative">
+          <div className="relative" ref={searchContainerRef}>
             <svg
               className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted"
               fill="none"
@@ -51,9 +73,41 @@ export function Header({ searchTerm = '', onSearchChange }: HeaderProps) {
               placeholder="Search tokens and pools..."
               value={searchTerm}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-background-tertiary border border-border rounded-lg text-sm text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
+              className="w-full pl-10 pr-10 py-2 bg-background-tertiary border border-border rounded-lg text-sm text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
             />
+            {searchTerm && (
+              <button
+                onClick={() => {
+                  onSearchChange('');
+                  setShowSearchDropdown(false);
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground-muted hover:text-foreground"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
           </div>
+
+          {/* Search Dropdown - uses portal to render at body level */}
+          <SearchDropdown
+            isOpen={showSearchDropdown}
+            searchTerm={searchTerm}
+            tokens={searchResults.tokens}
+            pools={searchResults.pools}
+            isLoading={isSearching}
+            onClose={() => setShowSearchDropdown(false)}
+            onTokenClick={(token) => {
+              onTokenClick?.(token);
+              setShowSearchDropdown(false);
+            }}
+            onPoolClick={(pool) => {
+              onPoolClick?.(pool);
+              setShowSearchDropdown(false);
+            }}
+            searchInputRef={searchContainerRef}
+          />
         </div>
       )}
 
@@ -96,10 +150,8 @@ export function Header({ searchTerm = '', onSearchChange }: HeaderProps) {
 
             {/* Wallet Button */}
             <WalletMultiButton
+              className="!bg-background-secondary !border !border-border-light !text-foreground hover:!border-foreground-muted !transition-colors"
               style={{
-                background: publicKey
-                  ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                  : 'linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%)',
                 height: '40px',
                 borderRadius: '8px',
                 fontSize: '14px',
@@ -120,17 +172,7 @@ export function Header({ searchTerm = '', onSearchChange }: HeaderProps) {
               <div className="w-2 h-2 rounded-full bg-info"></div>
               <span className="text-sm text-foreground-secondary">...</span>
             </div>
-            <div
-              className="px-4 py-2 rounded-lg text-sm font-medium"
-              style={{
-                background: 'linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%)',
-                height: '40px',
-                minWidth: '140px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
+            <div className="px-4 py-2 rounded-lg text-sm font-medium bg-background-secondary border border-border-light text-foreground h-[40px] min-w-[140px] flex items-center justify-center">
               Select Wallet
             </div>
           </>

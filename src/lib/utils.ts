@@ -50,3 +50,23 @@ export function formatCompactNumber(num: number): string {
   if (num >= 1_000) return `${(num / 1_000).toFixed(2)}K`;
   return num.toFixed(2);
 }
+
+/**
+ * Format number as currency (USD)
+ */
+export function formatCurrency(num: number, decimals = 2): string {
+  if (num >= 1_000_000_000) return `$${(num / 1_000_000_000).toFixed(decimals)}B`;
+  if (num >= 1_000_000) return `$${(num / 1_000_000).toFixed(decimals)}M`;
+  if (num >= 1_000) return `$${(num / 1_000).toFixed(decimals)}K`;
+  return `$${num.toFixed(decimals)}`;
+}
+
+/**
+ * Format number with commas
+ */
+export function formatNumber(num: number, decimals = 0): string {
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(num);
+}

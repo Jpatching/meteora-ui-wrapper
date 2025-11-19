@@ -9,6 +9,7 @@ import { AmmImpl } from '@meteora-ag/dynamic-amm-sdk';
 import { DynamicBondingCurveClient } from '@meteora-ag/dynamic-bonding-curve-sdk';
 import { db } from '../config/database';
 import { getTokenMetadata } from './tokenMetadataService';
+import { upsertDLMMPool, upsertDAMMPool } from './poolSyncServiceHelpers';
 
 interface DLMMPool {
   address: string;
@@ -79,7 +80,9 @@ const RPC_ENDPOINT = process.env.MAINNET_RPC || process.env.DATABASE_URL?.includ
   : 'https://api.mainnet-beta.solana.com';
 
 /**
- * Fetch ALL DLMM pools (not paginated - get everything!)
+ * Fetch TOP DLMM pools sorted by 24h volume
+ * API returns 120k+ pools total, but syncing all takes 10+ minutes and times out
+ * Instead get top 5000 by volume (plenty for discovery, includes all active pools)
  */
 async function fetchAllDLMMPools(): Promise<DLMMPool[]> {
   console.log('🌊 Fetching ALL DLMM pools from Meteora API...');
@@ -91,9 +94,17 @@ async function fetchAllDLMMPools(): Promise<DLMMPool[]> {
     }
 
     const data = await response.json() as any;
-    const pools = data.data || data || [];
-    console.log(`✅ Fetched ${pools.length} DLMM pools`);
-    return pools;
+    const allPools = data.data || data || [];
+    console.log(`📊 Fetched ${allPools.length} total DLMM pools from API`);
+
+    // Sort by 24h volume descending and take top 5000
+    const sorted = allPools.sort((a: DLMMPool, b: DLMMPool) => {
+      return (b.trade_volume_24h || 0) - (a.trade_volume_24h || 0);
+    });
+
+    const top5000 = sorted.slice(0, 5000);
+    console.log(`✅ Selected top ${top5000.length} DLMM pools by 24h volume`);
+    return top5000;
   } catch (error: any) {
     console.error('❌ Error fetching DLMM pools:', error.message);
     return [];
@@ -101,28 +112,67 @@ async function fetchAllDLMMPools(): Promise<DLMMPool[]> {
 }
 
 /**
- * Fetch TOP DAMM v2 pools sorted by TVL
- * API returns 233k+ pools total, but we only want active ones with real TVL
+ * Fetch TOP DAMM v2 pools sorted by 24h volume
+ * API returns 258k+ pools total, we only want top active ones (like charting.ag)
+ * Fetching ALL pools takes 10+ minutes - instead get top 2000 by volume
  */
 async function fetchAllDAMMPools(): Promise<DAMMPool[]> {
-  console.log('🌊 Fetching TOP DAMM v2 pools from Meteora API (sorted by TVL)...');
+  console.log('🌊 Fetching active DAMM v2 pools from Meteora API...');
 
   try {
-    // CRITICAL: Use order_by=tvl to get pools with actual liquidity!
-    // Without this, API returns oldest/inactive pools first
-    const response = await fetch('https://dammv2-api.meteora.ag/pools?limit=1000&order_by=tvl&order=desc');
-    if (!response.ok) {
-      throw new Error(`DAMM API error: ${response.status}`);
+    let allPools: DAMMPool[] = [];
+    const limit = 50; // API max per page
+    const maxPages = 200; // Fetch 10,000 pools (200 pages * 50)
+
+    console.log(`📊 Fetching ${maxPages * limit} DAMM v2 pools (will filter for active pools with volume > $1k)...`);
+
+    // Fetch pages in parallel batches of 20 for speed
+    const batchSize = 20;
+    for (let batchStart = 1; batchStart <= maxPages; batchStart += batchSize) {
+      const batchEnd = Math.min(batchStart + batchSize - 1, maxPages);
+      const promises = [];
+
+      for (let page = batchStart; page <= batchEnd; page++) {
+        // Note: Meteora API doesn't support sort_by parameter - returns in creation order
+        // We'll sort client-side after fetching
+        promises.push(
+          fetch(`https://dammv2-api.meteora.ag/pools?page=${page}&limit=${limit}`)
+            .then(r => r.json())
+            .then((result: any) => result.data || [])
+            .catch((err) => {
+              console.error(`Failed to fetch page ${page}:`, err.message);
+              return [];
+            })
+        );
+      }
+
+      const batchResults = await Promise.all(promises);
+      for (const pools of batchResults) {
+        allPools.push(...pools);
+      }
+
+      console.log(`   Fetched pages ${batchStart}-${batchEnd} (${allPools.length} total pools)`);
     }
 
-    const result = await response.json() as any;
-    const pools = result.data || [];
+    console.log(`📊 Downloaded ${allPools.length} DAMM v2 pools, filtering for active pools...`);
 
-    // Filter out pools with very low TVL (likely abandoned)
-    const activePools = pools.filter((p: any) => p.tvl > 1); // At least $1 TVL
+    // Filter for ACTIVE pools only (volume > $1000 in last 24h OR TVL > $5000)
+    const activePools = allPools.filter((p: DAMMPool) => {
+      const hasVolume = (p.volume24h || 0) > 1000; // $1k+ volume/24h
+      const hasTVL = (p.tvl || 0) > 5000; // $5k+ TVL
+      return hasVolume || hasTVL;
+    });
 
-    console.log(`✅ Fetched ${pools.length} DAMM v2 pools, ${activePools.length} active (TVL > $1)`);
-    return activePools;
+    console.log(`✅ Filtered to ${activePools.length} active DAMM v2 pools (volume > $1k OR TVL > $5k)`);
+
+    // Sort by 24h volume descending (most active first)
+    const sorted = activePools.sort((a, b) => {
+      return (b.volume24h || 0) - (a.volume24h || 0);
+    });
+
+    console.log(`✅ Sorted pools by 24h volume (top pool: ${sorted[0]?.pool_name || 'none'} with $${sorted[0]?.volume24h?.toFixed(0) || 0} volume)`);
+
+    return sorted;
   } catch (error: any) {
     console.error('❌ Error fetching DAMM pools:', error.message);
     return [];
@@ -148,10 +198,16 @@ async function fetchAllDBCPools(): Promise<DBCPool[]> {
 }
 
 /**
- * Upsert DLMM pool into database
- * NOW WITH TOKEN METADATA ENRICHMENT from Jupiter API!
+ * Upsert DLMM pool - now uses shared helper function
  */
-async function upsertDLMMPool(pool: DLMMPool, network: 'mainnet-beta' | 'devnet' = 'mainnet-beta'): Promise<void> {
+async function upsertDLMMPoolLocal(pool: DLMMPool, network: 'mainnet-beta' | 'devnet' = 'mainnet-beta'): Promise<void> {
+  return upsertDLMMPool(pool as any, network);
+}
+
+/**
+ * Legacy implementation - keeping for reference
+ */
+async function upsertDLMMPoolDeprecated(pool: DLMMPool, network: 'mainnet-beta' | 'devnet' = 'mainnet-beta'): Promise<void> {
   // Parse pool name for fallback
   const nameParts = (pool.name || '').split('-');
 
@@ -221,10 +277,16 @@ async function upsertDLMMPool(pool: DLMMPool, network: 'mainnet-beta' | 'devnet'
 }
 
 /**
- * Upsert DAMM pool into database
- * NOW WITH TOKEN METADATA ENRICHMENT from Jupiter API!
+ * Upsert DAMM pool - now uses shared helper function
  */
-async function upsertDAMMPool(pool: DAMMPool, network: 'mainnet-beta' | 'devnet' = 'mainnet-beta'): Promise<void> {
+async function upsertDAMMPoolLocal(pool: DAMMPool, network: 'mainnet-beta' | 'devnet' = 'mainnet-beta'): Promise<void> {
+  return upsertDAMMPool(pool as any, network);
+}
+
+/**
+ * Legacy implementation - keeping for reference
+ */
+async function upsertDAMMPoolDeprecated(pool: DAMMPool, network: 'mainnet-beta' | 'devnet' = 'mainnet-beta'): Promise<void> {
   // Parse pool name for fallback
   const nameParts = (pool.pool_name || '').split('-');
 

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey } from '@solana/web3.js';
-import { Button } from '@/components/ui';
+import { Button, TokenIcon } from '@/components/ui';
 import { StrategySelector, StrategyType } from './StrategySelector';
 import { RatioControl, RatioType } from './RatioControl';
 import { PriceRangePicker } from './PriceRangePicker';
@@ -22,9 +22,13 @@ interface AddLiquidityPanelProps {
   tokenYMint: string;
   tokenXSymbol: string;
   tokenYSymbol: string;
+  tokenXIcon?: string; // Token X logo URL
+  tokenYIcon?: string; // Token Y logo URL
   currentPrice: number;
   binStep: number;
   baseFee?: number; // Base fee percentage
+  poolType?: string; // Pool type for header (dlmm, damm-v2, etc.)
+  onPriceRangeChange?: (range: { minPrice: number; maxPrice: number } | null) => void;
 }
 
 export function AddLiquidityPanel({
@@ -33,9 +37,13 @@ export function AddLiquidityPanel({
   tokenYMint,
   tokenXSymbol,
   tokenYSymbol,
+  tokenXIcon,
+  tokenYIcon,
   currentPrice,
   binStep,
   baseFee,
+  poolType = 'dlmm',
+  onPriceRangeChange,
 }: AddLiquidityPanelProps) {
   const { publicKey, connected } = useWallet();
   const { network } = useNetwork();
@@ -49,7 +57,7 @@ export function AddLiquidityPanel({
 
   // Strategy state
   const [strategy, setStrategy] = useState<StrategyType>('curve');
-  const [ratio, setRatio] = useState<RatioType>('one-side');
+  const [ratio, setRatio] = useState<RatioType>('one-side-x');
 
   // Price range state - handle case where currentPrice is 0 or NaN (no liquidity pool)
   const safeCurrentPrice = Number(currentPrice) > 0 ? Number(currentPrice) : 1; // Default to 1:1 if no price
@@ -207,7 +215,7 @@ export function AddLiquidityPanel({
     if (newRatio === '50-50' && tokenXAmount) {
       // If switching to 50-50, set equal value amounts
       setTokenYAmount(tokenXAmount);
-    } else if (newRatio === 'one-side') {
+    } else if (newRatio === 'one-side-x' || newRatio === 'one-side-y') {
       // If switching to one-side, clear Y amount
       setTokenYAmount('0');
     }
@@ -575,10 +583,98 @@ export function AddLiquidityPanel({
   }
 
   return (
-    <div className="space-y-4">
-      {/* Strategy Selector - Tile */}
-      <div className="bg-background-secondary/30 border border-border-light rounded-lg p-4">
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Strategy</h3>
+    <div className="space-y-3">
+      {/* Header - Pool Type + Token Pair + Slippage (charting.ag style) */}
+      <div>
+        {/* Pool Type Label */}
+        <div className="text-sm font-bold text-white mb-2">{poolTypeDisplay}</div>
+
+        {/* Token Pair Display with Slippage */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            {/* Token Icons + Pair Name */}
+            <div className="flex items-center gap-1">
+              <TokenIcon src={tokenXIcon} symbol={tokenXSymbol} size="sm" />
+              <TokenIcon src={tokenYIcon} symbol={tokenYSymbol} size="sm" />
+            </div>
+            <span className="text-sm font-medium text-white">{tokenXSymbol}-{tokenYSymbol}</span>
+          </div>
+
+          {/* Slippage Control */}
+          <div className="flex items-center gap-1.5">
+            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <input
+              type="number"
+              value={slippage}
+              onChange={(e) => setSlippage(Math.max(0.1, Math.min(50, parseFloat(e.target.value) || 1)))}
+              className="w-10 px-1.5 py-0.5 bg-background text-white text-xs rounded border border-border-light focus:outline-none focus:border-primary"
+              step="0.1"
+              min="0.1"
+              max="50"
+            />
+            <span className="text-xs text-gray-400">%</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Token Input - charting.ag style (boxed, comes RIGHT after header) */}
+      <div className="bg-background-secondary/20 border border-border-light rounded-lg p-3">
+        <div className="flex items-center gap-2">
+          <TokenIcon src={tokenYIcon} symbol={tokenYSymbol} size="sm" />
+          <span className="text-sm font-medium text-white mr-auto">{tokenYSymbol}</span>
+          <div className="text-right">
+            <input
+              type="number"
+              value={tokenXAmount}
+              onChange={(e) => setTokenXAmount(e.target.value)}
+              disabled={loading}
+              placeholder="0.00"
+              step="0.01"
+              min="0"
+              className="w-24 px-2 py-1 bg-transparent text-white text-right text-base font-medium focus:outline-none"
+            />
+            <div className="text-xs text-gray-500">$0.00</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Balance + 50% + Max - OUTSIDE the box, separate line */}
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-gray-400">
+          Balance: {tokenYBalance ? tokenYBalance.uiAmount.toFixed(2) : '0'} {tokenYSymbol}
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              if (tokenYBalance) {
+                setTokenXAmount((tokenYBalance.uiAmount * 0.5).toFixed(6));
+              }
+            }}
+            disabled={loading || !tokenYBalance}
+            className="text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+          >
+            50%
+          </button>
+          <button
+            onClick={() => {
+              if (tokenYBalance) {
+                setTokenXAmount(tokenYBalance.uiAmount.toFixed(6));
+              }
+            }}
+            disabled={loading || !tokenYBalance}
+            className="text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+          >
+            Max
+          </button>
+        </div>
+      </div>
+
+      {/* Strategy Selector - Clean, no box */}
+      <div>
+        <h3 className="text-sm font-medium text-white mb-2">Strategy</h3>
         <StrategySelector
           selected={strategy}
           onChange={handleStrategyChange}
@@ -586,9 +682,9 @@ export function AddLiquidityPanel({
         />
       </div>
 
-      {/* Ratio Control - Tile */}
-      <div className="bg-background-secondary/30 border border-border-light rounded-lg p-4">
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Ratio</h3>
+      {/* Ratio Control - Clean, no box */}
+      <div>
+        <h3 className="text-sm font-medium text-white mb-2">Ratio</h3>
         <RatioControl
           selected={ratio}
           onChange={handleRatioChange}
@@ -600,9 +696,9 @@ export function AddLiquidityPanel({
         />
       </div>
 
-      {/* Price Range Picker - Tile */}
-      <div className="bg-background-secondary/30 border border-border-light rounded-lg p-4">
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Price Range</h3>
+      {/* Price Range Picker - Clean, no box */}
+      <div>
+        <h3 className="text-sm font-medium text-white mb-2">Price Range</h3>
         <PriceRangePicker
           currentPrice={safeCurrentPrice}
           minPrice={minPrice}
@@ -677,23 +773,20 @@ export function AddLiquidityPanel({
         </div>
       </div>
 
-      {/* Deposit Amount - Tile */}
-      <div className="bg-background-secondary/30 border border-border-light rounded-lg p-4">
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Amount</h3>
-
-        {/* Token X Amount */}
-        <div className="space-y-1.5">
+      {/* Token Y Amount - Only for 50:50 (hidden for now, can add later) */}
+      {ratio === '50-50' && false && (
+        <div className="space-y-1.5 mt-3">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-medium text-gray-300">{tokenXSymbol}</label>
+            <label className="text-xs font-medium text-gray-300">{tokenYSymbol}</label>
             <span className="text-xs text-gray-500">
-              Balance: {tokenXBalance ? tokenXBalance.uiAmount.toFixed(4) : '0.00'}
+              Balance: {tokenYBalance?.uiAmount?.toFixed(4) ?? '0.00'}
             </span>
           </div>
           <div className="relative">
             <input
               type="number"
-              value={tokenXAmount}
-              onChange={(e) => setTokenXAmount(e.target.value)}
+              value={tokenYAmount}
+              onChange={(e) => setTokenYAmount(e.target.value)}
               disabled={loading}
               placeholder="0.00"
               step="0.01"
@@ -702,53 +795,18 @@ export function AddLiquidityPanel({
             />
             <button
               onClick={() => {
-                if (tokenXBalance) {
-                  setTokenXAmount(tokenXBalance.uiAmount.toFixed(6));
+                if (tokenYBalance) {
+                  setTokenYAmount(tokenYBalance.uiAmount.toFixed(6));
                 }
               }}
-              disabled={loading || !tokenXBalance}
+              disabled={loading || !tokenYBalance}
               className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 rounded text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               MAX
             </button>
           </div>
         </div>
-
-        {/* Token Y Amount - Only for 50:50 */}
-        {ratio === '50-50' && (
-          <div className="space-y-1.5 mt-3">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-medium text-gray-300">{tokenYSymbol}</label>
-              <span className="text-xs text-gray-500">
-                Balance: {tokenYBalance ? tokenYBalance.uiAmount.toFixed(4) : '0.00'}
-              </span>
-            </div>
-            <div className="relative">
-              <input
-                type="number"
-                value={tokenYAmount}
-                onChange={(e) => setTokenYAmount(e.target.value)}
-                disabled={loading}
-                placeholder="0.00"
-                step="0.01"
-                min="0"
-                className="w-full px-3 py-2.5 pr-16 rounded-lg bg-background border border-border-light text-white text-sm font-mono focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50 transition-all"
-              />
-              <button
-                onClick={() => {
-                  if (tokenYBalance) {
-                    setTokenYAmount(tokenYBalance.uiAmount.toFixed(6));
-                  }
-                }}
-                disabled={loading || !tokenYBalance}
-                className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 rounded text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                MAX
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Add Liquidity Button - Outside tile, prominent */}
       <Button

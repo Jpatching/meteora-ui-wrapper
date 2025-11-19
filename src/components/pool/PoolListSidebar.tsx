@@ -9,15 +9,17 @@ import { TokenIcon } from '@/components/ui/TokenIcon';
 interface PoolListSidebarProps {
   currentPool: Pool;
   network: 'devnet' | 'mainnet-beta';
+  onSelectPool?: (pool: Pool) => void;
+  selectedPoolId?: string; // Track which pool is selected
 }
 
 type FilterType = 'all' | 'dlmm' | 'dyn2' | 'pump';
 
-export function PoolListSidebar({ currentPool, network }: PoolListSidebarProps) {
+export function PoolListSidebar({ currentPool, network, onSelectPool, selectedPoolId }: PoolListSidebarProps) {
   const router = useRouter();
   const [filter, setFilter] = useState<FilterType>('all');
-  const [showAll, setShowAll] = useState(false);
-  const { pools, loading } = useRelatedPools({ currentPool, network, limit: 20 });
+  const [displayCount, setDisplayCount] = useState(5); // Track how many to show
+  const { pools, loading } = useRelatedPools({ currentPool, network, limit: 100 });
 
   // Filter pools by protocol
   const filteredPools = pools.filter((pool) => {
@@ -28,18 +30,32 @@ export function PoolListSidebar({ currentPool, network }: PoolListSidebarProps) 
     return true;
   });
 
-  // Limit to 3 pools by default (charting.ag style)
-  const displayPools = showAll ? filteredPools : filteredPools.slice(0, 3);
-  const hasMore = filteredPools.length > 3;
+  // Show pools up to displayCount (pagination style)
+  const displayPools = filteredPools.slice(0, displayCount);
+  const hasMore = filteredPools.length > displayCount;
 
-  const formatNumber = (num: number) => {
-    if (num >= 1_000_000) return `$${(num / 1_000_000).toFixed(2)}M`;
-    if (num >= 1_000) return `$${(num / 1_000).toFixed(1)}K`;
-    return `$${num.toFixed(0)}`;
+  // Reset displayCount when filter changes
+  const handleFilterChange = (newFilter: FilterType) => {
+    setFilter(newFilter);
+    setDisplayCount(5); // Reset to initial count
+  };
+
+  // Load 5 more pools
+  const loadMore = () => {
+    setDisplayCount(prev => prev + 5);
+  };
+
+  const formatNumber = (num: number | undefined) => {
+    if (!num || isNaN(num)) return '$0';
+    const value = typeof num === 'string' ? parseFloat(num) : num;
+    if (isNaN(value)) return '$0';
+    if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
+    if (value >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
+    return `$${value.toFixed(0)}`;
   };
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="h-full flex flex-col bg-gray-800/30">
       {/* Header */}
       <div className="px-4 py-3 border-b border-border-light">
         <h3 className="text-sm font-semibold text-white">Pools</h3>
@@ -56,7 +72,7 @@ export function PoolListSidebar({ currentPool, network }: PoolListSidebarProps) 
           ].map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setFilter(tab.key)}
+              onClick={() => handleFilterChange(tab.key)}
               className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
                 filter === tab.key
                   ? 'bg-primary text-white'
@@ -82,84 +98,85 @@ export function PoolListSidebar({ currentPool, network }: PoolListSidebarProps) 
         ) : (
           <div>
             {displayPools.map((pool) => {
-              const isActive = pool.id === currentPool.id;
+              const isActive = pool.id === (selectedPoolId || currentPool.id);
+
+              // Calculate 24h fees (volume * fee)
+              const fee24h = (pool.volume24h || 0) * (pool.baseFee || 0.002);
+              const feePercentage = (pool.baseFee || 0.002) * 100;
+              const binStep = pool.binStep || 0;
+              const apr = (pool.apr || 0) * 100; // Convert decimal to percentage (0.0759 -> 7.59%)
 
               return (
                 <button
                   key={pool.id}
-                  onClick={() => router.push(`/pool/${pool.id}`)}
-                  className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-background-secondary transition-colors border-l-2 ${
+                  onClick={() => onSelectPool?.(pool)}
+                  className={`w-full px-4 py-3 hover:bg-background-secondary transition-colors border-l-2 ${
                     isActive
                       ? 'bg-background-secondary border-primary'
                       : 'border-transparent'
                   }`}
                 >
-                  {/* Token Icons */}
-                  <div className="flex items-center -space-x-1 flex-shrink-0">
-                    <TokenIcon
-                      src={pool.baseAsset.icon}
-                      symbol={pool.baseAsset.symbol}
-                      size="sm"
-                    />
-                    {pool.quoteAsset && (
-                      <TokenIcon
-                        src={pool.quoteAsset.icon}
-                        symbol={pool.quoteAsset.symbol}
-                        size="sm"
-                      />
-                    )}
-                  </div>
-
-                  {/* Pool Info */}
-                  <div className="flex-1 min-w-0 text-left">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-semibold text-white truncate">
-                        {pool.baseAsset.symbol}-{pool.quoteAsset?.symbol || 'USDC'}
+                  <div className="w-full">
+                    {/* Header: Pair + Meteora Logo + Badge */}
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-sm font-semibold text-white">
+                        {pool.baseAsset.symbol}-{pool.quoteAsset?.symbol || 'SOL'}
                       </span>
-                      <span
-                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
-                          pool.type === 'dlmm'
-                            ? 'bg-purple-500/20 text-purple-300'
-                            : 'bg-blue-500/20 text-blue-300'
-                        }`}
-                      >
+                      {/* Meteora Logo */}
+                      <img src="/meteora.png" alt="Meteora" className="w-3.5 h-3.5" />
+                      {/* Protocol Badge - Orange Circle */}
+                      <span className="flex items-center justify-center w-11 h-4 rounded-full border border-orange-500 text-[9px] font-bold text-white uppercase">
                         {pool.type === 'dlmm' ? 'DLMM' : 'DYN2'}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-3 text-xs text-gray-400">
-                      <span>TVL: {formatNumber(pool.baseAsset.liquidity || 0)}</span>
-                      <span>Vol: {formatNumber(pool.volume24h || 0)}</span>
+                    {/* Row 1: TVL | 24h Vol | 24h Fee */}
+                    <div className="grid grid-cols-3 gap-2 mb-2">
+                      <div>
+                        <div className="text-[10px] text-gray-500 mb-0.5">TVL</div>
+                        <div className="text-xs font-semibold text-white">{formatNumber(pool.baseAsset.liquidity || 0)}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-gray-500 mb-0.5">24h Vol</div>
+                        <div className="text-xs font-semibold text-white">{formatNumber(pool.volume24h || 0)}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-gray-500 mb-0.5">24h Fee</div>
+                        <div className="text-xs font-semibold text-white">{formatNumber(fee24h)}</div>
+                      </div>
+                    </div>
+
+                    {/* Row 2: Fee | BinStep | APR */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <div className="text-[10px] text-gray-500 mb-0.5">Fee</div>
+                        <div className="text-xs font-semibold text-white">{feePercentage.toFixed(2)}%</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-gray-500 mb-0.5">BinStep</div>
+                        <div className="text-xs font-semibold text-white">{binStep}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-gray-500 mb-0.5">APR</div>
+                        <div className="text-xs font-semibold text-success">{apr.toFixed(2)}%</div>
+                      </div>
                     </div>
                   </div>
-
-                  {/* Arrow */}
-                  {!isActive && (
-                    <svg
-                      className="w-4 h-4 text-gray-600 flex-shrink-0"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  )}
                 </button>
               );
             })}
 
-            {/* View More / View Less Button (Charting.ag style) */}
+            {/* Load More Button (Pagination style) */}
             {hasMore && (
               <button
-                onClick={() => setShowAll(!showAll)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  loadMore();
+                }}
                 className="w-full px-4 py-3 text-sm font-medium text-primary hover:bg-background-secondary transition-colors border-t border-border-light"
               >
-                {showAll ? '← View Less' : `View All ${filteredPools.length} Pools →`}
+                Load More ({filteredPools.length - displayCount} remaining) →
               </button>
             )}
           </div>

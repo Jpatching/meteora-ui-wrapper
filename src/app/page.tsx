@@ -41,23 +41,43 @@ export default function DiscoverPage() {
   const [showChartModal, setShowChartModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState(''); // Unified search for both tokens and pools
   const [showTokenFilters, setShowTokenFilters] = useState(false); // Toggle for filter dropdown
+  const [timePeriod, setTimePeriod] = useState<'1H' | '2H' | '4H' | '8H' | '24H'>('1H'); // Token time period filter
   const [minLiquidity, setMinLiquidity] = useState<string>('');
   const [maxLiquidity, setMaxLiquidity] = useState<string>('');
   const [minMarketCap, setMinMarketCap] = useState<string>('');
   const [maxMarketCap, setMaxMarketCap] = useState<string>('');
   const [enrichedPools, setEnrichedPools] = useState<Pool[]>([]);
   const [isEnriching, setIsEnriching] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]); // Pool search results
+  const [tokenSearchResults, setTokenSearchResults] = useState<TokenData[]>([]); // Token search results
+  const [isSearching, setIsSearching] = useState(false);
+  const [tokenCreationTimestamps, setTokenCreationTimestamps] = useState<Map<string, number>>(new Map());
 
   // Fetch Jupiter pools for TOKEN aggregation (LEFT SIDE)
+  // Map UI time periods to Jupiter API timeframes: 1H→1h, 2H→1h, 4H→6h, 8H→6h, 24H→24h
+  const jupiterTimeframe = timePeriod === '24H' ? '24h' : timePeriod === '8H' || timePeriod === '4H' ? '6h' : '1h';
+
   const { data: jupiterData, isLoading: isLoadingJupiter, error: jupiterError } = useAllPublicPools({
-    timeframe: '24h',
+    timeframe: jupiterTimeframe,
     refetchInterval: false, // Disabled - manual refresh only
   });
 
   // Fetch Meteora pools from BACKEND (cached in Redis - FAST!)
   // CRITICAL: Pass network parameter to ensure proper filtering
-  const { data: dlmmPools = [], isLoading: isLoadingDLMM } = useBackendDLMMPools(network);
-  const { data: dammPools = [], isLoading: isLoadingDAMM } = useBackendDAMMPools(network);
+  const { data: dlmmPools = [], isLoading: isLoadingDLMM, error: dlmmError } = useBackendDLMMPools(network);
+  const { data: dammPools = [], isLoading: isLoadingDAMM, error: dammError } = useBackendDAMMPools(network);
+
+  // Debug: Log backend pool fetch status
+  console.log('🔍 DLMM Pools Status:', {
+    count: dlmmPools.length,
+    isLoading: isLoadingDLMM,
+    error: dlmmError?.message
+  });
+  console.log('🔍 DAMM Pools Status:', {
+    count: dammPools.length,
+    isLoading: isLoadingDAMM,
+    error: dammError?.message
+  });
 
   // Combine Jupiter pools for TOKEN view (LEFT SIDE ONLY)
   const jupiterPools = useMemo(() => {
@@ -182,15 +202,15 @@ export default function DiscoverPage() {
     // Combine all Meteora pools
     const combined = [...dlmmTransformed, ...dammTransformed];
 
-    // Sort by liquidity (TVL) and take top 100
+    // Sort by 24h volume (like charting.ag) and take top 100
     const sorted = combined.sort((a, b) => {
-      const liquidityA = a.baseAsset?.liquidity || 0;
-      const liquidityB = b.baseAsset?.liquidity || 0;
-      return liquidityB - liquidityA;
+      const volumeA = a.volume24h || 0;
+      const volumeB = b.volume24h || 0;
+      return volumeB - volumeA;
     });
 
     const top100 = sorted.slice(0, 100);
-    console.log(`📊 Showing top 100 pools out of ${combined.length} total`);
+    console.log(`📊 Showing top 100 pools out of ${combined.length} total (sorted by 24h volume)`);
     return top100;
   }, [dlmmPools, dammPools]);
 
@@ -241,16 +261,159 @@ export default function DiscoverPage() {
 
   // No need to fetch pool details separately - Meteora API provides them!
 
-  // Aggregate Meteora pools by token (for Token view - LEFT SIDE)
-  // Changed from Jupiter to Meteora for faster, cached data
+  // Search tokens AND pools when user types
+  useEffect(() => {
+    const performSearch = async () => {
+      if (!searchTerm || searchTerm.length < 2) {
+        setSearchResults([]);
+        setTokenSearchResults([]);
+        setIsSearching(false);
+        return;
+      }
+
+      setIsSearching(true);
+      try {
+        // Search both tokens and pools in parallel
+        const [tokenResponse, poolResponse] = await Promise.all([
+          fetch(`/api/tokens/search?q=${encodeURIComponent(searchTerm)}`),
+          fetch(`https://alsk-production.up.railway.app/api/pools/search?q=${encodeURIComponent(searchTerm)}&network=${network}&limit=100`)
+        ]);
+
+        const [tokenData, poolData] = await Promise.all([
+          tokenResponse.json(),
+          poolResponse.json()
+        ]);
+
+        if (tokenData.success) {
+          console.log(`🔍 Found ${tokenData.data.length} tokens matching "${searchTerm}" (via Jupiter API)`);
+          setTokenSearchResults(tokenData.data.slice(0, 3)); // Top 3 tokens
+        }
+
+        if (poolData.success) {
+          console.log(`🔍 Found ${poolData.data.length} pools matching "${searchTerm}"`);
+
+          // Transform backend pool format to Pool type (same structure as discover page)
+          const transformedPools = poolData.data.map((pool: any) => ({
+            id: pool.pool_address,
+            chain: 'solana',
+            dex: 'Meteora',
+            type: pool.protocol === 'dlmm' ? 'dlmm' : pool.protocol === 'damm-v2' ? 'damm-v2' : 'damm-v1',
+            createdAt: pool.created_at || new Date().toISOString(),
+            bondingCurve: undefined,
+            volume24h: parseFloat(pool.volume_24h || '0'),
+            isUnreliable: false,
+            updatedAt: pool.updated_at || new Date().toISOString(),
+            price: 0,
+            baseAsset: {
+              id: pool.token_a_mint,
+              name: pool.token_a_symbol,
+              symbol: pool.token_a_symbol,
+              decimals: 0,
+              tokenProgram: '',
+              organicScoreLabel: 'medium' as const,
+              liquidity: parseFloat(pool.tvl || '0'),
+              stats24h: {},
+            },
+            quoteAsset: {
+              id: pool.token_b_mint,
+              symbol: pool.token_b_symbol,
+              name: pool.token_b_symbol,
+            },
+            meteoraData: {
+              binStep: pool.metadata?.bin_step,
+              baseFeePercentage: pool.metadata?.base_fee_percentage,
+              poolType: pool.protocol as any,
+            }
+          }));
+
+          // Enrich with metadata (logos) - same as discover page
+          enrichPoolsWithMetadata(transformedPools).then(enriched => {
+            console.log(`✅ Enriched ${enriched.length} search pool results with metadata`);
+            setSearchResults(enriched);
+          }).catch(error => {
+            console.error('❌ Failed to enrich search pools:', error);
+            setSearchResults(transformedPools); // Fallback to non-enriched
+          });
+        }
+      } catch (error) {
+        console.error('Failed to search:', error);
+        setSearchResults([]);
+        setTokenSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    // Debounce search
+    const timeoutId = setTimeout(performSearch, 300);
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, network]);
+
+  // Fetch actual token creation timestamps from backend (blockchain data cached in PostgreSQL/Redis)
+  useEffect(() => {
+    const fetchTokenCreationTimestamps = async () => {
+      if (jupiterPools.length === 0) return;
+
+      // Get unique token addresses from top 100 tokens by volume
+      const tokenAddresses = Array.from(
+        new Set(jupiterPools.map(pool => pool.baseAsset.id))
+      ).slice(0, 100); // Top 100 tokens
+
+      if (tokenAddresses.length === 0) return;
+
+      try {
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+        const response = await fetch(`${backendUrl}/api/tokens/batch/creation`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ addresses: tokenAddresses }),
+        });
+
+        if (!response.ok) {
+          console.error('❌ Failed to fetch token creation timestamps:', response.statusText);
+          return;
+        }
+
+        const result = await response.json();
+
+        if (result.success && result.data) {
+          const timestampMap = new Map<string, number>();
+          Object.entries(result.data).forEach(([address, data]) => {
+            if (data && typeof data === 'object' && 'timestamp' in data) {
+              timestampMap.set(address, (data as { timestamp: number }).timestamp);
+            }
+          });
+
+          setTokenCreationTimestamps(timestampMap);
+          console.log(`✅ Fetched creation timestamps for ${timestampMap.size} tokens`);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching token creation timestamps:', error);
+      }
+    };
+
+    fetchTokenCreationTimestamps();
+  }, [jupiterPools]);
+
+  // Aggregate Jupiter pools by token (for Token view - LEFT SIDE)
+  // MUST use Jupiter pools because they have firstPool.createdAt for token age!
   const aggregatedTokens = useMemo(() => {
     const tokenMap = new Map<string, TokenData>();
 
-    // Use displayPools (Meteora pools from backend) instead of Jupiter pools
-    displayPools.forEach(pool => {
+    // Use jupiterPools because they have full token metadata including firstPool
+    jupiterPools.forEach(pool => {
       const tokenId = pool.baseAsset.id;
 
       if (!tokenMap.has(tokenId)) {
+        const buys = (pool.baseAsset as any).stats24h?.numBuys || 0;
+        const sells = (pool.baseAsset as any).stats24h?.numSells || 0;
+
+        // Use actual blockchain timestamp if available, otherwise fall back to firstPool
+        const blockchainTimestamp = tokenCreationTimestamps.get(tokenId);
+        const createdAt = blockchainTimestamp
+          ? new Date(blockchainTimestamp * 1000).toISOString()
+          : ((pool.baseAsset as any).firstPool?.createdAt || pool.createdAt);
+
         tokenMap.set(tokenId, {
           tokenAddress: tokenId,
           symbol: pool.baseAsset.symbol,
@@ -258,9 +421,15 @@ export default function DiscoverPage() {
           icon: (pool.baseAsset as any).icon,
           totalVolume24h: 0,
           totalLiquidity: 0,
+          marketCap: (pool.baseAsset as any).mcap || 0,
           holders: (pool.baseAsset as any).holderCount || 0,
+          txCount: buys + sells,
           pools: [],
           priceChange: ((pool.baseAsset as any).stats24h?.priceChange as number) || 0,
+          twitter: (pool.baseAsset as any).twitter,
+          createdAt,
+          organicScore: (pool.baseAsset as any).organicScore,
+          audit: (pool.baseAsset as any).audit,
         });
       }
 
@@ -275,13 +444,24 @@ export default function DiscoverPage() {
     // Sort by volume and take top 100
     const sorted = allTokens.sort((a, b) => b.totalVolume24h - a.totalVolume24h);
     const top100 = sorted.slice(0, 100);
-    console.log(`📊 Showing top 100 tokens out of ${allTokens.length} total (from Meteora pools)`);
+    console.log(`📊 Showing top 100 tokens out of ${allTokens.length} total (from Jupiter API)`);
     return top100;
-  }, [displayPools]);
+  }, [jupiterPools, tokenCreationTimestamps]);
 
   // Apply filters and sorting to Meteora pools (RIGHT SIDE)
+  // Note: Search is completely separate - it only shows in the dropdown, not here
   const filteredPools = useMemo(() => {
     let filtered = displayPools;
+
+    // Debug: Log pool counts by type
+    const poolsByType = displayPools.reduce((acc, pool) => {
+      acc[pool.type] = (acc[pool.type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    console.log('📊 Pool counts by type:', poolsByType);
+    console.log('📊 Total displayPools:', displayPools.length);
+    console.log('📊 Raw DLMM pools from backend:', dlmmPools.length);
+    console.log('📊 Raw DAMM pools from backend:', dammPools.length);
 
     // Protocol filter
     if (protocolFilter !== 'all') {
@@ -290,6 +470,7 @@ export default function DiscoverPage() {
         if (protocolFilter === 'damm-v2') return pool.type === 'damm-v2';
         return true;
       });
+      console.log(`📊 After ${protocolFilter} filter:`, filtered.length, 'pools');
     }
 
     // Sort pools
@@ -300,7 +481,7 @@ export default function DiscoverPage() {
     });
 
     return filtered;
-  }, [displayPools, protocolFilter, poolSortBy]);
+  }, [displayPools, protocolFilter, poolSortBy, dlmmPools.length, dammPools.length]);
 
   // Apply filters and sorting to tokens
   const filteredTokens = useMemo(() => {
@@ -359,7 +540,25 @@ export default function DiscoverPage() {
   };
 
   return (
-    <MainLayout searchTerm={searchTerm} onSearchChange={setSearchTerm}>
+    <MainLayout
+      searchTerm={searchTerm}
+      onSearchChange={setSearchTerm}
+      searchResults={{
+        tokens: tokenSearchResults,
+        pools: searchResults
+      }}
+      isSearching={isSearching}
+      onTokenClick={(token) => {
+        // Navigate to token chart page - /solana/{token_mint}
+        if (token.tokenAddress) {
+          router.push(`/solana/${token.tokenAddress}`);
+        }
+      }}
+      onPoolClick={(pool) => {
+        // Navigate to token chart page for base token - /solana/{token_mint}
+        router.push(`/solana/${pool.baseAsset.id}`);
+      }}
+    >
       <div className="h-[calc(100vh-80px)] flex flex-col">
 
         {/* Error State */}
@@ -377,12 +576,52 @@ export default function DiscoverPage() {
           <div className="flex-1 overflow-hidden bg-background p-4 flex gap-4">
               {/* Left: Token Column with Filter Bar */}
               <div className="w-1/2 flex flex-col bg-background-secondary border border-border-light rounded-xl overflow-hidden">
-                {/* Token Filter Bar */}
+                {/* Token Filter Bar - Match pools header height with 2 rows */}
                 <div className="px-4 py-2 border-b border-border-light">
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex flex-col gap-2">
+                    {/* First Row - Token label + Time Period Filters (matches pools protocol filter row height) */}
                     <div className="flex items-center gap-2">
-                      {/* Filter Dropdown Button */}
-                      <div className="relative">
+                      <button className="px-3 py-1.5 rounded-lg text-sm font-medium bg-background-tertiary text-foreground border border-border-light cursor-default">
+                        Tokens
+                      </button>
+
+                      {/* Time Period Filters - Charting.ag style */}
+                      <div className="flex items-center gap-1">
+                        {(['1H', '2H', '4H', '8H', '24H'] as const).map((period) => (
+                          <button
+                            key={period}
+                            onClick={() => setTimePeriod(period)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                              timePeriod === period
+                                ? 'bg-background-tertiary text-foreground border border-border-light'
+                                : 'text-foreground-muted hover:text-foreground border border-transparent'
+                            }`}
+                          >
+                            {period}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Second Row - Sort, Filter, and Count (matches pools sort row) */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        {/* Sort Dropdown */}
+                        <span className="text-foreground-muted text-xs">Sort:</span>
+                        <select
+                          value={tokenSortBy}
+                          onChange={(e) => setTokenSortBy(e.target.value as TokenSortOption)}
+                          className="bg-background-secondary border border-border-light rounded-lg px-2 py-1 text-foreground text-xs focus:outline-none focus:border-foreground-muted cursor-pointer"
+                        >
+                          <option value="volume">Volume</option>
+                          <option value="liquidity">Liquidity</option>
+                          <option value="marketCap">Market Cap</option>
+                          <option value="holders">Holders</option>
+                          <option value="txs">Transactions</option>
+                        </select>
+
+                        {/* Filter Dropdown Button */}
+                        <div className="relative">
                         <button
                           onClick={() => setShowTokenFilters(!showTokenFilters)}
                           className="flex items-center gap-2 px-3 py-1.5 bg-background-secondary border border-border-light rounded-lg text-xs text-foreground hover:border-foreground-muted transition-colors"
@@ -398,45 +637,45 @@ export default function DiscoverPage() {
 
                         {/* Filter Dropdown Panel */}
                         {showTokenFilters && (
-                          <div className="absolute top-full left-0 mt-1 w-80 bg-background-secondary border border-border-light rounded-lg shadow-xl z-50 p-4">
+                          <div className="absolute top-full left-0 mt-1 w-80 bg-background-secondary border border-border-light rounded-lg shadow-xl z-50 px-6 py-4 max-h-[400px] overflow-y-auto">
                             {/* Liquidity Section */}
-                            <div className="mb-4">
+                            <div className="mb-3">
                               <label className="block text-xs font-medium text-foreground mb-2">Liquidity</label>
-                              <div className="flex gap-2">
+                              <div className="flex gap-3 justify-center">
                                 <input
                                   type="number"
                                   placeholder="Min"
                                   value={minLiquidity}
                                   onChange={(e) => setMinLiquidity(e.target.value)}
-                                  className="flex-1 px-3 py-2 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
+                                  className="w-24 px-2 py-1.5 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
                                 />
                                 <input
                                   type="number"
                                   placeholder="Max"
                                   value={maxLiquidity}
                                   onChange={(e) => setMaxLiquidity(e.target.value)}
-                                  className="flex-1 px-3 py-2 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
+                                  className="w-24 px-2 py-1.5 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
                                 />
                               </div>
                             </div>
 
                             {/* Market Cap Section */}
-                            <div className="mb-4">
+                            <div className="mb-3">
                               <label className="block text-xs font-medium text-foreground mb-2">Market Cap</label>
-                              <div className="flex gap-2">
+                              <div className="flex gap-3 justify-center">
                                 <input
                                   type="number"
                                   placeholder="Min"
                                   value={minMarketCap}
                                   onChange={(e) => setMinMarketCap(e.target.value)}
-                                  className="flex-1 px-3 py-2 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
+                                  className="w-24 px-2 py-1.5 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
                                 />
                                 <input
                                   type="number"
                                   placeholder="Max"
                                   value={maxMarketCap}
                                   onChange={(e) => setMaxMarketCap(e.target.value)}
-                                  className="flex-1 px-3 py-2 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
+                                  className="w-24 px-2 py-1.5 bg-background-tertiary border border-border-light rounded-lg text-xs text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-primary/50"
                                 />
                               </div>
                             </div>
@@ -453,30 +692,8 @@ export default function DiscoverPage() {
                             </button>
                           </div>
                         )}
+                        </div>
                       </div>
-
-                      {/* Sort Dropdown */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-foreground-muted text-xs">Sort:</span>
-                        <select
-                          value={tokenSortBy}
-                          onChange={(e) => setTokenSortBy(e.target.value as TokenSortOption)}
-                          className="bg-background-secondary border border-border-light rounded-lg px-2 py-1 text-foreground text-xs focus:outline-none focus:border-foreground-muted cursor-pointer"
-                        >
-                          <option value="volume">Volume</option>
-                          <option value="liquidity">Liquidity</option>
-                          <option value="marketCap">Market Cap</option>
-                          <option value="holders">Holders</option>
-                          <option value="txs">Transactions</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Token Count */}
-                    <div className="px-2 py-1 bg-background-secondary rounded-lg border border-border-light">
-                      <span className="text-xs font-medium text-foreground-muted">
-                        {filteredTokens.length} tokens
-                      </span>
                     </div>
                   </div>
                 </div>
@@ -489,28 +706,13 @@ export default function DiscoverPage() {
                     </div>
                   ) : (
                     <TokenTable
-                      tokens={filteredTokens.filter(token =>
-                        searchTerm
-                          ? token.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            token.name.toLowerCase().includes(searchTerm.toLowerCase())
-                          : true
-                      )}
+                      tokens={filteredTokens}
                       sortBy={tokenSortBy}
                       onSortChange={setTokenSortBy}
                       onTokenClick={(token) => {
-                        // When clicking a token, navigate to its primary pool (highest volume)
-                        const primaryPool = token.pools.sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0))[0];
-                        if (primaryPool) {
-                          console.log('📍 Navigating to pool:', {
-                            poolId: primaryPool.id,
-                            token: token.symbol,
-                            poolVolume: primaryPool.volume24h,
-                            totalPools: token.pools.length,
-                          });
-                          router.push(`/pool/${primaryPool.id}`);
-                        } else {
-                          console.warn('⚠️ No pools found for token:', token.symbol);
-                        }
+                        // Navigate to token chart page - /solana/{token_mint}
+                        // The page will automatically find the primary pool for this token
+                        router.push(`/solana/${token.tokenAddress}`);
                       }}
                     />
                   )}
@@ -522,21 +724,31 @@ export default function DiscoverPage() {
                 {/* Pool Filter Bar */}
                 <div className="px-4 py-2 border-b border-border-light">
                   <div className="flex flex-col gap-2">
-                    {/* Protocol Filters Row */}
-                    <div className="flex items-center gap-1">
-                      {(['all', 'dlmm', 'damm-v2'] as ProtocolFilter[]).map((filter) => (
-                        <button
-                          key={filter}
-                          onClick={() => setProtocolFilter(filter)}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                            protocolFilter === filter
-                              ? 'bg-background-tertiary text-foreground border border-border-light'
-                              : 'text-foreground-muted hover:text-foreground'
-                          }`}
-                        >
-                          {filter === 'all' ? 'All' : filter === 'damm-v2' ? 'DYN2' : filter.toUpperCase()}
+                    {/* Protocol Filters Row + Time Period Filters */}
+                    <div className="flex items-center gap-2">
+                      {/* Protocol Filter Buttons */}
+                      <div className="flex items-center gap-1">
+                        {(['all', 'dlmm', 'damm-v2'] as ProtocolFilter[]).map((filter) => (
+                          <button
+                            key={filter}
+                            onClick={() => setProtocolFilter(filter)}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                              protocolFilter === filter
+                                ? 'bg-background-tertiary text-foreground border border-border-light'
+                                : 'text-foreground-muted hover:text-foreground'
+                            }`}
+                          >
+                            {filter === 'all' ? 'All' : filter === 'damm-v2' ? 'DYN2' : filter.toUpperCase()}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Time Period - 24H only (Meteora backend limitation) */}
+                      <div className="flex items-center gap-1">
+                        <button className="px-3 py-1.5 rounded-lg text-xs font-medium bg-background-tertiary text-foreground border border-border-light cursor-default">
+                          24H
                         </button>
-                      ))}
+                      </div>
                     </div>
 
                     {/* Sort and Pool Count Row */}
@@ -552,11 +764,6 @@ export default function DiscoverPage() {
                           <option value="liquidity">Liquidity</option>
                         </select>
                       </div>
-                      <div className="px-2 py-1 bg-background-secondary rounded-lg border border-border-light">
-                        <span className="text-xs font-medium text-foreground-muted">
-                          {filteredPools.length} pools
-                        </span>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -569,17 +776,12 @@ export default function DiscoverPage() {
                     </div>
                   ) : (
                     <PoolTable
-                      pools={filteredPools.filter(pool =>
-                        searchTerm
-                          ? pool.baseAsset.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            pool.baseAsset.name.toLowerCase().includes(searchTerm.toLowerCase())
-                          : true
-                      ) as any}
+                      pools={filteredPools as any}
                       sortBy={poolSortBy}
                       onSortChange={setPoolSortBy}
                       onPoolClick={(pool) => {
-                        // Navigate to pool detail page instead of showing modal
-                        router.push(`/pool/${pool.id}`);
+                        // Navigate to token chart page - /solana/{token_mint}?pool={pool_address}
+                        router.push(`/solana/${pool.baseAsset.id}?pool=${pool.id}`);
                       }}
                     />
                   )}

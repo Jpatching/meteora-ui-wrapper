@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Pool } from '@/lib/jupiter/types';
-import { useBackendDLMMPools, useBackendDAMMPools } from './useBackendPools';
 import { enrichPoolsWithMetadata } from '@/lib/services/tokenMetadata';
 
 interface UseRelatedPoolsOptions {
@@ -16,73 +15,162 @@ interface RelatedPoolsResult {
 }
 
 /**
- * Fetches pools related to the current pool (sharing base or quote token)
- * Uses backend database hooks with Redis caching for fast lookups
+ * Fetches pools related to the current pool (sharing base token)
+ * Uses backend search API to find ALL pools containing the base token
  */
 export function useRelatedPools({
   currentPool,
   network,
   limit = 20,
 }: UseRelatedPoolsOptions): RelatedPoolsResult {
-  const { data: dlmmPools = [], isLoading: dlmmLoading, error: dlmmError } = useBackendDLMMPools(network);
-  const { data: dammPools = [], isLoading: dammLoading, error: dammError } = useBackendDAMMPools(network);
-
   const [pools, setPools] = useState<Pool[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!currentPool || dlmmLoading || dammLoading) {
+    if (!currentPool) {
+      setPools([]);
       return;
     }
 
-    // Import transformation functions and enrich with metadata
-    const transformBackendPools = async () => {
+    // Fetch pools containing the base token using backend search API
+    const fetchRelatedPools = async () => {
+      setLoading(true);
+      setError(null);
+
       try {
-        const { transformBackendPoolToPool } = await import('./useBackendPools');
+        const { transformBackendPoolToPool, transformDBPoolToBackend } = await import('./useBackendPools');
 
-        // Transform backend pools to Pool format
-        const dlmmTransformed = dlmmPools.map((p: any) => transformBackendPoolToPool(p, 'dlmm'));
-        const dammTransformed = dammPools.map((p: any) => transformBackendPoolToPool(p, 'damm-v2'));
+        // Get token symbol for search (same method as working searchbar)
+        const baseTokenSymbol = currentPool.baseAsset.symbol;
+        const baseTokenMint = currentPool.baseAsset.id;
 
-        const allPools: Pool[] = [...dlmmTransformed, ...dammTransformed];
+        console.log(`🔍 Searching for pools with token: ${baseTokenSymbol} (${baseTokenMint})`);
 
-        // Filter for pools that share base or quote token
-        const related = allPools.filter((pool) => {
-          // Skip the current pool itself
-          if (pool.id === currentPool.id) return false;
+        // Fetch from backend database (synced every 30 min with ~10k active pools)
+        // Backend has BOTH DLMM and DAMM v2 pools searchable via symbol
+        // Use limit=1000 to get all related pools (backend has ~590 DAMM v2 + ~10k DLMM)
+        const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://alsk-production.up.railway.app';
+        const response = await fetch(
+          `${BACKEND_URL}/api/pools/search?q=${encodeURIComponent(baseTokenSymbol)}&network=${network}&limit=1000`
+        );
 
-          // Check if shares base token
-          const sharesBaseToken =
-            pool.baseAsset.id === currentPool.baseAsset.id ||
-            pool.quoteAsset?.id === currentPool.baseAsset.id;
+        if (!response.ok) {
+          throw new Error(`Backend search failed: ${response.status}`);
+        }
 
-          // Check if shares quote token
-          const sharesQuoteToken =
-            pool.baseAsset.id === currentPool.quoteAsset?.id ||
-            pool.quoteAsset?.id === currentPool.quoteAsset?.id;
+        const data = await response.json();
+        const dbPools = data.data || [];
 
-          return sharesBaseToken || sharesQuoteToken;
+        console.log(`📊 Backend returned ${dbPools.length} pools for "${baseTokenSymbol}"`);
+
+        // Transform DBPool → BackendPool → Pool format
+        const transformed = dbPools.map((dbPool: any) => {
+          const backendPool = transformDBPoolToBackend(dbPool, dbPool.protocol);
+          return transformBackendPoolToPool(backendPool, dbPool.protocol);
+        });
+        console.log(`🔄 Transformed ${transformed.length} pools`);
+
+        // Log first pool for debugging
+        if (transformed.length > 0) {
+          console.log('📋 First transformed pool sample:', {
+            id: transformed[0].id,
+            baseAsset: {
+              id: transformed[0].baseAsset.id,
+              symbol: transformed[0].baseAsset.symbol,
+            },
+            quoteAsset: {
+              id: transformed[0].quoteAsset?.id,
+              symbol: transformed[0].quoteAsset?.symbol,
+            },
+          });
+        }
+
+        // Filter for pools that contain the EXACT SAME TOKEN MINT and are ACTIVE
+        // Using mint address ensures 100% accuracy - no symbol collisions
+        console.log(`🔎 Filtering for pools containing token: ${baseTokenMint}`);
+        console.log(`   Current pool ID to skip: ${currentPool.id}`);
+
+        const related = transformed.filter((pool: Pool, index: number) => {
+          // INCLUDE the current pool (will be sorted to top later)
+          const isCurrentPool = pool.id === currentPool.id;
+          if (isCurrentPool) {
+            console.log(`⭐ Pool ${index + 1}: ${pool.id} - Current pool (will show first)`);
+          }
+
+          // Check if pool contains the exact token mint (as token_x OR token_y)
+          const containsToken =
+            pool.baseAsset.id === baseTokenMint ||
+            pool.quoteAsset?.id === baseTokenMint;
+
+          if (!containsToken) {
+            console.log(`❌ Pool ${index + 1}: ${pool.id} (${pool.baseAsset.symbol}-${pool.quoteAsset?.symbol}) - Token mismatch`);
+            console.log(`   Base: ${pool.baseAsset.id}`);
+            console.log(`   Quote: ${pool.quoteAsset?.id}`);
+            console.log(`   Looking for: ${baseTokenMint}`);
+            return false;
+          }
+
+          // Filter out dead/empty pools with no liquidity
+          const hasLiquidity = (pool.baseAsset.liquidity || 0) > 0;
+
+          // Filter out pools with zero volume (completely inactive)
+          const hasVolume = (pool.volume24h || 0) > 0;
+
+          // Pool must have either liquidity OR volume to be considered active
+          const isActive = hasLiquidity || hasVolume;
+
+          if (!isActive) {
+            console.log(`❌ Pool ${index + 1}: ${pool.id} (${pool.baseAsset.symbol}-${pool.quoteAsset?.symbol}) - Inactive (liquidity: ${pool.baseAsset.liquidity}, volume: ${pool.volume24h})`);
+            return false;
+          }
+
+          if (!isCurrentPool) {
+            const liq = typeof pool.baseAsset.liquidity === 'number' ? pool.baseAsset.liquidity.toFixed(2) : pool.baseAsset.liquidity || 0;
+            const vol = typeof pool.volume24h === 'number' ? pool.volume24h.toFixed(2) : pool.volume24h || 0;
+            console.log(`✅ Pool ${index + 1}: ${pool.id} (${pool.baseAsset.symbol}-${pool.quoteAsset?.symbol}) - MATCH! (liquidity: ${liq}, volume: ${vol})`);
+          }
+          return true;
         });
 
-        // Sort by TVL descending
-        related.sort((a, b) => (b.baseAsset.liquidity || 0) - (a.baseAsset.liquidity || 0));
+        console.log(`✅ After filtering: ${related.length} related pools found`);
 
-        // Limit results
+        // Sort: Current pool FIRST, then by 24h volume (most active pools)
+        related.sort((a: Pool, b: Pool) => {
+          // Current pool always comes first
+          if (a.id === currentPool.id) return -1;
+          if (b.id === currentPool.id) return 1;
+          // Others sorted by 24h volume (most active/traded pools first)
+          return (b.volume24h || 0) - (a.volume24h || 0);
+        });
+
+        // Limit results (current pool + top N others)
         const limited = related.slice(0, limit);
 
-        // Enrich with token metadata (logos, etc.)
-        const enriched = await enrichPoolsWithMetadata(limited);
-        setPools(enriched);
+        // Enrich with token metadata (logos, etc.) - OPTIONAL, don't fail if this fails
+        try {
+          const enriched = await enrichPoolsWithMetadata(limited);
+          setPools(enriched);
+        } catch (enrichError) {
+          console.warn('⚠️ Failed to enrich pools with metadata, using base data:', enrichError);
+          // Use pools without enrichment (symbols already correct from backend)
+          setPools(limited);
+        }
+        setLoading(false);
       } catch (err) {
-        console.error('Error transforming related pools:', err);
+        console.error('Error fetching related pools:', err);
+        setError(err as Error);
+        setPools([]);
+        setLoading(false);
       }
     };
 
-    transformBackendPools();
-  }, [currentPool?.id, dlmmPools, dammPools, limit, dlmmLoading, dammLoading]);
+    fetchRelatedPools();
+  }, [currentPool?.id, currentPool?.baseAsset.id, network, limit]);
 
   return {
     pools,
-    loading: dlmmLoading || dammLoading,
-    error: dlmmError || dammError || null,
+    loading,
+    error,
   };
 }

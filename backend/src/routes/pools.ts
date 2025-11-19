@@ -129,6 +129,57 @@ router.get('/search/:tokenCA', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/pools/search
+ * Search pools by name or symbol (text search)
+ * Query params: ?q=TRUMP&network=mainnet-beta&limit=50
+ */
+router.get('/search', async (req: Request, res: Response) => {
+  const query = (req.query.q as string || '').toLowerCase();
+  const network = (req.query.network as 'mainnet-beta' | 'devnet') || 'mainnet-beta';
+  const limit = parseInt(req.query.limit as string) || 50;
+  const cacheKey = `pools:search:${query}:${network}:${limit}`;
+
+  if (!query || query.length < 2) {
+    return res.json({ success: true, data: [], message: 'Query must be at least 2 characters' });
+  }
+
+  try {
+    // Try cache first
+    const cached = await getCached<any[]>(cacheKey);
+    if (cached) {
+      console.log(`✅ Serving ${cached.length} search results for "${query}" from cache`);
+      return res.json({ success: true, data: cached, cached: true, network });
+    }
+
+    // Search database by pool name or token symbols (case-insensitive)
+    console.log(`🔍 Searching pools for "${query}" on ${network}...`);
+    const pools = await db.query(
+      `SELECT * FROM pools
+       WHERE network = $1
+       AND (
+         LOWER(pool_name) LIKE $2
+         OR LOWER(token_a_symbol) LIKE $2
+         OR LOWER(token_b_symbol) LIKE $2
+       )
+       ORDER BY tvl DESC
+       LIMIT $3`,
+      [network, `%${query}%`, limit]
+    );
+
+    const results = pools.rows;
+
+    // Cache for 5 minutes
+    await setCached(cacheKey, results, CACHE_TTL.POOL_DATA);
+    console.log(`✅ Found ${results.length} pools matching "${query}"`);
+
+    res.json({ success: true, data: results, cached: false, network });
+  } catch (error: any) {
+    console.error('❌ Error searching pools:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * GET /api/pools/top
  * Get top pools by TVL (for dashboard)
  * Query params: ?protocol=dlmm&limit=100&network=devnet
@@ -193,6 +244,49 @@ router.post('/sync', async (req: Request, res: Response) => {
       });
   } catch (error: any) {
     console.error('❌ Error starting sync:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/pools/sync/incremental
+ * Trigger incremental sync for NEW pools only (last 5 minutes)
+ * Much faster than full sync - perfect for real-time updates
+ * Query params: ?minutes=5 (optional, default 5)
+ */
+router.post('/sync/incremental', async (req: Request, res: Response) => {
+  try {
+    const minutes = parseInt(req.query.minutes as string) || 5;
+
+    console.log(`⚡ Incremental sync triggered (last ${minutes} minutes)`);
+
+    // Run incremental sync (fast - only new pools)
+    const result = await syncNewPools(minutes);
+
+    // Clear caches if new pools were added
+    if (result.dlmm > 0 || result.damm > 0) {
+      try {
+        await redis.del(
+          cacheKeys.poolList('dlmm', 'mainnet-beta'),
+          cacheKeys.poolList('damm-v2', 'mainnet-beta')
+        );
+        console.log('✅ Cache cleared for new pools');
+      } catch (redisError) {
+        console.error('⚠️ Redis cache clear error (non-fatal):', redisError);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Incremental sync complete`,
+      newPools: {
+        dlmm: result.dlmm,
+        dammv2: result.damm,
+        total: result.dlmm + result.damm
+      }
+    });
+  } catch (error: any) {
+    console.error('❌ Error in incremental sync:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

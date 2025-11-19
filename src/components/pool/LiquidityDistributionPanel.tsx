@@ -136,12 +136,12 @@ export function LiquidityDistributionPanel({ pool }: LiquidityDistributionPanelP
   const poolMetadata = useMemo(() => {
     const meteoraData = (pool as any).meteoraData;
     return {
-      binStep: meteoraData?.binStep || 20,
-      baseFee: parseFloat(meteoraData?.baseFeePercentage || '0.2'),
+      binStep: pool.binStep || meteoraData?.binStep || 20,
+      baseFee: pool.baseFee || parseFloat(meteoraData?.baseFeePercentage || '0.2'),
       maxFee: 10,
       protocolFee: 0.01000016,
       dynamicFee: 0.2000032,
-      fee24h: (pool.volume24h || 0) * 0.002, // Estimate 0.2% average fee
+      fee24h: (pool.volume24h || 0) * (pool.baseFee || 0.002),
     };
   }, [pool]);
 

@@ -71,7 +71,7 @@
   },
   "overrides": {
     "@meteora-ag/cp-amm-sdk": "1.1.4",
-    "@solana/web3.js": "$@solana/web3.js",
+    "@solana/web3.js": "^1.98.4",
     "superstruct": "^2.0.2"
   }
 }
